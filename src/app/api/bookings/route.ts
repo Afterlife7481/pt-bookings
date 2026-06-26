@@ -1,0 +1,64 @@
+import { ensureDb } from "@/lib/db/init";
+import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { listBookings } from "@/lib/services/templates";
+import {
+  cancelBooking,
+  cancelBookingByToken,
+  createBookingForSlot,
+  sendConfirmationForBooking,
+} from "@/lib/services/bookings";
+import { toggleBookingOverride36h } from "@/lib/services/clients";
+
+export async function GET() {
+  await ensureDb();
+  const bookings = await listBookings(DEFAULT_TRAINER_ID);
+  return Response.json(bookings);
+}
+
+export async function POST(request: Request) {
+  await ensureDb();
+  const body = await request.json();
+
+  if (body.action === "cancel") {
+    await cancelBooking(body.bookingId);
+    return Response.json({ ok: true });
+  }
+
+  if (body.action === "cancel_by_token") {
+    try {
+      const result = await cancelBookingByToken(body.bookingToken);
+      return Response.json({ ok: true, ...result });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to cancel booking";
+      return Response.json({ error: message }, { status: 400 });
+    }
+  }
+
+  if (body.action === "allocate") {
+    try {
+      const result = await createBookingForSlot({
+        slotId: body.slotId,
+        clientId: body.clientId,
+        trainerId: DEFAULT_TRAINER_ID,
+        isRecurring: false,
+        sendConfirmation: true,
+      });
+      return Response.json(result);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Failed to allocate slot";
+      return Response.json({ error: message }, { status: 400 });
+    }
+  }
+
+  if (body.action === "send_confirmation") {
+    await sendConfirmationForBooking(body.bookingId);
+    return Response.json({ ok: true });
+  }
+
+  if (body.action === "toggle_override_36h") {
+    await toggleBookingOverride36h(body.bookingId);
+    return Response.json({ ok: true });
+  }
+
+  return Response.json({ error: "Unknown action" }, { status: 400 });
+}
