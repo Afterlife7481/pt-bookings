@@ -1,5 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listBookings } from "@/lib/services/templates";
 import {
   cancelBooking,
@@ -11,18 +11,16 @@ import { toggleBookingOverride36h } from "@/lib/services/clients";
 
 export async function GET() {
   await ensureDb();
-  const bookings = await listBookings(DEFAULT_TRAINER_ID);
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const bookings = await listBookings(trainerId);
   return Response.json(bookings);
 }
 
 export async function POST(request: Request) {
   await ensureDb();
   const body = await request.json();
-
-  if (body.action === "cancel") {
-    await cancelBooking(body.bookingId);
-    return Response.json({ ok: true });
-  }
 
   if (body.action === "cancel_by_token") {
     try {
@@ -34,12 +32,20 @@ export async function POST(request: Request) {
     }
   }
 
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  if (body.action === "cancel") {
+    await cancelBooking(body.bookingId);
+    return Response.json({ ok: true });
+  }
+
   if (body.action === "allocate") {
     try {
       const result = await createBookingForSlot({
         slotId: body.slotId,
         clientId: body.clientId,
-        trainerId: DEFAULT_TRAINER_ID,
+        trainerId,
         isRecurring: false,
         sendConfirmation: true,
       });

@@ -1,13 +1,14 @@
-import { eq, and, gte, lt, asc } from "drizzle-orm";
+import { eq, and, gte, lt, asc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import {
   appliedWeeks,
   bookings,
   clients,
+  lastMinuteInterests,
+  locations,
   recurringPreferences,
   slots,
-  weeklyTemplates,
 } from "@/lib/db/schema";
 import {
   addDays,
@@ -20,11 +21,34 @@ import {
   toLocalDateTimeString,
 } from "@/lib/constants";
 import { createBookingForSlot } from "./bookings";
+import { assertTrainerLocation } from "./locations";
+import {
+  buildEligibleCountIndex,
+  clearExpiredSlotHolds,
+} from "./last-minute";
+import { getTrainerSettings } from "./settings";
+
+export type ScheduleLastMinuteOffer = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  status: string;
+  expiresAt: string | null;
+};
+
+export type ScheduleLastMinuteInfo = {
+  eligibleCount: number;
+  heldForClientId: string | null;
+  heldClientName: string | null;
+  holdExpiresAt: string | null;
+  offers: ScheduleLastMinuteOffer[];
+};
 
 export type ScheduleEntry = {
   slotId: string;
   startAt: string;
   status: "available" | "booked" | "pending_change";
+  location: { id: string; name: string } | null;
   booking: {
     id: string;
     token: string;
@@ -32,12 +56,10 @@ export type ScheduleEntry = {
     isRecurring: boolean;
     clientName: string;
   } | null;
+  lastMinute: ScheduleLastMinuteInfo | null;
 };
 
-export async function getAppliedWeekForSchedule(
-  trainerId: string,
-  weekStart: string,
-) {
+async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   const db = getDb();
   const row = await db.query.appliedWeeks.findFirst({
     where: and(
@@ -45,17 +67,7 @@ export async function getAppliedWeekForSchedule(
       eq(appliedWeeks.weekStart, weekStart),
     ),
   });
-  if (!row) return null;
-
-  const template = await db.query.weeklyTemplates.findFirst({
-    where: eq(weeklyTemplates.id, row.templateId),
-  });
-
-  return {
-    weekStart: row.weekStart,
-    templateId: row.templateId,
-    templateName: template?.name ?? "Unknown template",
-  };
+  return !!row;
 }
 
 export async function getWeekSchedule(
@@ -65,13 +77,14 @@ export async function getWeekSchedule(
   weekStart: string;
   weekEnd: string;
   entries: ScheduleEntry[];
-  appliedWeek: {
-    weekStart: string;
-    templateId: string;
-    templateName: string;
-  } | null;
+  weekApplied: boolean;
+  lockHours: number;
 }> {
+  await clearExpiredSlotHolds(trainerId);
+
   const db = getDb();
+  const settings = await getTrainerSettings(trainerId);
+  const prefIndex = await buildEligibleCountIndex(trainerId);
   const start = parseDateOnly(weekStart);
   const end = addDays(start, 7);
 
@@ -83,10 +96,12 @@ export async function getWeekSchedule(
       slot: slots,
       booking: bookings,
       client: clients,
+      location: locations,
     })
     .from(slots)
     .leftJoin(bookings, eq(bookings.slotId, slots.id))
     .leftJoin(clients, eq(bookings.clientId, clients.id))
+    .leftJoin(locations, eq(slots.locationId, locations.id))
     .where(
       and(
         eq(slots.trainerId, trainerId),
@@ -96,32 +111,134 @@ export async function getWeekSchedule(
     )
     .orderBy(asc(slots.startAt));
 
-  const entries: ScheduleEntry[] = rows
-    .filter((row) => !row.booking || row.booking.status !== "canceled")
-    .map((row) => ({
+  const filteredRows = rows.filter(
+    (row) => !row.booking || row.booking.status !== "canceled",
+  );
+
+  const openRows = filteredRows.filter(
+    (row) =>
+      row.slot.status === "available" &&
+      (!row.booking || row.booking.status === "canceled"),
+  );
+  const openSlotIds = openRows.map((row) => row.slot.id);
+
+  const heldClientIds = [
+    ...new Set(
+      openRows
+        .map((row) => row.slot.heldForClientId)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+
+  const heldClients =
+    heldClientIds.length > 0
+      ? await db
+          .select({ id: clients.id, name: clients.name })
+          .from(clients)
+          .where(inArray(clients.id, heldClientIds))
+      : [];
+  const heldNameById = new Map(heldClients.map((c) => [c.id, c.name]));
+
+  const offersBySlot = new Map<string, ScheduleLastMinuteOffer[]>();
+  if (openSlotIds.length > 0) {
+    const offerRows = await db
+      .select({
+        offer: lastMinuteInterests,
+        client: clients,
+      })
+      .from(lastMinuteInterests)
+      .innerJoin(clients, eq(lastMinuteInterests.clientId, clients.id))
+      .where(inArray(lastMinuteInterests.slotId, openSlotIds))
+      .orderBy(asc(lastMinuteInterests.createdAt));
+
+    for (const { offer, client } of offerRows) {
+      const list = offersBySlot.get(offer.slotId) ?? [];
+      list.push({
+        id: offer.id,
+        clientId: client.id,
+        clientName: client.name,
+        status: offer.status,
+        expiresAt: offer.expiresAt,
+      });
+      offersBySlot.set(offer.slotId, list);
+    }
+  }
+
+  const entries: ScheduleEntry[] = filteredRows.map((row) => {
+    const booking =
+      row.booking && row.client && row.booking.status !== "canceled"
+        ? {
+            id: row.booking.id,
+            token: row.booking.token,
+            status: row.booking.status,
+            isRecurring: row.booking.isRecurring,
+            clientName: row.client.name,
+          }
+        : null;
+
+    const isOpen = !booking && row.slot.status === "available";
+
+    return {
       slotId: row.slot.id,
       startAt: row.slot.startAt,
       status: row.slot.status,
-      booking:
-        row.booking && row.client && row.booking.status !== "canceled"
-          ? {
-              id: row.booking.id,
-              token: row.booking.token,
-              status: row.booking.status,
-              isRecurring: row.booking.isRecurring,
-              clientName: row.client.name,
-            }
-          : null,
-    }));
+      location: row.location
+        ? { id: row.location.id, name: row.location.name }
+        : null,
+      booking,
+      lastMinute: isOpen
+        ? {
+            eligibleCount:
+              prefIndex.get(
+                `${slotDayOfWeek(row.slot.startAt)}-${slotTimeLabel(row.slot.startAt)}`,
+              ) ?? 0,
+            heldForClientId: row.slot.heldForClientId,
+            heldClientName: row.slot.heldForClientId
+              ? (heldNameById.get(row.slot.heldForClientId) ?? null)
+              : null,
+            holdExpiresAt: row.slot.holdExpiresAt,
+            offers: offersBySlot.get(row.slot.id) ?? [],
+          }
+        : null,
+    };
+  });
 
-  const appliedWeek = await getAppliedWeekForSchedule(trainerId, weekStart);
+  const weekApplied = await isWeekScheduleApplied(trainerId, weekStart);
 
   return {
     weekStart: formatDate(start),
     weekEnd: formatDate(addDays(start, 6)),
     entries,
-    appliedWeek,
+    weekApplied,
+    lockHours: settings.lastMinuteOfferLockHours,
   };
+}
+
+export async function getOrCreateAppliedWeek(trainerId: string, weekStart: string) {
+  const db = getDb();
+  const existing = await db.query.appliedWeeks.findFirst({
+    where: and(
+      eq(appliedWeeks.trainerId, trainerId),
+      eq(appliedWeeks.weekStart, weekStart),
+    ),
+  });
+  if (existing) return existing;
+
+  const weekDate = parseDateOnly(weekStart);
+  if (weekDate.getDay() !== 1) {
+    throw new Error("weekStart must be a Monday (YYYY-MM-DD)");
+  }
+
+  const id = nanoid();
+  const createdAt = nowIso();
+  await db.insert(appliedWeeks).values({
+    id,
+    trainerId,
+    weekStart,
+    createdAt,
+  });
+
+  return { id, trainerId, weekStart, createdAt };
 }
 
 export async function addScheduleSlot(
@@ -129,24 +246,14 @@ export async function addScheduleSlot(
   weekStart: string,
   dayOfWeek: number,
   startTime: string,
+  locationId: string,
 ): Promise<{ slotId: string; recurringBooked: boolean }> {
   const db = getDb();
+  await assertTrainerLocation(trainerId, locationId);
 
-  const applied = await db.query.appliedWeeks.findFirst({
-    where: and(
-      eq(appliedWeeks.trainerId, trainerId),
-      eq(appliedWeeks.weekStart, weekStart),
-    ),
-  });
-  if (!applied) {
-    throw new Error("Apply a template to this week before adding slots.");
-  }
+  const applied = await getOrCreateAppliedWeek(trainerId, weekStart);
 
   const weekDate = parseDateOnly(weekStart);
-  if (weekDate.getDay() !== 1) {
-    throw new Error("weekStart must be a Monday (YYYY-MM-DD)");
-  }
-
   const slotDate = addDays(
     weekDate,
     (dayOfWeek - weekDate.getDay() + 7) % 7,
@@ -176,6 +283,7 @@ export async function addScheduleSlot(
     appliedWeekId: applied.id,
     startAt: toLocalDateTimeString(startAt),
     status: "available",
+    locationId,
     createdAt: nowIso(),
   });
 
@@ -205,6 +313,35 @@ export async function addScheduleSlot(
   }
 
   return { slotId, recurringBooked };
+}
+
+export async function updateScheduleSlotLocation(
+  trainerId: string,
+  slotId: string,
+  locationId: string,
+): Promise<void> {
+  const db = getDb();
+  await assertTrainerLocation(trainerId, locationId);
+
+  const slot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!slot) throw new Error("Slot not found");
+  if (slot.status !== "available") {
+    throw new Error("Only open slots can change location.");
+  }
+
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.slotId, slotId),
+  });
+  if (booking && booking.status !== "canceled") {
+    throw new Error("This slot has a booking and cannot be updated.");
+  }
+
+  await db
+    .update(slots)
+    .set({ locationId })
+    .where(eq(slots.id, slotId));
 }
 
 export async function removeScheduleSlot(

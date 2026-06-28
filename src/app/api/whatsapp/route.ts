@@ -1,9 +1,12 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listWhatsAppLog } from "@/lib/whatsapp";
 
 export async function GET() {
   await ensureDb();
-  const messages = await listWhatsAppLog(DEFAULT_TRAINER_ID);
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const messages = await listWhatsAppLog(trainerId);
   return Response.json(messages);
 }

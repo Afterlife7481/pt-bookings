@@ -1,74 +1,30 @@
 import { nanoid } from "nanoid";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
   recurringPreferences,
   bookings,
-  templateSlots,
-  weeklyTemplates,
+  slots,
 } from "@/lib/db/schema";
 import { nowIso } from "@/lib/constants";
+import { getClientLocationOptions } from "@/lib/services/locations";
 
 export type RecurringSlotRef = { dayOfWeek: number; startTime: string };
 
-export type RecurringSlotOption = {
+export type RecurringSlotAssignment = {
   dayOfWeek: number;
   startTime: string;
-  available: boolean;
-  heldBy: { clientId: string; clientName: string } | null;
+  clientId: string;
+  clientName: string;
   isCurrentClient: boolean;
 };
 
-async function slotExistsInTemplates(
-  trainerId: string,
-  slot: RecurringSlotRef,
-): Promise<boolean> {
-  const db = getDb();
-  const templates = await db
-    .select({ id: weeklyTemplates.id })
-    .from(weeklyTemplates)
-    .where(eq(weeklyTemplates.trainerId, trainerId));
-
-  for (const template of templates) {
-    const match = await db.query.templateSlots.findFirst({
-      where: and(
-        eq(templateSlots.templateId, template.id),
-        eq(templateSlots.dayOfWeek, slot.dayOfWeek),
-        eq(templateSlots.startTime, slot.startTime),
-      ),
-    });
-    if (match) return true;
-  }
-  return false;
-}
-
-export async function getRecurringSlotOptions(
+export async function getRecurringSlotAssignments(
   trainerId: string,
   clientId: string,
-): Promise<RecurringSlotOption[]> {
+): Promise<RecurringSlotAssignment[]> {
   const db = getDb();
-
-  const templates = await db
-    .select({ id: weeklyTemplates.id })
-    .from(weeklyTemplates)
-    .where(eq(weeklyTemplates.trainerId, trainerId));
-
-  const slotMap = new Map<string, RecurringSlotRef>();
-
-  for (const template of templates) {
-    const tSlots = await db
-      .select()
-      .from(templateSlots)
-      .where(eq(templateSlots.templateId, template.id));
-
-    for (const s of tSlots) {
-      const key = `${s.dayOfWeek}-${s.startTime}`;
-      if (!slotMap.has(key)) {
-        slotMap.set(key, { dayOfWeek: s.dayOfWeek, startTime: s.startTime });
-      }
-    }
-  }
 
   const prefs = await db
     .select({
@@ -79,34 +35,17 @@ export async function getRecurringSlotOptions(
     .innerJoin(clients, eq(recurringPreferences.clientId, clients.id))
     .where(eq(recurringPreferences.trainerId, trainerId));
 
-  const clientPrefKeys = new Set(
-    prefs
-      .filter(({ pref }) => pref.clientId === clientId)
-      .map(({ pref }) => `${pref.dayOfWeek}-${pref.startTime}`),
-  );
-
-  const prefByKey = new Map(
-    prefs.map(({ pref, client }) => [
-      `${pref.dayOfWeek}-${pref.startTime}`,
-      { clientId: client.id, clientName: client.name },
-    ]),
-  );
-
-  return [...slotMap.values()]
+  return prefs
+    .map(({ pref, client }) => ({
+      dayOfWeek: pref.dayOfWeek,
+      startTime: pref.startTime,
+      clientId: client.id,
+      clientName: client.name,
+      isCurrentClient: client.id === clientId,
+    }))
     .sort((a, b) => {
       if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
       return a.startTime.localeCompare(b.startTime);
-    })
-    .map((slot) => {
-      const key = `${slot.dayOfWeek}-${slot.startTime}`;
-      const heldBy = prefByKey.get(key) ?? null;
-      return {
-        dayOfWeek: slot.dayOfWeek,
-        startTime: slot.startTime,
-        available: !heldBy || heldBy.clientId === clientId,
-        heldBy,
-        isCurrentClient: clientPrefKeys.has(key),
-      };
     });
 }
 
@@ -138,24 +77,137 @@ export async function createClient(params: {
   trainerId: string;
   name: string;
   phone: string;
+  email?: string;
   lastMinuteOptIn?: boolean;
+  sessionPrice?: number | null;
 }) {
   const db = getDb();
   const id = nanoid();
   const token = nanoid(12);
   const createdAt = nowIso();
 
+  if (
+    params.sessionPrice != null &&
+    (!Number.isInteger(params.sessionPrice) || params.sessionPrice < 0)
+  ) {
+    throw new Error("Session price must be zero or greater");
+  }
+
   await db.insert(clients).values({
     id,
     token,
     trainerId: params.trainerId,
     name: params.name,
+    email: (params.email ?? "").trim(),
     phone: params.phone,
     lastMinuteOptIn: params.lastMinuteOptIn ?? false,
+    sessionPrice: params.sessionPrice ?? null,
     createdAt,
   });
 
   return id;
+}
+
+export async function getClientForTrainer(trainerId: string, clientId: string) {
+  const db = getDb();
+  return db.query.clients.findFirst({
+    where: and(eq(clients.id, clientId), eq(clients.trainerId, trainerId)),
+  });
+}
+
+export async function getClientDetail(trainerId: string, clientId: string) {
+  const client = await getClientForTrainer(trainerId, clientId);
+  if (!client) return null;
+
+  const db = getDb();
+  const prefs = await db
+    .select()
+    .from(recurringPreferences)
+    .where(eq(recurringPreferences.clientId, clientId));
+
+  const clientBookings = await db
+    .select({
+      booking: bookings,
+      slot: slots,
+    })
+    .from(bookings)
+    .leftJoin(slots, eq(bookings.slotId, slots.id))
+    .where(
+      and(eq(bookings.clientId, clientId), eq(bookings.trainerId, trainerId)),
+    )
+    .orderBy(desc(bookings.sessionStartAt));
+
+  return {
+    ...client,
+    recurringPreferences: prefs.map((p) => ({
+      dayOfWeek: p.dayOfWeek,
+      startTime: p.startTime,
+    })),
+    locations: await getClientLocationOptions(trainerId, clientId),
+    bookings: clientBookings.map(({ booking, slot }) => ({
+      id: booking.id,
+      token: booking.token,
+      status: booking.status,
+      override36h: booking.override36h,
+      isRecurring: booking.isRecurring,
+      sessionStartAt: booking.sessionStartAt,
+      slotStartAt: slot?.startAt ?? booking.sessionStartAt,
+    })),
+  };
+}
+
+export async function updateClient(
+  trainerId: string,
+  clientId: string,
+  updates: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    lastMinuteOptIn?: boolean;
+    sessionPrice?: number | null;
+  },
+) {
+  const client = await getClientForTrainer(trainerId, clientId);
+  if (!client) throw new Error("Client not found");
+
+  const patch: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    lastMinuteOptIn?: boolean;
+    sessionPrice?: number | null;
+  } = {};
+
+  if (updates.name !== undefined) {
+    const name = updates.name.trim();
+    if (!name) throw new Error("Name is required");
+    patch.name = name;
+  }
+  if (updates.phone !== undefined) {
+    const phone = updates.phone.trim();
+    if (!phone) throw new Error("Phone is required");
+    patch.phone = phone;
+  }
+  if (updates.email !== undefined) {
+    patch.email = updates.email.trim();
+  }
+  if (updates.lastMinuteOptIn !== undefined) {
+    patch.lastMinuteOptIn = updates.lastMinuteOptIn;
+  }
+  if (updates.sessionPrice !== undefined) {
+    if (
+      updates.sessionPrice != null &&
+      (!Number.isInteger(updates.sessionPrice) || updates.sessionPrice < 0)
+    ) {
+      throw new Error("Session price must be zero or greater");
+    }
+    patch.sessionPrice = updates.sessionPrice;
+  }
+
+  if (Object.keys(patch).length === 0) return;
+
+  const db = getDb();
+  await db.update(clients).set(patch).where(eq(clients.id, clientId));
 }
 
 export async function getClientByToken(token: string) {
@@ -205,12 +257,6 @@ export async function setRecurringPreferences(
       });
       throw new Error(
         `${slot.startTime} on day ${slot.dayOfWeek} is already assigned to ${holder?.name ?? "another client"}`,
-      );
-    }
-
-    if (!(await slotExistsInTemplates(trainerId, slot))) {
-      throw new Error(
-        `${slot.startTime} (day ${slot.dayOfWeek}) is not in any weekly template.`,
       );
     }
   }

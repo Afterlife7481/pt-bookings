@@ -2,9 +2,11 @@ export const SESSION_DURATION_MINUTES = 60;
 export const BOOKING_WINDOW_DAYS = 14;
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;
+export const DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS = 1;
 export const CHANGE_TIMEOUT_MINUTES = 30;
 
 export const DEFAULT_TRAINER_ID = "trainer_default";
+export const SESSION_COOKIE = "pt_session";
 
 export function nowIso(): string {
   return new Date().toISOString();
@@ -12,6 +14,10 @@ export function nowIso(): string {
 
 export function addMinutes(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+}
+
+export function addHours(iso: string, hours: number): string {
+  return addMinutes(iso, hours * 60);
 }
 
 export function addDays(date: Date, days: number): Date {

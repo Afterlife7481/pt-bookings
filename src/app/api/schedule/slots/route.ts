@@ -1,20 +1,25 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   addScheduleSlot,
   removeScheduleSlot,
+  updateScheduleSlotLocation,
 } from "@/lib/services/schedule";
 
 export async function POST(request: Request) {
   await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
   const body = await request.json();
 
   try {
     const result = await addScheduleSlot(
-      DEFAULT_TRAINER_ID,
+      trainerId,
       body.weekStart,
       body.dayOfWeek,
       body.startTime,
+      body.locationId,
     );
     return Response.json(result, { status: 201 });
   } catch (e) {
@@ -23,8 +28,27 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const body = await request.json();
+
+  try {
+    await updateScheduleSlotLocation(trainerId, body.slotId, body.locationId);
+    return Response.json({ ok: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update slot";
+    return Response.json({ error: message }, { status: 400 });
+  }
+}
+
 export async function DELETE(request: Request) {
   await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
   const { searchParams } = new URL(request.url);
   const slotId = searchParams.get("slotId");
   if (!slotId) {
@@ -32,7 +56,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    await removeScheduleSlot(DEFAULT_TRAINER_ID, slotId);
+    await removeScheduleSlot(trainerId, slotId);
     return Response.json({ ok: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to remove slot";

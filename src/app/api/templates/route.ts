@@ -1,5 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   listTemplates,
   createTemplate,
@@ -8,17 +8,27 @@ import {
 
 export async function GET() {
   await ensureDb();
-  const templates = await listTemplates(DEFAULT_TRAINER_ID);
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const templates = await listTemplates(trainerId);
   return Response.json({ templates });
 }
 
 export async function POST(request: Request) {
   await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
   const body = await request.json();
 
   if (body.action === "apply") {
     try {
-      const result = await applyTemplateToWeek(body.templateId, body.weekStart);
+      const result = await applyTemplateToWeek(
+        body.templateId,
+        body.weekStart,
+        trainerId,
+      );
       return Response.json(result);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to apply template";
@@ -26,10 +36,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const id = await createTemplate(
-    body.name,
-    body.slots,
-    DEFAULT_TRAINER_ID,
-  );
-  return Response.json({ id }, { status: 201 });
+  try {
+    const id = await createTemplate(body.name, body.slots ?? [], trainerId);
+    return Response.json({ id }, { status: 201 });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to create template";
+    return Response.json({ error: message }, { status: 400 });
+  }
 }

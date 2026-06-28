@@ -1,5 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
-import { expressInterest } from "@/lib/services/last-minute";
+import { acceptLastMinuteOffer } from "@/lib/services/last-minute";
 import { Card } from "@/components/ui";
 import { formatSlot } from "@/lib/utils";
 
@@ -17,26 +17,21 @@ export default async function InterestClaimPage({
     return (
       <main className="mx-auto max-w-lg p-6">
         <Card>
-          <p className="text-red-600">Invalid interest link.</p>
+          <p className="text-red-600">Invalid offer link.</p>
         </Card>
       </main>
     );
   }
 
   try {
-    const result = await expressInterest(slotId, clientId);
+    const result = await acceptLastMinuteOffer(slotId, clientId);
     return (
       <main className="mx-auto max-w-lg p-6">
         <Card>
-          <h1 className="text-xl font-semibold">
-            {result.alreadyRegistered
-              ? "Already registered"
-              : "Interest registered"}
-          </h1>
+          <h1 className="text-xl font-semibold">Session booked</h1>
           <p className="mt-2 text-slate-600">
-            {result.alreadyRegistered
-              ? "You have already expressed interest in this slot."
-              : `Your trainer will be notified of your interest in ${formatSlot(result.slot!.startAt)}.`}
+            Your session for {formatSlot(result.slot!.startAt)} is confirmed.
+            Check WhatsApp for details.
           </p>
         </Card>
       </main>

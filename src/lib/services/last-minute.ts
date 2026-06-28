@@ -1,96 +1,574 @@
 import { nanoid } from "nanoid";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc, gte, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
+  clientLastMinutePreferences,
   lastMinuteInterests,
+  locations,
   slots,
 } from "@/lib/db/schema";
-import { nowIso } from "@/lib/constants";
-import { sendWhatsAppInterestAck } from "@/lib/whatsapp";
+import {
+  addHours,
+  addDays,
+  formatDate,
+  nowIso,
+  parseDateOnly,
+  slotDayOfWeek,
+  slotTimeLabel,
+} from "@/lib/constants";
+import { sendWhatsAppLastMinute } from "@/lib/whatsapp";
 import { createBookingForSlot } from "./bookings";
+import { getTrainerSettings } from "./settings";
 
-export async function expressInterest(slotId: string, clientId: string) {
+export type LastMinuteSlotRef = { dayOfWeek: number; startTime: string };
+
+export type LastMinuteOfferStatus =
+  | "offered"
+  | "accepted"
+  | "expired"
+  | "superseded"
+  | "declined";
+
+export async function getClientLastMinutePreferences(clientId: string) {
+  const db = getDb();
+  const prefs = await db
+    .select()
+    .from(clientLastMinutePreferences)
+    .where(eq(clientLastMinutePreferences.clientId, clientId));
+
+  return prefs.map((p) => ({
+    dayOfWeek: p.dayOfWeek,
+    startTime: p.startTime,
+  }));
+}
+
+export async function setClientLastMinutePreferences(
+  clientId: string,
+  trainerId: string,
+  preferences: LastMinuteSlotRef[],
+) {
   const db = getDb();
 
-  const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  const unique = new Map<string, LastMinuteSlotRef>();
+  for (const pref of preferences) {
+    unique.set(`${pref.dayOfWeek}-${pref.startTime}`, pref);
+  }
+  const normalized = [...unique.values()];
+
+  await db
+    .delete(clientLastMinutePreferences)
+    .where(eq(clientLastMinutePreferences.clientId, clientId));
+
+  if (normalized.length === 0) {
+    await db
+      .update(clients)
+      .set({ lastMinuteOptIn: false })
+      .where(eq(clients.id, clientId));
+    return;
+  }
+
+  const ts = nowIso();
+  await db.insert(clientLastMinutePreferences).values(
+    normalized.map((pref) => ({
+      id: nanoid(),
+      trainerId,
+      clientId,
+      dayOfWeek: pref.dayOfWeek,
+      startTime: pref.startTime,
+      createdAt: ts,
+    })),
+  );
+
+  await db
+    .update(clients)
+    .set({ lastMinuteOptIn: true })
+    .where(eq(clients.id, clientId));
+}
+
+export async function clearExpiredSlotHolds(trainerId: string) {
+  const db = getDb();
+  const now = nowIso();
+
+  const heldSlots = await db
+    .select()
+    .from(slots)
+    .where(
+      and(eq(slots.trainerId, trainerId), eq(slots.status, "available")),
+    );
+
+  for (const slot of heldSlots) {
+    if (!slot.holdExpiresAt || slot.holdExpiresAt >= now) continue;
+
+    await db
+      .update(slots)
+      .set({ heldForClientId: null, holdExpiresAt: null })
+      .where(eq(slots.id, slot.id));
+
+    const activeOffers = await db
+      .select()
+      .from(lastMinuteInterests)
+      .where(
+        and(
+          eq(lastMinuteInterests.slotId, slot.id),
+          eq(lastMinuteInterests.status, "offered"),
+        ),
+      );
+
+    for (const offer of activeOffers) {
+      await db
+        .update(lastMinuteInterests)
+        .set({ status: "expired" })
+        .where(eq(lastMinuteInterests.id, offer.id));
+    }
+  }
+}
+
+function slotMatchesPreference(
+  startAt: string,
+  pref: LastMinuteSlotRef,
+): boolean {
+  return (
+    slotDayOfWeek(startAt) === pref.dayOfWeek &&
+    slotTimeLabel(startAt) === pref.startTime
+  );
+}
+
+export async function buildEligibleCountIndex(trainerId: string) {
+  const db = getDb();
+  const prefRows = await db
+    .select({
+      dayOfWeek: clientLastMinutePreferences.dayOfWeek,
+      startTime: clientLastMinutePreferences.startTime,
+    })
+    .from(clientLastMinutePreferences)
+    .innerJoin(clients, eq(clientLastMinutePreferences.clientId, clients.id))
+    .where(
+      and(eq(clients.trainerId, trainerId), eq(clients.lastMinuteOptIn, true)),
+    );
+
+  const prefIndex = new Map<string, number>();
+  for (const pref of prefRows) {
+    const key = `${pref.dayOfWeek}-${pref.startTime}`;
+    prefIndex.set(key, (prefIndex.get(key) ?? 0) + 1);
+  }
+  return prefIndex;
+}
+
+function eligibleCountFor(
+  prefIndex: Map<string, number>,
+  startAt: string,
+): number {
+  const key = `${slotDayOfWeek(startAt)}-${slotTimeLabel(startAt)}`;
+  return prefIndex.get(key) ?? 0;
+}
+
+export type LastMinuteWeekSlot = {
+  slotId: string;
+  startAt: string;
+  locationName: string | null;
+  heldForClientId: string | null;
+  heldClientName: string | null;
+  holdExpiresAt: string | null;
+  eligibleCount: number;
+  offers: {
+    id: string;
+    clientId: string;
+    clientName: string;
+    status: LastMinuteOfferStatus;
+    expiresAt: string | null;
+  }[];
+};
+
+export async function getLastMinuteWeekView(
+  trainerId: string,
+  weekStart: string,
+) {
+  await clearExpiredSlotHolds(trainerId);
+
+  const settings = await getTrainerSettings(trainerId);
+  const start = parseDateOnly(weekStart);
+  const end = addDays(start, 7);
+  const startAtMin = `${formatDate(start)}T00:00:00`;
+  const startAtMax = `${formatDate(end)}T00:00:00`;
+
+  const db = getDb();
+
+  const prefIndex = await buildEligibleCountIndex(trainerId);
+
+  function eligibleCountForSlot(startAt: string): number {
+    return eligibleCountFor(prefIndex, startAt);
+  }
+
+  const openSlots = await db
+    .select({
+      slot: slots,
+      location: locations,
+      heldClient: clients,
+    })
+    .from(slots)
+    .leftJoin(locations, eq(slots.locationId, locations.id))
+    .leftJoin(clients, eq(slots.heldForClientId, clients.id))
+    .where(
+      and(
+        eq(slots.trainerId, trainerId),
+        eq(slots.status, "available"),
+        gte(slots.startAt, startAtMin),
+        lt(slots.startAt, startAtMax),
+      ),
+    )
+    .orderBy(asc(slots.startAt));
+
+  const weekSlots: LastMinuteWeekSlot[] = [];
+  for (const row of openSlots) {
+    const offers = await db
+      .select({
+        offer: lastMinuteInterests,
+        client: clients,
+      })
+      .from(lastMinuteInterests)
+      .innerJoin(clients, eq(lastMinuteInterests.clientId, clients.id))
+      .where(eq(lastMinuteInterests.slotId, row.slot.id))
+      .orderBy(asc(lastMinuteInterests.createdAt));
+
+    weekSlots.push({
+      slotId: row.slot.id,
+      startAt: row.slot.startAt,
+      locationName: row.location?.name ?? null,
+      heldForClientId: row.slot.heldForClientId,
+      heldClientName: row.heldClient?.name ?? null,
+      holdExpiresAt: row.slot.holdExpiresAt,
+      eligibleCount: eligibleCountForSlot(row.slot.startAt),
+      offers: offers.map(({ offer, client }) => ({
+        id: offer.id,
+        clientId: client.id,
+        clientName: client.name,
+        status: offer.status as LastMinuteOfferStatus,
+        expiresAt: offer.expiresAt,
+      })),
+    });
+  }
+
+  return {
+    weekStart: formatDate(start),
+    weekEnd: formatDate(addDays(start, 6)),
+    lockHours: settings.lastMinuteOfferLockHours,
+    scheduleStartTime: settings.scheduleStartTime,
+    scheduleEndTime: settings.scheduleEndTime,
+    slots: weekSlots,
+  };
+}
+
+export async function listLastMinuteOpenSlots(trainerId: string) {
+  await clearExpiredSlotHolds(trainerId);
+
+  const db = getDb();
+  const openSlots = await db
+    .select({
+      slot: slots,
+      location: locations,
+      heldClient: clients,
+    })
+    .from(slots)
+    .leftJoin(locations, eq(slots.locationId, locations.id))
+    .leftJoin(clients, eq(slots.heldForClientId, clients.id))
+    .where(and(eq(slots.trainerId, trainerId), eq(slots.status, "available")))
+    .orderBy(asc(slots.startAt));
+
+  const results = [];
+  for (const row of openSlots) {
+    const offers = await db
+      .select({
+        offer: lastMinuteInterests,
+        client: clients,
+      })
+      .from(lastMinuteInterests)
+      .innerJoin(clients, eq(lastMinuteInterests.clientId, clients.id))
+      .where(eq(lastMinuteInterests.slotId, row.slot.id))
+      .orderBy(asc(lastMinuteInterests.createdAt));
+
+    results.push({
+      slot: row.slot,
+      location: row.location,
+      heldClient: row.heldClient,
+      offers: offers.map(({ offer, client }) => ({
+        id: offer.id,
+        clientId: client.id,
+        clientName: client.name,
+        status: offer.status as LastMinuteOfferStatus,
+        expiresAt: offer.expiresAt,
+        createdAt: offer.createdAt,
+      })),
+    });
+  }
+
+  return results;
+}
+
+export async function getEligibleClientsForSlot(
+  trainerId: string,
+  slotId: string,
+) {
+  await clearExpiredSlotHolds(trainerId);
+
+  const db = getDb();
+  const slot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!slot || slot.status !== "available") {
+    throw new Error("Slot is not available");
+  }
+
+  const optedInClients = await db
+    .select()
+    .from(clients)
+    .where(
+      and(eq(clients.trainerId, trainerId), eq(clients.lastMinuteOptIn, true)),
+    );
+
+  const eligible = [];
+  for (const client of optedInClients) {
+    const prefs = await getClientLastMinutePreferences(client.id);
+    const matches = prefs.some((pref) =>
+      slotMatchesPreference(slot.startAt, pref),
+    );
+    if (!matches) continue;
+
+    const latestOffers = await db
+      .select()
+      .from(lastMinuteInterests)
+      .where(
+        and(
+          eq(lastMinuteInterests.slotId, slotId),
+          eq(lastMinuteInterests.clientId, client.id),
+        ),
+      )
+      .orderBy(asc(lastMinuteInterests.createdAt));
+
+    const latestOffer = latestOffers.at(-1) ?? null;
+
+    eligible.push({
+      id: client.id,
+      name: client.name,
+      phone: client.phone,
+      latestOffer: latestOffer
+        ? {
+            status: latestOffer.status as LastMinuteOfferStatus,
+            expiresAt: latestOffer.expiresAt,
+            createdAt: latestOffer.createdAt,
+          }
+        : null,
+      isHeld: slot.heldForClientId === client.id,
+    });
+  }
+
+  return {
+    slot,
+    heldClientId: slot.heldForClientId,
+    holdExpiresAt: slot.holdExpiresAt,
+    clients: eligible.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+export async function sendLastMinuteOffer(
+  trainerId: string,
+  slotId: string,
+  clientId: string,
+) {
+  await clearExpiredSlotHolds(trainerId);
+
+  const db = getDb();
+  const slot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!slot || slot.status !== "available") {
+    throw new Error("Slot is not available");
+  }
+
+  const client = await db.query.clients.findFirst({
+    where: and(eq(clients.id, clientId), eq(clients.trainerId, trainerId)),
+  });
+  if (!client) throw new Error("Client not found");
+  if (!client.lastMinuteOptIn) {
+    throw new Error("Client is not opted in to last-minute alerts");
+  }
+
+  const prefs = await getClientLastMinutePreferences(clientId);
+  if (!prefs.some((pref) => slotMatchesPreference(slot.startAt, pref))) {
+    throw new Error("This slot does not match the client's time preferences");
+  }
+
+  const { lastMinuteOfferLockHours } = await getTrainerSettings(trainerId);
+  const offeredAt = nowIso();
+  const expiresAt = addHours(offeredAt, lastMinuteOfferLockHours);
+
+  if (slot.heldForClientId && slot.heldForClientId !== clientId) {
+    const previousOffers = await db
+      .select()
+      .from(lastMinuteInterests)
+      .where(
+        and(
+          eq(lastMinuteInterests.slotId, slotId),
+          eq(lastMinuteInterests.status, "offered"),
+        ),
+      );
+
+    for (const offer of previousOffers) {
+      await db
+        .update(lastMinuteInterests)
+        .set({ status: "superseded" })
+        .where(eq(lastMinuteInterests.id, offer.id));
+    }
+  }
+
+  await db
+    .update(slots)
+    .set({
+      heldForClientId: clientId,
+      holdExpiresAt: expiresAt,
+    })
+    .where(eq(slots.id, slotId));
+
+  const existingActive = await db.query.lastMinuteInterests.findFirst({
+    where: and(
+      eq(lastMinuteInterests.slotId, slotId),
+      eq(lastMinuteInterests.clientId, clientId),
+      eq(lastMinuteInterests.status, "offered"),
+    ),
+  });
+
+  if (existingActive) {
+    await db
+      .update(lastMinuteInterests)
+      .set({ expiresAt, createdAt: offeredAt })
+      .where(eq(lastMinuteInterests.id, existingActive.id));
+  } else {
+    await db.insert(lastMinuteInterests).values({
+      id: nanoid(),
+      trainerId,
+      slotId,
+      clientId,
+      status: "offered",
+      token: nanoid(12),
+      expiresAt,
+      createdAt: offeredAt,
+    });
+  }
+
+  await sendWhatsAppLastMinute({
+    trainerId,
+    clientId: client.id,
+    phone: client.phone,
+    slotId,
+    slotStartAt: slot.startAt,
+    clientName: client.name,
+    lockHours: lastMinuteOfferLockHours,
+  });
+
+  return { expiresAt, lockHours: lastMinuteOfferLockHours };
+}
+
+export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
+  const db = getDb();
+  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
   if (!slot || slot.status !== "available") {
     throw new Error("This slot is no longer available");
   }
+
+  await clearExpiredSlotHolds(slot.trainerId);
+  slot =
+    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
 
   const client = await db.query.clients.findFirst({
     where: eq(clients.id, clientId),
   });
   if (!client) throw new Error("Client not found");
 
-  const existing = await db.query.lastMinuteInterests.findFirst({
+  const now = nowIso();
+  if (
+    slot.heldForClientId !== clientId ||
+    !slot.holdExpiresAt ||
+    slot.holdExpiresAt < now
+  ) {
+    throw new Error(
+      "This offer is no longer active. Please contact your trainer.",
+    );
+  }
+
+  const offer = await db.query.lastMinuteInterests.findFirst({
     where: and(
       eq(lastMinuteInterests.slotId, slotId),
       eq(lastMinuteInterests.clientId, clientId),
+      eq(lastMinuteInterests.status, "offered"),
     ),
   });
-
-  if (existing) {
-    return { alreadyRegistered: true, interest: existing, client, slot };
+  if (!offer) {
+    throw new Error("No active offer found for this slot");
   }
 
-  const interestId = nanoid();
-  const token = nanoid(12);
-
-  await db.insert(lastMinuteInterests).values({
-    id: interestId,
-    trainerId: slot.trainerId,
+  const booking = await createBookingForSlot({
     slotId,
     clientId,
-    status: "interested",
-    token,
-    createdAt: nowIso(),
-  });
-
-  await sendWhatsAppInterestAck({
     trainerId: slot.trainerId,
-    clientId: client.id,
-    phone: client.phone,
-    slotStartAt: slot.startAt,
-    clientName: client.name,
+    sendConfirmation: true,
   });
 
-  const interest = await db.query.lastMinuteInterests.findFirst({
-    where: eq(lastMinuteInterests.id, interestId),
-  });
+  await db
+    .update(lastMinuteInterests)
+    .set({ status: "accepted" })
+    .where(eq(lastMinuteInterests.id, offer.id));
 
-  return { alreadyRegistered: false, interest, client, slot };
+  const otherOffers = await db
+    .select()
+    .from(lastMinuteInterests)
+    .where(
+      and(
+        eq(lastMinuteInterests.slotId, slotId),
+        eq(lastMinuteInterests.status, "offered"),
+      ),
+    );
+
+  for (const other of otherOffers) {
+    await db
+      .update(lastMinuteInterests)
+      .set({ status: "superseded" })
+      .where(eq(lastMinuteInterests.id, other.id));
+  }
+
+  await db
+    .update(slots)
+    .set({ heldForClientId: null, holdExpiresAt: null })
+    .where(eq(slots.id, slotId));
+
+  return { alreadyRegistered: false, booking, client, slot };
+}
+
+/** @deprecated use acceptLastMinuteOffer */
+export async function expressInterest(slotId: string, clientId: string) {
+  try {
+    const result = await acceptLastMinuteOffer(slotId, clientId);
+    return {
+      alreadyRegistered: false,
+      interest: null,
+      client: result.client,
+      slot: result.slot,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Something went wrong";
+    if (message.includes("no longer active")) {
+      return {
+        alreadyRegistered: true,
+        interest: null,
+        client: null,
+        slot: null,
+      };
+    }
+    throw e;
+  }
 }
 
 export async function listOpenLastMinuteSlots(trainerId: string) {
-  const db = getDb();
-  const openSlots = await db
-    .select()
-    .from(slots)
-    .where(and(eq(slots.trainerId, trainerId), eq(slots.status, "available")));
-
-  const results = [];
-  for (const slot of openSlots) {
-    const interests = await db
-      .select({
-        interest: lastMinuteInterests,
-        client: clients,
-      })
-      .from(lastMinuteInterests)
-      .innerJoin(clients, eq(lastMinuteInterests.clientId, clients.id))
-      .where(
-        and(
-          eq(lastMinuteInterests.slotId, slot.id),
-          eq(lastMinuteInterests.status, "interested"),
-        ),
-      );
-
-    if (interests.length > 0) {
-      results.push({ slot, interests });
-    }
-  }
-
-  return results;
+  return listLastMinuteOpenSlots(trainerId);
 }
 
 export async function assignLastMinuteSlot(
@@ -98,27 +576,5 @@ export async function assignLastMinuteSlot(
   clientId: string,
   trainerId: string,
 ) {
-  const db = getDb();
-
-  await createBookingForSlot({
-    slotId,
-    clientId,
-    trainerId,
-    sendConfirmation: true,
-  });
-
-  const interests = await db
-    .select()
-    .from(lastMinuteInterests)
-    .where(eq(lastMinuteInterests.slotId, slotId));
-
-  for (const interest of interests) {
-    await db
-      .update(lastMinuteInterests)
-      .set({
-        status:
-          interest.clientId === clientId ? "assigned" : "not_selected",
-      })
-      .where(eq(lastMinuteInterests.id, interest.id));
-  }
+  await sendLastMinuteOffer(trainerId, slotId, clientId);
 }

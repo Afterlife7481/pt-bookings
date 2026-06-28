@@ -1,10 +1,11 @@
 import { nanoid } from "nanoid";
-import { eq, and, gte, lte, ne, asc } from "drizzle-orm";
+import { eq, and, gte, lt, lte, ne, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   appliedWeeks,
   bookings,
   clients,
+  locations,
   recurringPreferences,
   slots,
   templateSlots,
@@ -24,6 +25,8 @@ import {
   parseLocalDateTime,
 } from "@/lib/constants";
 import { createBookingForSlot } from "./bookings";
+import { getOrCreateAppliedWeek } from "./schedule";
+import { assertTrainerLocation } from "./locations";
 
 export type ApplyTemplateResult = {
   appliedWeekId: string;
@@ -33,11 +36,10 @@ export type ApplyTemplateResult = {
   conflicts: string[];
 };
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export async function applyTemplateToWeek(
   templateId: string,
   weekStart: string,
+  trainerId?: string,
 ): Promise<ApplyTemplateResult> {
   const db = getDb();
 
@@ -45,21 +47,37 @@ export async function applyTemplateToWeek(
     where: eq(weeklyTemplates.id, templateId),
   });
   if (!template) throw new Error("Template not found");
+  if (trainerId && template.trainerId !== trainerId) {
+    throw new Error("Template not found");
+  }
 
   const weekDate = parseDateOnly(weekStart);
   if (weekDate.getDay() !== 1) {
     throw new Error("weekStart must be a Monday (YYYY-MM-DD)");
   }
 
-  const existing = await db.query.appliedWeeks.findFirst({
-    where: and(
-      eq(appliedWeeks.trainerId, template.trainerId),
-      eq(appliedWeeks.weekStart, weekStart),
-    ),
-  });
+  const weekEnd = addDays(weekDate, 7);
+  const startAtMin = `${formatDate(weekDate)}T00:00:00`;
+  const startAtMax = `${formatDate(weekEnd)}T00:00:00`;
 
-  if (existing) {
-    throw new Error(`A template is already applied for week starting ${weekStart}.`);
+  const bookedInWeek = await db
+    .select({ slotId: slots.id })
+    .from(slots)
+    .innerJoin(bookings, eq(bookings.slotId, slots.id))
+    .where(
+      and(
+        eq(slots.trainerId, template.trainerId),
+        gte(slots.startAt, startAtMin),
+        lt(slots.startAt, startAtMax),
+        ne(bookings.status, "canceled"),
+      ),
+    )
+    .limit(1);
+
+  if (bookedInWeek.length > 0) {
+    throw new Error(
+      "Cannot apply a template while client sessions are booked this week.",
+    );
   }
 
   const tSlots = await db
@@ -83,15 +101,8 @@ export async function applyTemplateToWeek(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const appliedWeekId = nanoid();
-  await db.insert(appliedWeeks).values({
-    id: appliedWeekId,
-    trainerId: template.trainerId,
-    templateId,
-    weekStart,
-    createdAt: nowIso(),
-  });
-  result.appliedWeekId = appliedWeekId;
+  const appliedWeek = await getOrCreateAppliedWeek(template.trainerId, weekStart);
+  result.appliedWeekId = appliedWeek.id;
 
   const createdSlotIds: string[] = [];
 
@@ -103,14 +114,24 @@ export async function applyTemplateToWeek(
     const startAt = parseTimeOnDate(formatDate(slotDate), ts.startTime);
     if (startAt < today) continue;
 
+    const startAtStr = toLocalDateTimeString(startAt);
+    const existingSlot = await db.query.slots.findFirst({
+      where: and(
+        eq(slots.trainerId, template.trainerId),
+        eq(slots.startAt, startAtStr),
+      ),
+    });
+    if (existingSlot) continue;
+
     const slotId = nanoid();
     try {
       await db.insert(slots).values({
         id: slotId,
         trainerId: template.trainerId,
-        appliedWeekId,
-        startAt: toLocalDateTimeString(startAt),
+        appliedWeekId: appliedWeek.id,
+        startAt: startAtStr,
         status: "available",
+        locationId: ts.locationId,
         createdAt: nowIso(),
       });
       createdSlotIds.push(slotId);
@@ -180,38 +201,116 @@ export async function listTemplates(trainerId: string) {
   return Promise.all(
     templates.map(async (t) => {
       const tSlots = await db
-        .select()
+        .select({
+          slot: templateSlots,
+          location: locations,
+        })
         .from(templateSlots)
+        .leftJoin(locations, eq(templateSlots.locationId, locations.id))
         .where(eq(templateSlots.templateId, t.id));
-      return { ...t, slots: tSlots };
+      return {
+        ...t,
+        slots: tSlots.map(({ slot, location }) => ({
+          ...slot,
+          locationName: location?.name ?? null,
+        })),
+      };
     }),
   );
 }
 
+export type TemplateSlotInput = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+};
+
+async function insertTemplateSlots(
+  trainerId: string,
+  templateId: string,
+  slotDefs: TemplateSlotInput[],
+) {
+  const db = getDb();
+  const unique = new Map<string, TemplateSlotInput>();
+  for (const slot of slotDefs) {
+    await assertTrainerLocation(trainerId, slot.locationId);
+    unique.set(`${slot.dayOfWeek}-${slot.startTime}`, slot);
+  }
+
+  const normalized = [...unique.values()];
+  if (normalized.length === 0) {
+    throw new Error("Add at least one slot to the template");
+  }
+
+  for (const s of normalized) {
+    await db.insert(templateSlots).values({
+      id: nanoid(),
+      templateId,
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      locationId: s.locationId,
+    });
+  }
+
+  return normalized.length;
+}
+
+export async function getTemplateForTrainer(
+  trainerId: string,
+  templateId: string,
+) {
+  const templates = await listTemplates(trainerId);
+  return templates.find((t) => t.id === templateId) ?? null;
+}
+
 export async function createTemplate(
   name: string,
-  slotDefs: { dayOfWeek: number; startTime: string }[],
+  slotDefs: TemplateSlotInput[],
   trainerId: string,
 ) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Template name is required");
+
   const db = getDb();
   const id = nanoid();
   await db.insert(weeklyTemplates).values({
     id,
     trainerId,
-    name,
+    name: trimmed,
     createdAt: nowIso(),
   });
 
-  for (const s of slotDefs) {
-    await db.insert(templateSlots).values({
-      id: nanoid(),
-      templateId: id,
-      dayOfWeek: s.dayOfWeek,
-      startTime: s.startTime,
-    });
-  }
-
+  await insertTemplateSlots(trainerId, id, slotDefs);
   return id;
+}
+
+export async function updateTemplate(
+  trainerId: string,
+  templateId: string,
+  data: { name: string; slots: TemplateSlotInput[] },
+) {
+  const db = getDb();
+  const template = await db.query.weeklyTemplates.findFirst({
+    where: and(
+      eq(weeklyTemplates.id, templateId),
+      eq(weeklyTemplates.trainerId, trainerId),
+    ),
+  });
+  if (!template) throw new Error("Template not found");
+
+  const trimmed = data.name.trim();
+  if (!trimmed) throw new Error("Template name is required");
+
+  await db
+    .update(weeklyTemplates)
+    .set({ name: trimmed })
+    .where(eq(weeklyTemplates.id, templateId));
+
+  await db
+    .delete(templateSlots)
+    .where(eq(templateSlots.templateId, templateId));
+
+  await insertTemplateSlots(trainerId, templateId, data.slots);
 }
 
 export async function getAvailableSlotsForChange(

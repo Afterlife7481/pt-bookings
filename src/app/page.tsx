@@ -10,10 +10,16 @@ export default function HomePage() {
           Personal trainer session scheduling with change flow and last-minute waitlist.
         </p>
       </div>
-      <Card className="w-full text-center">
-        <Link href="/dashboard">
-          <Button className="w-full">Open trainer dashboard</Button>
+      <Card className="w-full text-center space-y-3">
+        <Link href="/login">
+          <Button className="w-full">Trainer sign in</Button>
         </Link>
+        <Link href="/info" className="block text-sm text-slate-600 hover:text-slate-900">
+          How PT Bookings works →
+        </Link>
+        <p className="text-xs text-slate-500">
+          Clients use their personal link from their trainer — no account needed.
+        </p>
       </Card>
     </main>
   );

@@ -8,7 +8,7 @@ import {
   isWithinBookingDeadline,
   nowIso,
 } from "@/lib/constants";
-import { notifyLastMinuteOpening, assertSlotNotHeldByActiveBooking } from "./bookings";
+import { assertSlotNotHeldByActiveBooking } from "./bookings";
 import { getAvailableSlotsForChange } from "./templates";
 import { getTrainerSettings } from "./settings";
 
@@ -211,8 +211,6 @@ export async function confirmChange(
       updatedAt: ts,
     })
     .where(eq(changeRequests.id, changeRequestId));
-
-  await notifyLastMinuteOpening(booking.trainerId, fromSlotId);
 
   return { bookingId: booking.id, fromSlotId, toSlotId };
 }

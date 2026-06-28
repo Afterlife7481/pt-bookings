@@ -10,16 +10,6 @@ export function formatSlot(startAt: string) {
   return `${date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} ${time}`;
 }
 
-export const DAY_OPTIONS = [
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-  { value: 6, label: "Saturday" },
-  { value: 0, label: "Sunday" },
-];
-
 export function formatDayLabel(dateKey: string): string {
   const [y, m, d] = dateKey.split("-").map(Number);
   const date = new Date(y, m - 1, d);
@@ -30,8 +20,58 @@ export function formatDayLabel(dateKey: string): string {
   });
 }
 
+/** Format an ISO timestamp for display (en-GB date + time). */
+export function formatDateTime(iso: string): string {
+  const [datePart, timePart] = iso.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const date = new Date(y, m - 1, d);
+  const time = timePart?.slice(0, 5) ?? "";
+  const dateLabel = date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return time ? `${dateLabel}, ${time}` : dateLabel;
+}
+
+/** Format an ISO timestamp's calendar date in en-GB without UTC timezone shift. */
+export function formatCreatedDate(iso: string): string {
+  const dateKey = iso.slice(0, 10);
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return dateKey;
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB");
+}
+
 export function formatTimeOnly(startAt: string): string {
   return startAt.split("T")[1]?.slice(0, 5) ?? "";
+}
+
+/** Format pence as GBP, or em dash when unset. */
+export function formatSessionPrice(pence: number | null | undefined): string {
+  if (pence == null) return "—";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(pence / 100);
+}
+
+/** Parse a pounds input (e.g. "50" or "49.50") to pence, or null if empty. */
+export function parseSessionPriceInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const pounds = Number(trimmed);
+  if (!Number.isFinite(pounds) || pounds < 0) {
+    throw new Error("Session price must be zero or greater");
+  }
+  return Math.round(pounds * 100);
+}
+
+/** Pence to a pounds string suitable for number inputs. */
+export function sessionPriceToInput(pence: number | null | undefined): string {
+  if (pence == null) return "";
+  return (pence / 100).toFixed(2).replace(/\.00$/, "");
 }
 
 export function groupSlotsByDay<T extends { startAt: string }>(slots: T[]) {

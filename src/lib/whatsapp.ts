@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { whatsappMessages } from "@/lib/db/schema";
 import {
@@ -58,9 +58,10 @@ export async function sendWhatsAppLastMinute(params: {
   slotId: string;
   slotStartAt: string;
   clientName: string;
+  lockHours: number;
 }) {
   const link = interestClaimUrl(params.slotId, params.clientId);
-  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt)}. Tap to express interest: ${link}`;
+  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept. Tap to book: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
@@ -98,5 +99,6 @@ export async function listWhatsAppLog(trainerId: string) {
   return db
     .select()
     .from(whatsappMessages)
-    .where(eq(whatsappMessages.trainerId, trainerId));
+    .where(eq(whatsappMessages.trainerId, trainerId))
+    .orderBy(desc(whatsappMessages.createdAt));
 }

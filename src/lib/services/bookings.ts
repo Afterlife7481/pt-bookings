@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, clients, slots } from "@/lib/db/schema";
 import { isWithinBookingDeadline, nowIso, parseLocalDateTime } from "@/lib/constants";
@@ -28,6 +28,16 @@ export async function createBookingForSlot(params: {
     throw new Error("Slot is not available");
   }
 
+  const now = nowIso();
+  if (
+    slot.heldForClientId &&
+    slot.heldForClientId !== clientId &&
+    slot.holdExpiresAt &&
+    slot.holdExpiresAt >= now
+  ) {
+    throw new Error("This slot is reserved for another client");
+  }
+
   await assertSlotNotHeldByActiveBooking(db, slotId);
 
   const bookingId = nanoid();
@@ -50,7 +60,11 @@ export async function createBookingForSlot(params: {
 
   await db
     .update(slots)
-    .set({ status: "booked" })
+    .set({
+      status: "booked",
+      heldForClientId: null,
+      holdExpiresAt: null,
+    })
     .where(eq(slots.id, slotId));
 
   if (sendConfirmation) {
@@ -117,7 +131,6 @@ export async function cancelBooking(bookingId: string) {
     .where(eq(bookings.id, bookingId));
 
   await releaseSlot(slot.id);
-  await notifyLastMinuteOpening(booking.trainerId, slot.id);
 
   return booking;
 }
@@ -227,35 +240,6 @@ export async function bookSlotByClientToken(clientToken: string, slotId: string)
     isRecurring: false,
     sendConfirmation: true,
   });
-}
-
-export async function notifyLastMinuteOpening(
-  trainerId: string,
-  slotId: string,
-) {
-  const db = getDb();
-  const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
-  if (!slot || slot.status !== "available") return;
-
-  const optInClients = await db
-    .select()
-    .from(clients)
-    .where(
-      and(eq(clients.trainerId, trainerId), eq(clients.lastMinuteOptIn, true)),
-    );
-
-  const { sendWhatsAppLastMinute } = await import("@/lib/whatsapp");
-
-  for (const client of optInClients) {
-    await sendWhatsAppLastMinute({
-      trainerId,
-      clientId: client.id,
-      phone: client.phone,
-      slotId,
-      slotStartAt: slot.startAt,
-      clientName: client.name,
-    });
-  }
 }
 
 export async function getBookingByToken(token: string) {

@@ -8,6 +8,8 @@ import {
   slotTimeLabel,
 } from "@/lib/constants";
 import { createClient, setRecurringPreferences } from "@/lib/services/clients";
+import { setClientLastMinutePreferences } from "@/lib/services/last-minute";
+import { createLocation } from "@/lib/services/locations";
 import {
   createTemplate,
   applyTemplateToWeek,
@@ -35,16 +37,18 @@ export async function seed() {
     createdAt: ts,
   });
 
+  const gym = await createLocation(DEFAULT_TRAINER_ID, "Main gym");
+
   const templateId = await createTemplate(
     "Standard Week",
     [
-      { dayOfWeek: 1, startTime: "09:00" },
-      { dayOfWeek: 1, startTime: "10:00" },
-      { dayOfWeek: 1, startTime: "11:00" },
-      { dayOfWeek: 3, startTime: "09:00" },
-      { dayOfWeek: 3, startTime: "10:00" },
-      { dayOfWeek: 5, startTime: "14:00" },
-      { dayOfWeek: 5, startTime: "15:00" },
+      { dayOfWeek: 1, startTime: "09:00", locationId: gym.id },
+      { dayOfWeek: 1, startTime: "10:00", locationId: gym.id },
+      { dayOfWeek: 1, startTime: "11:00", locationId: gym.id },
+      { dayOfWeek: 3, startTime: "09:00", locationId: gym.id },
+      { dayOfWeek: 3, startTime: "10:00", locationId: gym.id },
+      { dayOfWeek: 5, startTime: "14:00", locationId: gym.id },
+      { dayOfWeek: 5, startTime: "15:00", locationId: gym.id },
     ],
     DEFAULT_TRAINER_ID,
   );
@@ -54,6 +58,7 @@ export async function seed() {
     name: "Jamie Recurring",
     phone: "+447700900001",
     lastMinuteOptIn: false,
+    sessionPrice: 4500,
   });
 
   await setRecurringPreferences(jamieId, DEFAULT_TRAINER_ID, [
@@ -67,12 +72,21 @@ export async function seed() {
     lastMinuteOptIn: true,
   });
 
-  await createClient({
+  await setClientLastMinutePreferences(flexibleClientId, DEFAULT_TRAINER_ID, [
+    { dayOfWeek: 1, startTime: "10:00" },
+    { dayOfWeek: 3, startTime: "14:00" },
+  ]);
+
+  const waitlistId = await createClient({
     trainerId: DEFAULT_TRAINER_ID,
     name: "Taylor Waitlist",
     phone: "+447700900003",
     lastMinuteOptIn: true,
   });
+
+  await setClientLastMinutePreferences(waitlistId, DEFAULT_TRAINER_ID, [
+    { dayOfWeek: 5, startTime: "15:00" },
+  ]);
 
   await applyTemplateToWeek(templateId, defaultWeekStart());
   await applyTemplateToWeek(templateId, shiftWeekStart(defaultWeekStart(), 1));

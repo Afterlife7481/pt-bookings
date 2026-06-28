@@ -1,13 +1,24 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
-import { getRecurringSlotOptions } from "@/lib/services/clients";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
+import { getRecurringSlotAssignments } from "@/lib/services/clients";
+import { getTrainerSettings } from "@/lib/services/settings";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
   const { id } = await params;
-  const options = await getRecurringSlotOptions(DEFAULT_TRAINER_ID, id);
-  return Response.json(options);
+  const [assignments, settings] = await Promise.all([
+    getRecurringSlotAssignments(trainerId, id),
+    getTrainerSettings(trainerId),
+  ]);
+  return Response.json({
+    assignments,
+    scheduleStartTime: settings.scheduleStartTime,
+    scheduleEndTime: settings.scheduleEndTime,
+  });
 }

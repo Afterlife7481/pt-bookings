@@ -4,7 +4,7 @@ import { listClientSessions } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatSlot } from "@/lib/utils";
-import { LastMinuteOptInToggle } from "@/components/LastMinuteOptInToggle";
+import { LastMinutePreferencesForm } from "@/components/LastMinutePreferencesForm";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -98,10 +98,7 @@ export default async function ClientHomePage({
         </div>
       </Card>
 
-      <LastMinuteOptInToggle
-        clientId={client.id}
-        initialOptIn={client.lastMinuteOptIn}
-      />
+      <LastMinutePreferencesForm clientToken={token} />
     </main>
   );
 }

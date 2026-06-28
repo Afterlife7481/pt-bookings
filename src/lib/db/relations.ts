@@ -2,6 +2,8 @@ import { relations } from "drizzle-orm";
 import {
   trainers,
   clients,
+  locations,
+  clientLocations,
   weeklyTemplates,
   templateSlots,
   appliedWeeks,
@@ -9,12 +11,14 @@ import {
   bookings,
   recurringPreferences,
   changeRequests,
+  clientLastMinutePreferences,
   lastMinuteInterests,
   whatsappMessages,
 } from "./schema";
 
 export const trainersRelations = relations(trainers, ({ many }) => ({
   clients: many(clients),
+  locations: many(locations),
   templates: many(weeklyTemplates),
   appliedWeeks: many(appliedWeeks),
   slots: many(slots),
@@ -29,6 +33,27 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   bookings: many(bookings),
   recurringPreferences: many(recurringPreferences),
   lastMinuteInterests: many(lastMinuteInterests),
+  lastMinutePreferences: many(clientLastMinutePreferences),
+  clientLocations: many(clientLocations),
+}));
+
+export const locationsRelations = relations(locations, ({ one, many }) => ({
+  trainer: one(trainers, {
+    fields: [locations.trainerId],
+    references: [trainers.id],
+  }),
+  clientLocations: many(clientLocations),
+}));
+
+export const clientLocationsRelations = relations(clientLocations, ({ one }) => ({
+  client: one(clients, {
+    fields: [clientLocations.clientId],
+    references: [clients.id],
+  }),
+  location: one(locations, {
+    fields: [clientLocations.locationId],
+    references: [locations.id],
+  }),
 }));
 
 export const weeklyTemplatesRelations = relations(
@@ -39,7 +64,6 @@ export const weeklyTemplatesRelations = relations(
       references: [trainers.id],
     }),
     slots: many(templateSlots),
-    appliedWeeks: many(appliedWeeks),
   }),
 );
 
@@ -48,16 +72,16 @@ export const templateSlotsRelations = relations(templateSlots, ({ one }) => ({
     fields: [templateSlots.templateId],
     references: [weeklyTemplates.id],
   }),
+  location: one(locations, {
+    fields: [templateSlots.locationId],
+    references: [locations.id],
+  }),
 }));
 
 export const appliedWeeksRelations = relations(appliedWeeks, ({ one, many }) => ({
   trainer: one(trainers, {
     fields: [appliedWeeks.trainerId],
     references: [trainers.id],
-  }),
-  template: one(weeklyTemplates, {
-    fields: [appliedWeeks.templateId],
-    references: [weeklyTemplates.id],
   }),
   slots: many(slots),
 }));
@@ -66,6 +90,14 @@ export const slotsRelations = relations(slots, ({ one, many }) => ({
   appliedWeek: one(appliedWeeks, {
     fields: [slots.appliedWeekId],
     references: [appliedWeeks.id],
+  }),
+  location: one(locations, {
+    fields: [slots.locationId],
+    references: [locations.id],
+  }),
+  heldForClient: one(clients, {
+    fields: [slots.heldForClientId],
+    references: [clients.id],
   }),
   booking: one(bookings),
   lastMinuteInterests: many(lastMinuteInterests),
@@ -111,6 +143,16 @@ export const changeRequestsRelations = relations(changeRequests, ({ one }) => ({
     relationName: "toSlot",
   }),
 }));
+
+export const clientLastMinutePreferencesRelations = relations(
+  clientLastMinutePreferences,
+  ({ one }) => ({
+    client: one(clients, {
+      fields: [clientLastMinutePreferences.clientId],
+      references: [clients.id],
+    }),
+  }),
+);
 
 export const lastMinuteInterestsRelations = relations(
   lastMinuteInterests,

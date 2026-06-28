@@ -1,5 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
-import { DEFAULT_TRAINER_ID } from "@/lib/constants";
+import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   getTrainerSettings,
   updateTrainerSettings,
@@ -7,25 +7,36 @@ import {
 
 export async function GET() {
   await ensureDb();
-  const settings = await getTrainerSettings(DEFAULT_TRAINER_ID);
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const settings = await getTrainerSettings(trainerId);
   return Response.json(settings);
 }
 
 export async function PATCH(request: Request) {
   await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
   const body = await request.json();
 
   try {
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+    await updateTrainerSettings(trainerId, {
       scheduleStartTime: body.scheduleStartTime,
       scheduleEndTime: body.scheduleEndTime,
+      scheduleDefaultView: body.scheduleDefaultView,
       timezone: body.timezone,
       cancelDeadlineHours:
         body.cancelDeadlineHours !== undefined
           ? Number(body.cancelDeadlineHours)
           : undefined,
+      lastMinuteOfferLockHours:
+        body.lastMinuteOfferLockHours !== undefined
+          ? Number(body.lastMinuteOfferLockHours)
+          : undefined,
     });
-    const settings = await getTrainerSettings(DEFAULT_TRAINER_ID);
+    const settings = await getTrainerSettings(trainerId);
     return Response.json(settings);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to save settings";

@@ -1,183 +1,134 @@
-import { Fragment } from "react";
+import { useMemo } from "react";
+import {
+  DEFAULT_SCHEDULE_END,
+  DEFAULT_SCHEDULE_START,
+  hoursInScheduleRange,
+} from "@/lib/constants";
+import {
+  dayHeaderInitial,
+  hourFromTime,
+  hourToStartTime,
+  parseRecurringSlotKey,
+  recurringSlotKey,
+} from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
+import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
 
-export type RecurringSlotOption = {
+export type RecurringSlotAssignment = {
   dayOfWeek: number;
   startTime: string;
-  available: boolean;
-  heldBy: { clientId: string; clientName: string } | null;
+  clientId: string;
+  clientName: string;
   isCurrentClient: boolean;
 };
 
-/** Monday first */
-const WEEK_DAYS = [
-  { value: 1, label: "Mon" },
-  { value: 2, label: "Tue" },
-  { value: 3, label: "Wed" },
-  { value: 4, label: "Thu" },
-  { value: 5, label: "Fri" },
-  { value: 6, label: "Sat" },
-  { value: 0, label: "Sun" },
-];
+/** @deprecated Import from `@/lib/schedule-grid` as `recurringSlotKey`. */
+export const slotKey = recurringSlotKey;
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const ROW_HEIGHT = "h-11";
+/** @deprecated Import from `@/lib/schedule-grid` as `parseRecurringSlotKey`. */
+export const parseSlotKey = parseRecurringSlotKey;
 
-export function slotKey(dayOfWeek: number, startTime: string) {
-  return `${dayOfWeek}-${startTime}`;
-}
-
-export function parseSlotKey(key: string): { dayOfWeek: number; startTime: string } {
-  const dash = key.indexOf("-");
-  return {
-    dayOfWeek: Number(key.slice(0, dash)),
-    startTime: key.slice(dash + 1),
-  };
-}
-
-function hourFromTime(startTime: string): number {
-  return parseInt(startTime.split(":")[0] ?? "0", 10);
-}
-
-function formatHour(hour: number): string {
-  return `${String(hour).padStart(2, "0")}:00`;
-}
-
-function buildSlotGrid(options: RecurringSlotOption[]) {
-  const map = new Map<string, RecurringSlotOption>();
-  for (const option of options) {
-    map.set(`${option.dayOfWeek}-${hourFromTime(option.startTime)}`, option);
+function buildAssignmentMap(assignments: RecurringSlotAssignment[]) {
+  const map = new Map<string, RecurringSlotAssignment>();
+  for (const assignment of assignments) {
+    map.set(`${assignment.dayOfWeek}-${hourFromTime(assignment.startTime)}`, assignment);
   }
   return map;
 }
 
 function SlotCell({
-  option,
+  dayOfWeek,
+  startTime,
+  assignment,
   selected,
   onToggle,
 }: {
-  option: RecurringSlotOption;
+  dayOfWeek: number;
+  startTime: string;
+  assignment: RecurringSlotAssignment | null;
   selected: boolean;
-  onToggle: (key: string) => void;
+  onToggle: (dayOfWeek: number, startTime: string) => void;
 }) {
-  const key = slotKey(option.dayOfWeek, option.startTime);
-  const disabled = !option.available;
+  const bookedByOther = assignment && !assignment.isCurrentClient;
 
   return (
     <button
       type="button"
-      disabled={disabled}
-      onClick={() => onToggle(key)}
+      disabled={!!bookedByOther}
+      onClick={() => onToggle(dayOfWeek, startTime)}
       title={
-        option.heldBy && !option.isCurrentClient
-          ? `Booked by ${option.heldBy.clientName}`
-          : option.startTime
+        bookedByOther
+          ? `Booked by ${assignment!.clientName}`
+          : startTime
       }
       className={cn(
-        `${ROW_HEIGHT} w-full rounded border px-1 py-0.5 text-left transition`,
-        disabled && "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60",
-        !disabled &&
+        "h-10 w-full rounded border px-0.5 py-0.5 text-center transition",
+        bookedByOther &&
+          "cursor-not-allowed border-amber-200 bg-amber-50 opacity-90",
+        !bookedByOther &&
           selected &&
           "border-slate-900 bg-slate-900 text-white ring-1 ring-slate-900",
-        !disabled &&
+        !bookedByOther &&
           !selected &&
-          option.isCurrentClient &&
+          assignment?.isCurrentClient &&
           "border-green-300 bg-green-50",
-        !disabled &&
+        !bookedByOther &&
           !selected &&
-          !option.isCurrentClient &&
+          !assignment &&
           "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50",
       )}
     >
-      <span className="block truncate text-[10px] font-medium leading-tight">
-        {selected ? (
-          <span className="text-white">Selected</span>
-        ) : option.isCurrentClient ? (
+      <span className="block truncate text-[9px] font-medium leading-tight">
+        {bookedByOther ? (
+          <span className="text-amber-800">{assignment!.clientName}</span>
+        ) : selected ? (
+          <span className="text-white">✓</span>
+        ) : assignment?.isCurrentClient ? (
           <span className="text-green-700">Saved</span>
-        ) : option.heldBy ? (
-          <span className="text-amber-700">{option.heldBy.clientName.split(" ")[0]}</span>
-        ) : (
-          <span className="text-green-600">Open</span>
-        )}
+        ) : null}
       </span>
     </button>
   );
 }
 
 export function RecurringWeekCalendar({
-  options,
+  assignments,
   selectedSlotKeys,
   onToggle,
+  scheduleStartTime = DEFAULT_SCHEDULE_START,
+  scheduleEndTime = DEFAULT_SCHEDULE_END,
 }: {
-  options: RecurringSlotOption[];
+  assignments: RecurringSlotAssignment[];
   selectedSlotKeys: Set<string>;
-  onToggle: (key: string) => void;
+  onToggle: (dayOfWeek: number, startTime: string) => void;
+  scheduleStartTime?: string;
+  scheduleEndTime?: string;
 }) {
-  const slotGrid = buildSlotGrid(options);
+  const assignmentMap = useMemo(() => buildAssignmentMap(assignments), [assignments]);
+  const hours = useMemo(
+    () => hoursInScheduleRange(scheduleStartTime, scheduleEndTime),
+    [scheduleStartTime, scheduleEndTime],
+  );
 
   return (
-    <div className="mt-4 max-h-[36rem] overflow-auto rounded-lg border border-slate-200">
-      <div
-        className="grid min-w-[720px]"
-        style={{
-          gridTemplateColumns: "3.25rem repeat(7, minmax(4.5rem, 1fr))",
-          gridTemplateRows: `auto repeat(${HOURS.length}, 2.75rem)`,
-        }}
-      >
-        <div className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50" />
-        {WEEK_DAYS.map((day) => (
-          <div
-            key={`head-${day.value}`}
-            className="border-b border-slate-200 bg-slate-50 px-1 py-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500"
-          >
-            {day.label}
-          </div>
-        ))}
-
-        {HOURS.map((hour) => (
-          <Fragment key={hour}>
-            <div
-              className={cn(
-                ROW_HEIGHT,
-                "sticky left-0 z-10 flex items-center border-r border-slate-200 bg-slate-50 pr-2 text-right text-[10px] tabular-nums text-slate-400",
-                hour > 0 && "border-t border-slate-100",
-              )}
-            >
-              {formatHour(hour)}
-            </div>
-            {WEEK_DAYS.map((day) => {
-              const option = slotGrid.get(`${day.value}-${hour}`);
-              return (
-                <div
-                  key={`${day.value}-${hour}`}
-                  className={cn(
-                    ROW_HEIGHT,
-                    "border-slate-100 p-0.5",
-                    hour > 0 && "border-t",
-                  )}
-                >
-                  {option ? (
-                    <SlotCell
-                      option={option}
-                      selected={selectedSlotKeys.has(
-                        slotKey(option.dayOfWeek, option.startTime),
-                      )}
-                      onToggle={onToggle}
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        ROW_HEIGHT,
-                        "rounded border border-transparent bg-slate-50/40",
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </Fragment>
-        ))}
-      </div>
-    </div>
+    <WeeklyHourGrid
+      className="mt-4"
+      hours={hours}
+      variant="compact"
+      getDayHeader={dayHeaderInitial}
+      renderCell={(dayOfWeek, hour) => {
+        const startTime = hourToStartTime(hour);
+        const assignment = assignmentMap.get(`${dayOfWeek}-${hour}`) ?? null;
+        return (
+          <SlotCell
+            dayOfWeek={dayOfWeek}
+            startTime={startTime}
+            assignment={assignment}
+            selected={selectedSlotKeys.has(recurringSlotKey(dayOfWeek, startTime))}
+            onToggle={onToggle}
+          />
+        );
+      }}
+    />
   );
 }
