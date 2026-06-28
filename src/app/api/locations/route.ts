@@ -22,7 +22,10 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   try {
-    const location = await createLocation(trainerId, body.name ?? "");
+    const location = await createLocation(trainerId, {
+      name: body.name ?? "",
+      address: body.address,
+    });
     return Response.json(location, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create location";

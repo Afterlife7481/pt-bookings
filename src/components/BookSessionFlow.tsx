@@ -6,7 +6,12 @@ import { useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
-type Slot = { id: string; startAt: string };
+type Slot = {
+  id: string;
+  startAt: string;
+  locationName: string | null;
+  locationAddress: string | null;
+};
 
 export function BookSessionFlow({
   clientToken,
@@ -50,7 +55,9 @@ export function BookSessionFlow({
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <div className="mt-4 space-y-4">
         {slots.length === 0 ? (
-          <p className="text-sm text-slate-500">No open slots available right now.</p>
+          <p className="text-sm text-slate-500">
+            No open slots at your locations right now.
+          </p>
         ) : (
           groupSlotsByDay(slots).map((group) => (
             <div key={group.dateKey}>
@@ -72,9 +79,17 @@ export function BookSessionFlow({
                       checked={selectedSlot === slot.id}
                       onChange={() => setSelectedSlot(slot.id)}
                     />
-                    <span className="text-sm tabular-nums">
-                      {formatTimeOnly(slot.startAt)}
-                    </span>
+                    <div>
+                      <span className="text-sm font-medium tabular-nums">
+                        {formatTimeOnly(slot.startAt)}
+                      </span>
+                      {slot.locationName && (
+                        <p className="text-sm text-slate-600">{slot.locationName}</p>
+                      )}
+                      {slot.locationAddress && (
+                        <p className="text-xs text-slate-500">{slot.locationAddress}</p>
+                      )}
+                    </div>
                   </label>
                 ))}
               </div>

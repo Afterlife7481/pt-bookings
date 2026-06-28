@@ -1,3 +1,46 @@
+export type LinkifiedSegment =
+  | { type: "text"; value: string }
+  | { type: "link"; href: string; value: string };
+
+const URL_REGEX = /https?:\/\/[^\s]+/g;
+
+function trimUrlTrailingPunctuation(url: string): { href: string; trailing: string } {
+  let href = url;
+  let trailing = "";
+  while (/[.,;:!?)]+$/.test(href)) {
+    trailing = href.slice(-1) + trailing;
+    href = href.slice(0, -1);
+  }
+  return { href, trailing };
+}
+
+/** Split plain text into text and http(s) link segments for display. */
+export function splitTextWithLinks(text: string): LinkifiedSegment[] {
+  const segments: LinkifiedSegment[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(URL_REGEX)) {
+    const raw = match[0];
+    const index = match.index ?? 0;
+    const { href, trailing } = trimUrlTrailingPunctuation(raw);
+
+    if (index > lastIndex) {
+      segments.push({ type: "text", value: text.slice(lastIndex, index) });
+    }
+    segments.push({ type: "link", href, value: href });
+    if (trailing) {
+      segments.push({ type: "text", value: trailing });
+    }
+    lastIndex = index + raw.length;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ type: "text", value: text.slice(lastIndex) });
+  }
+
+  return segments.length > 0 ? segments : [{ type: "text", value: text }];
+}
+
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -18,6 +61,27 @@ export function formatDayLabel(dateKey: string): string {
     day: "numeric",
     month: "long",
   });
+}
+
+/** Format an ISO timestamp for display in a trainer time zone (en-GB). */
+export function formatDateTimeInTimezone(iso: string, timezone: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  const tz = timezone || "Europe/London";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: tz,
+    }).format(date);
+  } catch {
+    return formatDateTime(iso);
+  }
 }
 
 /** Format an ISO timestamp for display (en-GB date + time). */

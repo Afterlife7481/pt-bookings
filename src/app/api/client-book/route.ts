@@ -16,10 +16,13 @@ export async function GET(request: Request) {
     return Response.json({ error: "Client not found" }, { status: 404 });
   }
 
-  const slots = await getAvailableSlotsForChange(client.trainerId);
-  return Response.json({
-    slots: slots.map((s) => ({ id: s.id, startAt: s.startAt })),
-  });
+  const slots = await getAvailableSlotsForChange(
+    client.trainerId,
+    undefined,
+    undefined,
+    client.id,
+  );
+  return Response.json({ slots });
 }
 
 export async function POST(request: Request) {

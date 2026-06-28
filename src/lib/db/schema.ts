@@ -72,6 +72,7 @@ export const locations = sqliteTable("locations", {
     .notNull()
     .references(() => trainers.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  address: text("address"),
   createdAt: text("created_at").notNull(),
 });
 

@@ -66,7 +66,7 @@ export function SessionActions({
           </Link>
         )}
         <Button
-          variant="secondary"
+          variant="danger"
           disabled={blockedByDeadline || loading}
           onClick={cancelSession}
         >

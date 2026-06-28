@@ -7,6 +7,34 @@ export const CHANGE_TIMEOUT_MINUTES = 30;
 
 export const DEFAULT_TRAINER_ID = "trainer_default";
 export const SESSION_COOKIE = "pt_session";
+export const DEFAULT_TIMEZONE = "Europe/London";
+
+export const TRAINER_TIMEZONE_OPTIONS = [
+  { value: "Europe/London", label: "United Kingdom (London)" },
+  { value: "Europe/Dublin", label: "Ireland (Dublin)" },
+  { value: "Europe/Paris", label: "Central Europe (Paris)" },
+  { value: "Europe/Berlin", label: "Central Europe (Berlin)" },
+  { value: "Europe/Madrid", label: "Spain (Madrid)" },
+  { value: "America/New_York", label: "US Eastern (New York)" },
+  { value: "America/Chicago", label: "US Central (Chicago)" },
+  { value: "America/Denver", label: "US Mountain (Denver)" },
+  { value: "America/Los_Angeles", label: "US Pacific (Los Angeles)" },
+  { value: "America/Toronto", label: "Canada Eastern (Toronto)" },
+  { value: "Australia/Sydney", label: "Australia (Sydney)" },
+  { value: "Australia/Melbourne", label: "Australia (Melbourne)" },
+  { value: "Pacific/Auckland", label: "New Zealand (Auckland)" },
+  { value: "Asia/Dubai", label: "UAE (Dubai)" },
+  { value: "Asia/Singapore", label: "Singapore" },
+] as const;
+
+export function isValidIanaTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function nowIso(): string {
   return new Date().toISOString();

@@ -105,7 +105,7 @@ export function OpenSlotLastMinuteSection({
       </p>
 
       {heldClientName && holdExpiresAt && (
-        <p className="mt-2 text-sm text-blue-700">
+        <p className="mt-2 text-sm text-purple-700">
           Held for {heldClientName} until {formatHoldExpiry(holdExpiresAt)}
         </p>
       )}

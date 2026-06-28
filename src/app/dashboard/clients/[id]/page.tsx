@@ -73,6 +73,8 @@ export default function ClientDetailPage() {
   const [enabledLocationIds, setEnabledLocationIds] = useState<Set<string>>(new Set());
   const [savingLocations, setSavingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
+  const [bookingActionError, setBookingActionError] = useState<string | null>(null);
 
   const mounted = useMounted();
 
@@ -148,6 +150,41 @@ export default function ClientDetailPage() {
 
     setClient(data);
     setDetailsSaved(true);
+  }
+
+  async function sendSessionWhatsApp(bookingId: string) {
+    setBusyBookingId(bookingId);
+    setBookingActionError(null);
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send_confirmation", bookingId }),
+    });
+    const data = await res.json();
+    setBusyBookingId(null);
+    if (!res.ok) {
+      setBookingActionError(data.error ?? "Failed to send WhatsApp");
+      return;
+    }
+    await loadClient();
+  }
+
+  async function cancelSession(bookingId: string) {
+    if (!window.confirm("Cancel this session?")) return;
+    setBusyBookingId(bookingId);
+    setBookingActionError(null);
+    const res = await fetch("/api/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel", bookingId }),
+    });
+    const data = await res.json();
+    setBusyBookingId(null);
+    if (!res.ok) {
+      setBookingActionError(data.error ?? "Failed to cancel session");
+      return;
+    }
+    await loadClient();
   }
 
   function toggleSlot(dayOfWeek: number, startTime: string) {
@@ -438,6 +475,9 @@ export default function ClientDetailPage() {
 
       <Card>
         <h2 className="font-semibold">Upcoming sessions</h2>
+        {bookingActionError && (
+          <p className="mt-2 text-sm text-red-600">{bookingActionError}</p>
+        )}
         {upcoming.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No upcoming sessions.</p>
         ) : (
@@ -452,14 +492,24 @@ export default function ClientDetailPage() {
                     {b.override36h && <Badge tone="warning">36h override</Badge>}
                   </div>
                 </div>
-                <a
-                  className="text-sm text-blue-600 underline"
-                  href={`/s/${b.token}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Session link
-                </a>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    className="px-3 py-1.5 text-xs"
+                    disabled={busyBookingId === b.id}
+                    onClick={() => sendSessionWhatsApp(b.id)}
+                  >
+                    {busyBookingId === b.id ? "Sending…" : "Send WhatsApp"}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="px-3 py-1.5 text-xs"
+                    disabled={busyBookingId === b.id}
+                    onClick={() => cancelSession(b.id)}
+                  >
+                    Cancel session
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

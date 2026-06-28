@@ -1,118 +1,105 @@
+import fs from "fs";
+import path from "path";
 import { eq } from "drizzle-orm";
-import { getDb } from "./index";
-import { trainers, slots } from "./schema";
-import {
-  DEFAULT_TRAINER_ID,
-  nowIso,
-  slotDayOfWeek,
-  slotTimeLabel,
-} from "@/lib/constants";
-import { createClient, setRecurringPreferences } from "@/lib/services/clients";
-import { setClientLastMinutePreferences } from "@/lib/services/last-minute";
-import { createLocation } from "@/lib/services/locations";
-import {
-  createTemplate,
-  applyTemplateToWeek,
-} from "@/lib/services/templates";
-import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
-import { createBookingForSlot } from "@/lib/services/bookings";
+import { getDb, DB_PATH } from "./index";
+import { trainers, clients } from "./schema";
+import { DEFAULT_TRAINER_ID, nowIso } from "@/lib/constants";
+import { createClient } from "@/lib/services/clients";
+import { runMigrations } from "./migrate";
 
-export async function seed() {
-  const db = getDb();
+const DATA_DIR = path.dirname(DB_PATH);
 
-  const existing = await db.query.trainers.findFirst({
-    where: eq(trainers.id, DEFAULT_TRAINER_ID),
-  });
+const SEED_CLIENTS = [
+  { name: "Casey Morgan", phone: "+447700901101", lastMinuteOptIn: true },
+  { name: "Jordan Lee", phone: "+447700901102", lastMinuteOptIn: false },
+  { name: "Riley Chen", phone: "+447700901103", lastMinuteOptIn: true },
+  { name: "Avery Brooks", phone: "+447700901104", lastMinuteOptIn: false },
+  { name: "Quinn Patel", phone: "+447700901105", lastMinuteOptIn: true },
+  { name: "Morgan Blake", phone: "+447700901106", lastMinuteOptIn: false },
+  { name: "Skyler Watts", phone: "+447700901107", lastMinuteOptIn: true },
+  { name: "Drew Henderson", phone: "+447700901108", lastMinuteOptIn: false },
+  { name: "Finley Ross", phone: "+447700901109", lastMinuteOptIn: true },
+  { name: "Harper Singh", phone: "+447700901110", lastMinuteOptIn: false },
+];
 
-  if (existing) {
+export function wipeDatabase() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
     return;
   }
 
+  for (const name of fs.readdirSync(DATA_DIR)) {
+    if (name.startsWith("pt-bookings.db")) {
+      fs.unlinkSync(path.join(DATA_DIR, name));
+    }
+  }
+}
+
+export async function seedFresh() {
+  const db = getDb();
   const ts = nowIso();
+
   await db.insert(trainers).values({
     id: DEFAULT_TRAINER_ID,
-    name: "Alex Trainer",
+    name: "Alex",
     email: "alex@example.com",
     timezone: "Europe/London",
     createdAt: ts,
   });
 
-  const gym = await createLocation(DEFAULT_TRAINER_ID, "Main gym");
+  const createdClients: {
+    name: string;
+    phone: string;
+    token: string;
+    lastMinuteOptIn: boolean;
+  }[] = [];
 
-  const templateId = await createTemplate(
-    "Standard Week",
-    [
-      { dayOfWeek: 1, startTime: "09:00", locationId: gym.id },
-      { dayOfWeek: 1, startTime: "10:00", locationId: gym.id },
-      { dayOfWeek: 1, startTime: "11:00", locationId: gym.id },
-      { dayOfWeek: 3, startTime: "09:00", locationId: gym.id },
-      { dayOfWeek: 3, startTime: "10:00", locationId: gym.id },
-      { dayOfWeek: 5, startTime: "14:00", locationId: gym.id },
-      { dayOfWeek: 5, startTime: "15:00", locationId: gym.id },
-    ],
-    DEFAULT_TRAINER_ID,
-  );
-
-  const jamieId = await createClient({
-    trainerId: DEFAULT_TRAINER_ID,
-    name: "Jamie Recurring",
-    phone: "+447700900001",
-    lastMinuteOptIn: false,
-    sessionPrice: 4500,
-  });
-
-  await setRecurringPreferences(jamieId, DEFAULT_TRAINER_ID, [
-    { dayOfWeek: 1, startTime: "09:00" },
-  ]);
-
-  const flexibleClientId = await createClient({
-    trainerId: DEFAULT_TRAINER_ID,
-    name: "Sam Flexible",
-    phone: "+447700900002",
-    lastMinuteOptIn: true,
-  });
-
-  await setClientLastMinutePreferences(flexibleClientId, DEFAULT_TRAINER_ID, [
-    { dayOfWeek: 1, startTime: "10:00" },
-    { dayOfWeek: 3, startTime: "14:00" },
-  ]);
-
-  const waitlistId = await createClient({
-    trainerId: DEFAULT_TRAINER_ID,
-    name: "Taylor Waitlist",
-    phone: "+447700900003",
-    lastMinuteOptIn: true,
-  });
-
-  await setClientLastMinutePreferences(waitlistId, DEFAULT_TRAINER_ID, [
-    { dayOfWeek: 5, startTime: "15:00" },
-  ]);
-
-  await applyTemplateToWeek(templateId, defaultWeekStart());
-  await applyTemplateToWeek(templateId, shiftWeekStart(defaultWeekStart(), 1));
-
-  const allSlots = await db.select().from(slots);
-  const samSlot = allSlots.find((s) => {
-    return (
-      slotDayOfWeek(s.startAt) === 1 &&
-      slotTimeLabel(s.startAt) === "10:00" &&
-      s.status === "available"
-    );
-  });
-
-  if (samSlot) {
-    await createBookingForSlot({
-      slotId: samSlot.id,
-      clientId: flexibleClientId,
+  for (const client of SEED_CLIENTS) {
+    const id = await createClient({
       trainerId: DEFAULT_TRAINER_ID,
-      sendConfirmation: true,
+      name: client.name,
+      phone: client.phone,
+      lastMinuteOptIn: client.lastMinuteOptIn,
     });
+    const row = await db.query.clients.findFirst({ where: eq(clients.id, id) });
+    if (row) {
+      createdClients.push({
+        name: row.name,
+        phone: row.phone,
+        token: row.token,
+        lastMinuteOptIn: row.lastMinuteOptIn,
+      });
+    }
+  }
+
+  return { trainerEmail: "alex@example.com", clients: createdClients };
+}
+
+/** @deprecated Use seedFresh after wipeDatabase for a clean slate. */
+export async function seed() {
+  return seedFresh();
+}
+
+async function resetAndSeed() {
+  wipeDatabase();
+  runMigrations();
+  const result = await seedFresh();
+
+  console.log("Database reset complete.\n");
+  console.log(`Trainer: Alex (${result.trainerEmail})`);
+  console.log("Log in with a magic link sent to that address.\n");
+  console.log(`Created ${result.clients.length} clients:\n`);
+  for (const client of result.clients) {
+    console.log(
+      `- ${client.name} | ${client.phone} | last-minute: ${client.lastMinuteOptIn ? "yes" : "no"}`,
+    );
+    console.log(`  http://localhost:3000/c/${client.token}`);
   }
 }
 
 if (require.main === module) {
-  import("./migrate").then(({ runMigrations }) => {
-    runMigrations();
-    return seed();
-  }).then(() => console.log("Seed complete.")).catch(console.error);
+  resetAndSeed().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 }

@@ -84,6 +84,7 @@ export default async function SessionPage({
       {(change === "1" || booking.status === "pending_change") && !isCanceled && (
         <ChangeSessionFlow
           bookingToken={token}
+          clientHomeToken={client.token}
           currentSlotLabel={formatSlot(sessionStartAt)}
         />
       )}

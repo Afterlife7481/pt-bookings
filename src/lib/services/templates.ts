@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, gte, lt, lte, ne, asc } from "drizzle-orm";
+import { eq, and, gte, lt, lte, ne, asc, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   appliedWeeks,
@@ -26,7 +26,7 @@ import {
 } from "@/lib/constants";
 import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
-import { assertTrainerLocation } from "./locations";
+import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
 
 export type ApplyTemplateResult = {
   appliedWeekId: string;
@@ -313,18 +313,38 @@ export async function updateTemplate(
   await insertTemplateSlots(trainerId, templateId, data.slots);
 }
 
+export type AvailableSlotOption = {
+  id: string;
+  startAt: string;
+  locationName: string | null;
+  locationAddress: string | null;
+};
+
 export async function getAvailableSlotsForChange(
   trainerId: string,
   excludeSlotId?: string,
   originalSlotStartAt?: string,
-) {
+  clientId?: string,
+): Promise<AvailableSlotOption[]> {
   const db = getDb();
   const now = nowIso();
   const max = toLocalDateTimeString(addDays(new Date(), BOOKING_WINDOW_DAYS));
 
+  let allowedLocationIds: string[] | null = null;
+  if (clientId) {
+    allowedLocationIds = await getEnabledClientLocationIds(clientId);
+    if (allowedLocationIds.length === 0) {
+      return [];
+    }
+  }
+
   const available = await db
-    .select()
+    .select({
+      slot: slots,
+      location: locations,
+    })
     .from(slots)
+    .leftJoin(locations, eq(slots.locationId, locations.id))
     .where(
       and(
         eq(slots.trainerId, trainerId),
@@ -332,14 +352,24 @@ export async function getAvailableSlotsForChange(
         gte(slots.startAt, now),
         lte(slots.startAt, max),
         excludeSlotId ? ne(slots.id, excludeSlotId) : undefined,
+        allowedLocationIds
+          ? inArray(slots.locationId, allowedLocationIds)
+          : undefined,
       ),
     )
     .orderBy(asc(slots.startAt));
 
-  if (!originalSlotStartAt) return available;
+  const mapped: AvailableSlotOption[] = available.map(({ slot, location }) => ({
+    id: slot.id,
+    startAt: slot.startAt,
+    locationName: location?.name ?? null,
+    locationAddress: location?.address ?? null,
+  }));
+
+  if (!originalSlotStartAt) return mapped;
 
   const originalDay = slotDayOfWeek(originalSlotStartAt);
-  return [...available].sort((a, b) => {
+  return [...mapped].sort((a, b) => {
     const aSame = slotDayOfWeek(a.startAt) === originalDay ? 0 : 1;
     const bSame = slotDayOfWeek(b.startAt) === originalDay ? 0 : 1;
     if (aSame !== bSame) return aSame - bSame;

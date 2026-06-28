@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
+import { getTrainerIdFromRequest } from "@/lib/auth/api";
 
 export const metadata: Metadata = {
   title: "How it works · PT Bookings",
@@ -27,7 +28,9 @@ function Section({
   );
 }
 
-export default function InfoPage() {
+export default async function InfoPage() {
+  const loggedIn = !!(await getTrainerIdFromRequest());
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -35,11 +38,19 @@ export default function InfoPage() {
           <Link href="/" className="text-lg font-bold text-slate-900 hover:text-slate-700">
             PT Bookings
           </Link>
-          <Link href="/login">
-            <Button variant="secondary" className="text-xs sm:text-sm">
-              Trainer sign in
-            </Button>
-          </Link>
+          {loggedIn ? (
+            <Link href="/dashboard">
+              <Button variant="secondary" className="text-xs sm:text-sm">
+                Back to dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button variant="secondary" className="text-xs sm:text-sm">
+                Trainer sign in
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -394,12 +405,25 @@ export default function InfoPage() {
         </Card>
 
         <div className="flex flex-wrap gap-3">
-          <Link href="/">
-            <Button variant="secondary">← Home</Button>
-          </Link>
-          <Link href="/login">
-            <Button>Trainer sign in</Button>
-          </Link>
+          {loggedIn ? (
+            <>
+              <Link href="/dashboard">
+                <Button>Back to dashboard</Button>
+              </Link>
+              <Link href="/">
+                <Button variant="secondary">Home</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/">
+                <Button variant="secondary">← Home</Button>
+              </Link>
+              <Link href="/login">
+                <Button>Trainer sign in</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </main>

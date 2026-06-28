@@ -123,6 +123,34 @@ export function TemplateWeekCalendar({
   );
   const [pending, setPending] = useState<PendingCell | null>(null);
 
+  if (hours.length === 0) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+        No hours to show. In Settings, set a schedule end time that is after the
+        start time (for example 07:00 to 19:00).
+      </div>
+    );
+  }
+
+  if (!readOnly && locations.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+          Add at least one training location under Settings to enable the +
+          buttons on this calendar.
+        </div>
+        <WeeklyHourGrid
+          hours={hours}
+          variant="compact"
+          getDayHeader={dayHeaderShort}
+          renderCell={() => (
+            <div className="h-10 rounded border border-transparent bg-slate-50/40" />
+          )}
+        />
+      </div>
+    );
+  }
+
   function upsertSlot(dayOfWeek: number, startTime: string, locationId: string) {
     if (!onSlotsChange || disabled) return;
     const locationName =
@@ -185,14 +213,9 @@ export function TemplateWeekCalendar({
                   !canInteract && "cursor-default",
                 )}
               >
-                <span className="truncate text-[9px] font-medium leading-tight text-green-700">
-                  {readOnly ? slot.locationName : "Open"}
+                <span className="truncate px-0.5 text-[9px] font-medium leading-tight text-green-700">
+                  {slot.locationName}
                 </span>
-                {!readOnly && (
-                  <span className="w-full truncate text-[8px] leading-tight text-green-600">
-                    {slot.locationName}
-                  </span>
-                )}
               </button>
             );
           }

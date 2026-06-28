@@ -14,7 +14,10 @@ export async function PATCH(
   const body = await request.json();
 
   try {
-    const location = await updateLocation(trainerId, id, body.name ?? "");
+    const location = await updateLocation(trainerId, id, {
+      ...(body.name !== undefined && { name: body.name }),
+      ...(body.address !== undefined && { address: body.address }),
+    });
     return Response.json(location);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to update location";

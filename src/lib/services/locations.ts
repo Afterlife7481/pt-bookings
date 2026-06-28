@@ -19,41 +19,62 @@ export async function listLocations(trainerId: string) {
     .orderBy(asc(locations.name));
 }
 
-export async function createLocation(trainerId: string, name: string) {
-  const trimmed = name.trim();
+function normalizeAddress(address: string | null | undefined): string | null {
+  if (address == null) return null;
+  const trimmed = address.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function createLocation(
+  trainerId: string,
+  params: { name: string; address?: string | null },
+) {
+  const trimmed = params.name.trim();
   if (!trimmed) throw new Error("Location name is required");
 
   const db = getDb();
   const id = nanoid();
   const createdAt = nowIso();
+  const address = normalizeAddress(params.address);
 
   await db.insert(locations).values({
     id,
     trainerId,
     name: trimmed,
+    address,
     createdAt,
   });
 
-  return { id, trainerId, name: trimmed, createdAt };
+  return { id, trainerId, name: trimmed, address, createdAt };
 }
 
 export async function updateLocation(
   trainerId: string,
   locationId: string,
-  name: string,
+  params: { name?: string; address?: string | null },
 ) {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Location name is required");
-
   const db = getDb();
   const location = await assertTrainerLocation(trainerId, locationId);
 
-  await db
-    .update(locations)
-    .set({ name: trimmed })
-    .where(eq(locations.id, locationId));
+  const patch: { name?: string; address?: string | null } = {};
 
-  return { ...location, name: trimmed };
+  if (params.name !== undefined) {
+    const trimmed = params.name.trim();
+    if (!trimmed) throw new Error("Location name is required");
+    patch.name = trimmed;
+  }
+
+  if (params.address !== undefined) {
+    patch.address = normalizeAddress(params.address);
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return location;
+  }
+
+  await db.update(locations).set(patch).where(eq(locations.id, locationId));
+
+  return { ...location, ...patch };
 }
 
 export async function assertTrainerLocation(
@@ -82,6 +103,32 @@ export async function deleteLocation(trainerId: string, locationId: string) {
   if (!location) throw new Error("Location not found");
 
   await db.delete(locations).where(eq(locations.id, locationId));
+}
+
+export async function getEnabledClientLocationIds(
+  clientId: string,
+): Promise<string[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ locationId: clientLocations.locationId })
+    .from(clientLocations)
+    .where(eq(clientLocations.clientId, clientId));
+  return rows.map((r) => r.locationId);
+}
+
+export async function assertClientCanUseSlotLocation(
+  clientId: string,
+  slotLocationId: string | null,
+) {
+  const enabled = await getEnabledClientLocationIds(clientId);
+  if (enabled.length === 0) {
+    throw new Error(
+      "No training locations are set up for your account. Please contact your trainer.",
+    );
+  }
+  if (!slotLocationId || !enabled.includes(slotLocationId)) {
+    throw new Error("This slot is not available at your locations.");
+  }
 }
 
 export async function getClientLocationOptions(

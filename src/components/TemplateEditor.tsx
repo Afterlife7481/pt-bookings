@@ -133,6 +133,12 @@ export function TemplateEditorForm({
           Click <span className="font-medium text-slate-700">+</span> to add a slot,
           or click an open slot to change its location or remove it.
         </p>
+        {locations.length === 0 && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Add at least one location under Settings before you can add template
+            slots. The calendar will stay blank until then.
+          </p>
+        )}
         <TemplateWeekCalendar
           slots={draftSlots}
           locations={locations}

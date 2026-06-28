@@ -1,11 +1,12 @@
 import { nanoid } from "nanoid";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, clients, slots } from "@/lib/db/schema";
+import { bookings, clients, slots, changeRequests } from "@/lib/db/schema";
 import { isWithinBookingDeadline, nowIso, parseLocalDateTime } from "@/lib/constants";
 import { sendWhatsAppConfirmation } from "@/lib/whatsapp";
 import { getTrainerSettings } from "./settings";
 import { getClientByToken } from "./clients";
+import { assertClientCanUseSlotLocation } from "./locations";
 
 export async function createBookingForSlot(params: {
   slotId: string;
@@ -145,7 +146,37 @@ export async function cancelBookingByToken(bookingToken: string) {
   }
 
   if (booking.status === "pending_change") {
-    throw new Error("Finish or cancel your session change before canceling.");
+    const activeChange = await db.query.changeRequests.findFirst({
+      where: and(
+        eq(changeRequests.bookingId, booking.id),
+        eq(changeRequests.status, "browsing"),
+      ),
+    });
+    if (activeChange) {
+      const ts = nowIso();
+      await db
+        .update(changeRequests)
+        .set({ status: "expired", updatedAt: ts })
+        .where(eq(changeRequests.id, activeChange.id));
+      await db
+        .update(bookings)
+        .set({ status: "confirmed", updatedAt: ts })
+        .where(eq(bookings.id, booking.id));
+      await db
+        .update(slots)
+        .set({ status: "booked" })
+        .where(eq(slots.id, activeChange.fromSlotId));
+    } else if (booking.slotId) {
+      const ts = nowIso();
+      await db
+        .update(bookings)
+        .set({ status: "confirmed", updatedAt: ts })
+        .where(eq(bookings.id, booking.id));
+      await db
+        .update(slots)
+        .set({ status: "booked" })
+        .where(eq(slots.id, booking.slotId));
+    }
   }
   if (!booking.slotId) throw new Error("Booking not found");
 
@@ -232,6 +263,12 @@ export async function listClientSessions(clientId: string): Promise<{
 export async function bookSlotByClientToken(clientToken: string, slotId: string) {
   const client = await getClientByToken(clientToken);
   if (!client) throw new Error("Client not found");
+
+  const db = getDb();
+  const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  if (!slot) throw new Error("Slot not found");
+
+  await assertClientCanUseSlotLocation(client.id, slot.locationId);
 
   return createBookingForSlot({
     slotId,

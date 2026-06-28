@@ -6,6 +6,7 @@ import {
   DEFAULT_SCHEDULE_START,
   DEFAULT_CANCEL_DEADLINE_HOURS,
   DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS,
+  isValidIanaTimezone,
   parseTimeToHour,
 } from "@/lib/constants";
 
@@ -80,6 +81,14 @@ export async function updateTrainerSettings(
     if (!Number.isInteger(hours) || hours < 1 || hours > 72) {
       throw new Error("Last-minute offer lock must be between 1 and 72 hours");
     }
+  }
+
+  if (updates.timezone !== undefined) {
+    const timezone = updates.timezone.trim();
+    if (!timezone || !isValidIanaTimezone(timezone)) {
+      throw new Error("Invalid time zone");
+    }
+    updates.timezone = timezone;
   }
 
   if (updates.scheduleStartTime !== undefined || updates.scheduleEndTime !== undefined) {

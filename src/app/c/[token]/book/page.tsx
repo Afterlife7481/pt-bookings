@@ -17,7 +17,7 @@ export default async function ClientBookPage({
   const client = await getClientByToken(token);
   if (!client) notFound();
 
-  const slots = await getAvailableSlotsForChange(client.trainerId);
+  const slots = await getAvailableSlotsForChange(client.trainerId, undefined, undefined, client.id);
 
   return (
     <main className="mx-auto max-w-lg space-y-4 p-6">
@@ -30,7 +30,7 @@ export default async function ClientBookPage({
 
       <BookSessionFlow
         clientToken={token}
-        slots={slots.map((s) => ({ id: s.id, startAt: s.startAt }))}
+        slots={slots}
       />
     </main>
   );

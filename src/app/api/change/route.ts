@@ -1,5 +1,9 @@
 import { ensureDb } from "@/lib/db/init";
-import { startChangeRequest, confirmChange } from "@/lib/services/change";
+import {
+  startChangeRequest,
+  confirmChange,
+  abortChangeByBookingToken,
+} from "@/lib/services/change";
 
 export async function POST(request: Request) {
   await ensureDb();
@@ -14,6 +18,11 @@ export async function POST(request: Request) {
     if (body.action === "confirm") {
       const result = await confirmChange(body.changeRequestId, body.toSlotId);
       return Response.json(result);
+    }
+
+    if (body.action === "abort") {
+      await abortChangeByBookingToken(body.bookingToken);
+      return Response.json({ ok: true });
     }
 
     return Response.json({ error: "Unknown action" }, { status: 400 });

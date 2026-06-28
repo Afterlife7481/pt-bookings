@@ -148,6 +148,68 @@ function buildScheduleGrid(weekStart: string, entries: ScheduleEntry[]) {
   return map;
 }
 
+function openSlotColorClasses(lm: ScheduleEntry["lastMinute"], selected: boolean) {
+  const isHeld = !!lm?.heldForClientId;
+  const hasMatch = (lm?.eligibleCount ?? 0) > 0;
+
+  if (isHeld) {
+    return cn(
+      "border-purple-400 bg-purple-600 text-white active:bg-purple-700",
+      selected && "ring-2 ring-purple-300",
+    );
+  }
+  if (hasMatch) {
+    return cn(
+      "border-amber-200 bg-amber-50 active:border-amber-300 active:bg-amber-100",
+      selected && "border-amber-400 bg-amber-100 ring-2 ring-amber-300",
+    );
+  }
+  return cn(
+    "border-green-200 bg-green-50 active:border-green-300 active:bg-green-100",
+    selected && "border-green-400 bg-green-100 ring-2 ring-green-300",
+  );
+}
+
+function openSlotTextClasses(lm: ScheduleEntry["lastMinute"], line: "primary" | "secondary") {
+  const isHeld = !!lm?.heldForClientId;
+  const hasMatch = (lm?.eligibleCount ?? 0) > 0;
+
+  if (isHeld) {
+    return line === "primary" ? "text-white" : "text-purple-100";
+  }
+  if (hasMatch) {
+    return line === "primary" ? "text-amber-900" : "text-amber-700";
+  }
+  return line === "primary" ? "text-green-800" : "text-green-600";
+}
+
+function ScheduleLegend() {
+  const items = [
+    { swatch: "bg-blue-600", label: "Recurring slot" },
+    { swatch: "bg-slate-800", label: "Booked slot" },
+    { swatch: "border border-green-200 bg-green-50", label: "Open slot" },
+    {
+      swatch: "border border-amber-200 bg-amber-50",
+      label: "Open slot with last-minute match",
+    },
+    {
+      swatch: "border border-purple-400 bg-purple-600",
+      label: "Locked offer",
+    },
+  ] as const;
+
+  return (
+    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
+      {items.map((item) => (
+        <span key={item.label} className="inline-flex items-center gap-1.5">
+          <span className={cn("h-3 w-3 shrink-0 rounded", item.swatch)} />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ScheduleCell({
   entry,
   editable,
@@ -194,7 +256,7 @@ function ScheduleCell({
           "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
           recurring
             ? "border-blue-300 bg-blue-600 text-white active:bg-blue-700"
-            : "border-slate-300 bg-slate-900 text-white active:bg-slate-800",
+            : "border-slate-400 bg-slate-800 text-white active:bg-slate-700",
         )}
       >
         <span className={cn(nameClass, "w-full truncate")}>
@@ -218,7 +280,7 @@ function ScheduleCell({
   if (editable && onOpen) {
     const lm = entry.lastMinute;
     const isHeld = !!lm?.heldForClientId;
-    const hasOffer = lm?.offers.some((o) => o.status === "offered") ?? false;
+    const hasMatch = (lm?.eligibleCount ?? 0) > 0;
 
     return (
       <button
@@ -227,66 +289,67 @@ function ScheduleCell({
         title={
           isHeld && lm?.heldClientName
             ? `Held for ${lm.heldClientName}`
-            : lm && lm.eligibleCount > 0
-              ? `${lm.eligibleCount} last-minute match${lm.eligibleCount === 1 ? "" : "es"}`
-              : "Manage open slot"
+            : hasMatch
+              ? `${lm!.eligibleCount} last-minute match${lm!.eligibleCount === 1 ? "" : "es"}`
+              : entry.location
+                ? entry.location.name
+                : "Open slot"
         }
         className={cn(
           sizeClass,
           "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
-          isHeld
-            ? "border-blue-300 bg-blue-600 active:bg-blue-700"
-            : "border-green-200 bg-green-50 active:border-green-300 active:bg-green-100",
-          selected &&
-            (isHeld
-              ? "ring-2 ring-blue-300"
-              : "border-green-400 bg-green-100 ring-2 ring-green-300"),
-          hasOffer && !isHeld && "ring-1 ring-green-400",
+          openSlotColorClasses(lm, !!selected),
         )}
       >
-        <span
-          className={cn(
-            mobile ? "text-sm font-medium" : compact ? "text-[9px] font-medium leading-tight" : "text-[9px] font-medium",
-            isHeld ? "text-white" : "text-green-700",
-          )}
-        >
-          {isHeld ? lm?.heldClientName ?? "Held" : compact ? "Open" : mobile ? "Open slot" : "Open"}
-        </span>
-        {entry.location && (
-          <span
-            className={cn(
-              subClass,
-              "w-full truncate text-center",
-              isHeld ? "text-blue-100" : "text-green-600",
+        {isHeld ? (
+          <>
+            {lm?.heldClientName && (
+              <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
+                {lm.heldClientName}
+              </span>
             )}
-          >
-            {entry.location.name}
-          </span>
-        )}
-        {lm && !isHeld && (
-          <span className={cn(subClass, "w-full truncate text-center text-green-600")}>
-            {lm.eligibleCount > 0
-              ? `${lm.eligibleCount} client${lm.eligibleCount === 1 ? "" : "s"}`
-              : "No matches"}
-          </span>
+            {entry.location && (
+              <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+                {entry.location.name}
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            {entry.location && (
+              <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
+                {entry.location.name}
+              </span>
+            )}
+            {hasMatch && (
+              <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+                {lm!.eligibleCount} client{lm!.eligibleCount === 1 ? "" : "s"}
+              </span>
+            )}
+          </>
         )}
       </button>
     );
   }
 
+  const lm = entry.lastMinute;
+
   return (
     <div
       className={cn(
         sizeClass,
-        "flex flex-col items-center justify-center rounded-lg border border-green-200 bg-green-50",
+        "flex flex-col items-center justify-center rounded-lg border text-center",
+        openSlotColorClasses(lm, false),
       )}
     >
-      <span className={cn(mobile ? "text-sm font-medium" : compact ? "text-[9px] font-medium" : "text-[9px] font-medium", "text-green-700")}>
-        Open
-      </span>
       {entry.location && (
-        <span className={cn(subClass, "w-full truncate text-center text-green-600")}>
+        <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
           {entry.location.name}
+        </span>
+      )}
+      {(lm?.eligibleCount ?? 0) > 0 && (
+        <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+          {lm!.eligibleCount} client{lm!.eligibleCount === 1 ? "" : "s"}
         </span>
       )}
     </div>
@@ -370,12 +433,13 @@ function OpenSlotModal({
   onClose: () => void;
   busy: boolean;
 }) {
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+  const [clientId, setClientId] = useState("");
   const [locationId, setLocationId] = useState(entry.location?.id ?? locations[0]?.id ?? "");
 
   useEffect(() => {
+    setClientId("");
     setLocationId(entry.location?.id ?? locations[0]?.id ?? "");
-  }, [entry.location?.id, locations]);
+  }, [entry.slotId, entry.location?.id, locations]);
 
   async function saveLocation(nextLocationId: string) {
     if (!nextLocationId || nextLocationId === entry.location?.id) return;
@@ -449,6 +513,7 @@ function OpenSlotModal({
             onChange={(e) => setClientId(e.target.value)}
             disabled={busy}
           >
+            <option value="">-- Select client --</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -938,6 +1003,8 @@ export function WeekScheduleCalendar({
           nowMs={nowMs}
         />
       )}
+
+      <ScheduleLegend />
 
       {applyTemplateOpen && onApplyTemplate && (
         <ApplyTemplateModal

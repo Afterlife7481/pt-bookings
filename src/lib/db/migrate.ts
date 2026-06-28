@@ -145,6 +145,7 @@ export function runMigrations() {
   upgradeSlotLocationSchema(sqlite);
   upgradeClientSessionPriceSchema(sqlite);
   upgradeLastMinuteFlowSchema(sqlite);
+  upgradeLocationAddressSchema(sqlite);
   sqlite.close();
 }
 
@@ -500,6 +501,16 @@ function upgradeLastMinuteFlowSchema(sqlite: Database.Database) {
         "ALTER TABLE last_minute_interests ADD COLUMN expires_at TEXT",
       );
     }
+  }
+}
+
+function upgradeLocationAddressSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(locations)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "address")) {
+    sqlite.exec("ALTER TABLE locations ADD COLUMN address TEXT");
   }
 }
 

@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, Card } from "@/components/ui";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import {
   CreateTemplateCard,
   TemplateCard,
   type TemplateView,
 } from "@/components/TemplateEditor";
-import { formatSlot, formatSessionPrice, formatDateTime } from "@/lib/utils";
+import { formatSlot, formatSessionPrice, formatDateTimeInTimezone } from "@/lib/utils";
+import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE } from "@/lib/constants";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
@@ -105,7 +107,7 @@ export default function DashboardPage() {
     setScheduleEntries(sched.entries);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
     setSettings(sett);
-    setTrainerLocations(locs);
+    setTrainerLocations(Array.isArray(locs) ? locs : []);
   }, [weekStart]);
 
   useEffect(() => {
@@ -320,15 +322,22 @@ export default function DashboardPage() {
             />
           </div>
         )}
-        {tab === "Sessions" && (
-          <SessionsTab bookings={bookings} onRefresh={refresh} />
+        {tab === "Sessions" && <SessionsTab bookings={bookings} />}
+        {tab === "WhatsApp" && (
+          <WhatsAppTab
+            messages={whatsapp}
+            timezone={settings?.timezone ?? DEFAULT_TIMEZONE}
+          />
         )}
-        {tab === "WhatsApp" && <WhatsAppTab messages={whatsapp} />}
         {tab === "Settings" && (
           <SettingsTab
             settings={settings}
             onSaved={refresh}
-            onOpenTemplates={() => setTab("Templates")}
+            onLocationsChanged={refresh}
+            onOpenTemplates={() => {
+              void refresh();
+              setTab("Templates");
+            }}
           />
         )}
       </main>
@@ -368,11 +377,8 @@ function ClientsTab({ clients }: { clients: Client[] }) {
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Email</th>
-                  <th className="px-4 py-3 font-medium">Phone</th>
                   <th className="px-4 py-3 font-medium">Session price</th>
                   <th className="px-4 py-3 font-medium">Recurring</th>
-                  <th className="px-4 py-3 font-medium">Last-minute</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -387,21 +393,10 @@ function ClientsTab({ clients }: { clients: Client[] }) {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {c.email || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{c.phone}</td>
-                    <td className="px-4 py-3 text-slate-600">
                       {formatSessionPrice(c.sessionPrice)}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {formatRecurring(c.recurringPreferences)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.lastMinuteOptIn ? (
-                        <Badge tone="success">Yes</Badge>
-                      ) : (
-                        <span className="text-slate-400">No</span>
-                      )}
                     </td>
                   </tr>
                 ))}
@@ -428,12 +423,6 @@ function TemplatesTab({
 }) {
   return (
     <div className="space-y-4">
-      <CreateTemplateCard
-        locations={locations}
-        scheduleStartTime={scheduleStartTime}
-        scheduleEndTime={scheduleEndTime}
-        onCreated={onRefresh}
-      />
       {templates.length === 0 ? (
         <Card>
           <p className="text-sm text-slate-500">No templates yet.</p>
@@ -450,26 +439,17 @@ function TemplatesTab({
           />
         ))
       )}
+      <CreateTemplateCard
+        locations={locations}
+        scheduleStartTime={scheduleStartTime}
+        scheduleEndTime={scheduleEndTime}
+        onCreated={onRefresh}
+      />
     </div>
   );
 }
 
-function SessionsTab({
-  bookings,
-  onRefresh,
-}: {
-  bookings: BookingRow[];
-  onRefresh: () => void;
-}) {
-  async function action(body: Record<string, string>) {
-    await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    onRefresh();
-  }
-
+function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
   const sorted = [...bookings].sort((a, b) =>
     a.slot.startAt.localeCompare(b.slot.startAt),
   );
@@ -493,15 +473,19 @@ function SessionsTab({
                 <th className="px-4 py-3 font-medium">Client</th>
                 <th className="px-4 py-3 font-medium">When</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Notes</th>
-                <th className="px-4 py-3 font-medium">Link</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {sorted.map((row) => (
                 <tr key={row.booking.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium">{row.client.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link
+                      href={`/dashboard/clients/${row.client.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {row.client.name}
+                    </Link>
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                     {formatSlot(row.slot.startAt)}
                   </td>
@@ -513,67 +497,6 @@ function SessionsTab({
                     ) : (
                       <Badge>{row.booking.status}</Badge>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {row.booking.isRecurring && <Badge>Recurring</Badge>}
-                      {row.booking.override36h && (
-                        <Badge tone="warning">36h override</Badge>
-                      )}
-                      {!row.booking.isRecurring && !row.booking.override36h && (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <a
-                      className="text-blue-600 hover:underline"
-                      href={`/s/${row.booking.token}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open
-                    </a>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex min-w-[14rem] flex-wrap gap-1.5">
-                      <Button
-                        variant="secondary"
-                        className="px-2 py-1 text-xs"
-                        onClick={() =>
-                          action({
-                            action: "send_confirmation",
-                            bookingId: row.booking.id,
-                          })
-                        }
-                      >
-                        WhatsApp
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="px-2 py-1 text-xs"
-                        onClick={() =>
-                          action({
-                            action: "toggle_override_36h",
-                            bookingId: row.booking.id,
-                          })
-                        }
-                      >
-                        36h
-                      </Button>
-                      <Button
-                        variant="danger"
-                        className="px-2 py-1 text-xs"
-                        onClick={() =>
-                          action({
-                            action: "cancel",
-                            bookingId: row.booking.id,
-                          })
-                        }
-                      >
-                        Cancel
-                      </Button>
-                    </div>
                   </td>
                 </tr>
               ))}
@@ -588,15 +511,18 @@ function SessionsTab({
 function SettingsTab({
   settings,
   onSaved,
+  onLocationsChanged,
   onOpenTemplates,
 }: {
   settings: TrainerSettings | null;
   onSaved: () => void;
+  onLocationsChanged: () => void;
   onOpenTemplates: () => void;
 }) {
   const [scheduleStartTime, setScheduleStartTime] = useState("07:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("21:00");
   const [scheduleDefaultView, setScheduleDefaultView] = useState<"day" | "week">("day");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [cancelDeadlineHours, setCancelDeadlineHours] = useState("36");
   const [lastMinuteOfferLockHours, setLastMinuteOfferLockHours] = useState("1");
   const [saving, setSaving] = useState(false);
@@ -608,6 +534,7 @@ function SettingsTab({
       setScheduleStartTime(settings.scheduleStartTime);
       setScheduleEndTime(settings.scheduleEndTime);
       setScheduleDefaultView(settings.scheduleDefaultView);
+      setTimezone(settings.timezone);
       setCancelDeadlineHours(String(settings.cancelDeadlineHours));
       setLastMinuteOfferLockHours(String(settings.lastMinuteOfferLockHours));
     }
@@ -625,6 +552,7 @@ function SettingsTab({
         scheduleStartTime,
         scheduleEndTime,
         scheduleDefaultView,
+        timezone,
         cancelDeadlineHours: Number(cancelDeadlineHours),
         lastMinuteOfferLockHours: Number(lastMinuteOfferLockHours),
       }),
@@ -648,6 +576,32 @@ function SettingsTab({
         </p>
 
         <form onSubmit={save} className="mt-6 space-y-6">
+        <div>
+          <h3 className="text-sm font-medium text-slate-900">Time zone</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Used for WhatsApp message timestamps and other times shown in your
+            dashboard.
+          </p>
+          <label className="mt-3 flex max-w-md flex-col gap-1 text-sm">
+            <span className="text-slate-600">Time zone</span>
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              required
+            >
+              {!TRAINER_TIMEZONE_OPTIONS.some((opt) => opt.value === timezone) && (
+                <option value={timezone}>{timezone}</option>
+              )}
+              {TRAINER_TIMEZONE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div>
           <h3 className="text-sm font-medium text-slate-900">Schedule hours</h3>
           <p className="mt-1 text-sm text-slate-500">
@@ -770,21 +724,28 @@ function SettingsTab({
         </Button>
       </Card>
 
-      <LocationsSection />
+      <LocationsSection onChanged={onLocationsChanged} />
     </div>
   );
 }
 
-type LocationRow = { id: string; name: string; createdAt: string };
+type LocationRow = {
+  id: string;
+  name: string;
+  address: string | null;
+  createdAt: string;
+};
 
-function LocationsSection() {
+function LocationsSection({ onChanged }: { onChanged?: () => void }) {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -810,7 +771,7 @@ function LocationsSection() {
     const res = await fetch("/api/locations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, address }),
     });
     const data = await res.json();
     setAdding(false);
@@ -821,27 +782,31 @@ function LocationsSection() {
     }
 
     setName("");
+    setAddress("");
     await loadLocations();
+    onChanged?.();
   }
 
   function startEditing(location: LocationRow) {
     setEditingId(location.id);
     setEditName(location.name);
+    setEditAddress(location.address ?? "");
     setError(null);
   }
 
   function cancelEditing() {
     setEditingId(null);
     setEditName("");
+    setEditAddress("");
   }
 
-  async function saveLocationName(id: string) {
+  async function saveLocation(id: string) {
     setSavingId(id);
     setError(null);
     const res = await fetch(`/api/locations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editName }),
+      body: JSON.stringify({ name: editName, address: editAddress }),
     });
     const data = await res.json();
     setSavingId(null);
@@ -853,6 +818,7 @@ function LocationsSection() {
 
     cancelEditing();
     await loadLocations();
+    onChanged?.();
   }
 
   async function removeLocation(id: string) {
@@ -868,6 +834,7 @@ function LocationsSection() {
     }
 
     await loadLocations();
+    onChanged?.();
   }
 
   return (
@@ -891,39 +858,58 @@ function LocationsSection() {
             >
               {editingId === location.id ? (
                 <form
-                  className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+                  className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    saveLocationName(location.id);
+                    saveLocation(location.id);
                   }}
                 >
-                  <input
-                    className="min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-3 py-1.5"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                  <Button
-                    type="submit"
-                    className="px-3 py-1.5 text-xs"
-                    disabled={savingId === location.id}
-                  >
-                    {savingId === location.id ? "Saving…" : "Save"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="px-3 py-1.5 text-xs"
-                    disabled={savingId === location.id}
-                    onClick={cancelEditing}
-                  >
-                    Cancel
-                  </Button>
+                  <label className="flex min-w-[10rem] flex-1 flex-col gap-1">
+                    <span className="text-xs text-slate-500">Name</span>
+                    <input
+                      className="rounded-lg border border-slate-300 px-3 py-1.5"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <label className="flex min-w-[12rem] flex-[2] flex-col gap-1">
+                    <span className="text-xs text-slate-500">Address</span>
+                    <input
+                      className="rounded-lg border border-slate-300 px-3 py-1.5"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      className="px-3 py-1.5 text-xs"
+                      disabled={savingId === location.id}
+                    >
+                      {savingId === location.id ? "Saving…" : "Save"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="px-3 py-1.5 text-xs"
+                      disabled={savingId === location.id}
+                      onClick={cancelEditing}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </form>
               ) : (
                 <>
-                  <span>{location.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{location.name}</p>
+                    {location.address && (
+                      <p className="text-slate-500">{location.address}</p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -949,20 +935,31 @@ function LocationsSection() {
         </ul>
       )}
 
-      <form onSubmit={addLocation} className="mt-4 flex flex-wrap items-end gap-3">
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm">
-          <span className="text-slate-600">New location</span>
-          <input
-            className="rounded-lg border border-slate-300 px-3 py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Main gym, Home studio"
-            required
-          />
-        </label>
-        <Button type="submit" disabled={adding}>
-          {adding ? "Adding…" : "Add location"}
-        </Button>
+      <form onSubmit={addLocation} className="mt-4 space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm">
+            <span className="text-slate-600">New location</span>
+            <input
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Main gym, Home studio"
+              required
+            />
+          </label>
+          <label className="flex min-w-[12rem] flex-[2] flex-col gap-1 text-sm">
+            <span className="text-slate-600">Address</span>
+            <input
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Optional — street, city, postcode"
+            />
+          </label>
+          <Button type="submit" disabled={adding}>
+            {adding ? "Adding…" : "Add location"}
+          </Button>
+        </div>
       </form>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -983,7 +980,13 @@ function whatsAppTypeLabel(messageType: string): string {
   }
 }
 
-function WhatsAppTab({ messages }: { messages: WhatsAppRow[] }) {
+function WhatsAppTab({
+  messages,
+  timezone,
+}: {
+  messages: WhatsAppRow[];
+  timezone: string;
+}) {
   return (
     <div className="space-y-3">
       {messages.length === 0 && (
@@ -1004,10 +1007,10 @@ function WhatsAppTab({ messages }: { messages: WhatsAppRow[] }) {
               dateTime={m.createdAt}
               className="text-xs text-slate-400"
             >
-              {formatDateTime(m.createdAt)}
+              {formatDateTimeInTimezone(m.createdAt, timezone)}
             </time>
           </div>
-          <p className="mt-2 text-sm">{m.body}</p>
+          <LinkifiedText text={m.body} className="mt-2 text-sm" />
         </Card>
       ))}
     </div>

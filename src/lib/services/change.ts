@@ -11,6 +11,7 @@ import {
 import { assertSlotNotHeldByActiveBooking } from "./bookings";
 import { getAvailableSlotsForChange } from "./templates";
 import { getTrainerSettings } from "./settings";
+import { assertClientCanUseSlotLocation } from "./locations";
 
 export async function expireStaleChangeRequests() {
   const db = getDb();
@@ -56,7 +57,57 @@ async function revertChangeRequest(changeRequestId: string) {
     .where(eq(slots.id, req.fromSlotId));
 }
 
-export async function startChangeRequest(bookingToken: string) {
+export async function abortChangeRequest(changeRequestId: string) {
+  await revertChangeRequest(changeRequestId);
+}
+
+export async function abortChangeByBookingToken(bookingToken: string) {
+  const db = getDb();
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.token, bookingToken),
+  });
+  if (!booking) throw new Error("Booking not found");
+
+  const req = await db.query.changeRequests.findFirst({
+    where: and(
+      eq(changeRequests.bookingId, booking.id),
+      eq(changeRequests.status, "browsing"),
+    ),
+  });
+
+  if (req) {
+    await revertChangeRequest(req.id);
+    return;
+  }
+
+  if (booking.status === "pending_change" && booking.slotId) {
+    const ts = nowIso();
+    await db
+      .update(bookings)
+      .set({ status: "confirmed", updatedAt: ts })
+      .where(eq(bookings.id, booking.id));
+    await db
+      .update(slots)
+      .set({ status: "booked" })
+      .where(eq(slots.id, booking.slotId));
+  }
+}
+
+export type StartChangeResult =
+  | {
+      changeRequestId: string;
+      availableSlots: Awaited<ReturnType<typeof getAvailableSlotsForChange>>;
+      noSlotsAvailable: false;
+    }
+  | {
+      changeRequestId: null;
+      availableSlots: [];
+      noSlotsAvailable: true;
+    };
+
+export async function startChangeRequest(
+  bookingToken: string,
+): Promise<StartChangeResult> {
   await expireStaleChangeRequests();
   const db = getDb();
 
@@ -101,6 +152,13 @@ export async function startChangeRequest(bookingToken: string) {
     );
   }
 
+  const availableSlots = await getAvailableSlotsForChange(
+    booking.trainerId,
+    booking.slotId,
+    slot.startAt,
+    booking.clientId,
+  );
+
   const existing = await db.query.changeRequests.findFirst({
     where: and(
       eq(changeRequests.bookingId, booking.id),
@@ -108,14 +166,22 @@ export async function startChangeRequest(bookingToken: string) {
     ),
   });
 
+  if (availableSlots.length === 0) {
+    if (existing) {
+      await revertChangeRequest(existing.id);
+    }
+    return {
+      changeRequestId: null,
+      availableSlots: [],
+      noSlotsAvailable: true,
+    };
+  }
+
   if (existing) {
     return {
       changeRequestId: existing.id,
-      availableSlots: await getAvailableSlotsForChange(
-        booking.trainerId,
-        booking.slotId,
-        slot.startAt,
-      ),
+      availableSlots,
+      noSlotsAvailable: false,
     };
   }
 
@@ -143,13 +209,7 @@ export async function startChangeRequest(bookingToken: string) {
     updatedAt: ts,
   });
 
-  const availableSlots = await getAvailableSlotsForChange(
-    booking.trainerId,
-    booking.slotId,
-    slot.startAt,
-  );
-
-  return { changeRequestId, availableSlots };
+  return { changeRequestId, availableSlots, noSlotsAvailable: false };
 }
 
 export async function confirmChange(
@@ -177,6 +237,8 @@ export async function confirmChange(
     where: eq(bookings.id, req.bookingId),
   });
   if (!booking) throw new Error("Booking not found");
+
+  await assertClientCanUseSlotLocation(booking.clientId, toSlot.locationId);
 
   await assertSlotNotHeldByActiveBooking(db, toSlotId, booking.id);
 
