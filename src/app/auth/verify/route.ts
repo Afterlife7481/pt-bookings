@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   try {
     const trainerId = await verifyMagicLink(token);
     const session = await createTrainerSession(trainerId);
-    const response = NextResponse.redirect(new URL("/dashboard", request.url));
+    const response = NextResponse.redirect(new URL("/dashboard/schedule", request.url));
     response.cookies.set(SESSION_COOKIE, session.token, {
       httpOnly: true,
       sameSite: "lax",

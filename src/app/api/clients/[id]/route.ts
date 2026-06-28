@@ -7,22 +7,7 @@ import {
   type RecurringSlotRef,
 } from "@/lib/services/clients";
 import { setClientLocations } from "@/lib/services/locations";
-import { parseSessionPriceInput } from "@/lib/utils";
-
-function sessionPriceFromBody(value: unknown): number | null | undefined {
-  if (value === undefined) return undefined;
-  if (value === null || value === "") return null;
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || value < 0) {
-      throw new Error("Session price must be zero or greater");
-    }
-    return Math.round(value * 100);
-  }
-  if (typeof value === "string") {
-    return parseSessionPriceInput(value);
-  }
-  throw new Error("Invalid session price");
-}
+import { sessionPriceFromBody } from "@/lib/validation/client";
 
 export async function GET(
   _request: Request,

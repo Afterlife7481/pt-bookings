@@ -1,18 +1,63 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/constants";
+import {
+  hasValidTrainerSession,
+  isPublicApiPath,
+  isTrainerApiPath,
+} from "@/lib/auth/middleware";
 
-export function middleware(request: NextRequest) {
+function redirectToLogin(request: NextRequest) {
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("next", request.nextUrl.pathname);
+  const response = NextResponse.redirect(loginUrl);
+  response.cookies.set(SESSION_COOKIE, "", { maxAge: 0, path: "/" });
+  return response;
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isPublicApiPath(pathname)) {
+    return NextResponse.next();
+  }
+
   const session = request.cookies.get(SESSION_COOKIE);
-  if (!session?.value) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+
+  if (pathname.startsWith("/dashboard")) {
+    if (!session?.value) {
+      return redirectToLogin(request);
+    }
+
+    const valid = await hasValidTrainerSession(request);
+    if (!valid) {
+      return redirectToLogin(request);
+    }
+
+    return NextResponse.next();
+  }
+
+  if (isTrainerApiPath(pathname)) {
+    if (!session?.value) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const valid = await hasValidTrainerSession(request);
+    if (!valid) {
+      const response = NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
+      response.cookies.set(SESSION_COOKIE, "", { maxAge: 0, path: "/" });
+      return response;
+    }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/api/:path*"],
 };

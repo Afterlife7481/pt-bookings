@@ -3,7 +3,6 @@ import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listBookings } from "@/lib/services/templates";
 import {
   cancelBooking,
-  cancelBookingByToken,
   createBookingForSlot,
   sendConfirmationForBooking,
 } from "@/lib/services/bookings";
@@ -20,20 +19,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   await ensureDb();
-  const body = await request.json();
-
-  if (body.action === "cancel_by_token") {
-    try {
-      const result = await cancelBookingByToken(body.bookingToken);
-      return Response.json({ ok: true, ...result });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to cancel booking";
-      return Response.json({ error: message }, { status: 400 });
-    }
-  }
-
   const trainerId = await getTrainerIdFromRequest();
   if (!trainerId) return unauthorizedResponse();
+
+  const body = await request.json();
 
   if (body.action === "cancel") {
     await cancelBooking(body.bookingId);

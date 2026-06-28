@@ -63,3 +63,27 @@ export function Badge({
     </span>
   );
 }
+
+export function InlineNotice({
+  tone,
+  children,
+  className,
+}: {
+  tone: "error" | "success";
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2 text-sm",
+        tone === "error" && "border-red-200 bg-red-50 text-red-800",
+        tone === "success" && "border-green-200 bg-green-50 text-green-800",
+        className,
+      )}
+      role={tone === "error" ? "alert" : "status"}
+    >
+      {children}
+    </div>
+  );
+}

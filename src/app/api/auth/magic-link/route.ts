@@ -1,9 +1,31 @@
 import { ensureDb } from "@/lib/db/init";
 import { requestMagicLink } from "@/lib/services/auth";
+import { getRequestIp } from "@/lib/http/request";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   await ensureDb();
+
+  const ip = getRequestIp(request);
+  const ipLimited = enforceRateLimit(ip, {
+    scope: "magic-link:ip",
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (ipLimited) return ipLimited;
+
   const body = await request.json();
+  const email =
+    typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
+
+  if (email) {
+    const emailLimited = enforceRateLimit(email, {
+      scope: "magic-link:email",
+      limit: 3,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (emailLimited) return emailLimited;
+  }
 
   try {
     const result = await requestMagicLink({

@@ -38,7 +38,7 @@ export default function AddClientPage() {
   return (
     <main className="mx-auto max-w-lg space-y-6 p-4 sm:p-6">
       <div>
-        <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-900">
+        <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
           ← Back to dashboard
         </Link>
         <h1 className="mt-2 text-2xl font-bold">Add client</h1>
@@ -99,7 +99,7 @@ export default function AddClientPage() {
             <Button type="submit" disabled={loading}>
               {loading ? "Saving…" : "Add client"}
             </Button>
-            <Link href="/dashboard">
+            <Link href="/dashboard/clients">
               <Button type="button" variant="secondary">
                 Cancel
               </Button>

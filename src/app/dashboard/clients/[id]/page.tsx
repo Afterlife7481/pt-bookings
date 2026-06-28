@@ -271,7 +271,7 @@ export default function ClientDetailPage() {
   if (notFound || !client) {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
-        <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-900">
+        <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
           ← Back to dashboard
         </Link>
         <Card>
@@ -302,7 +302,7 @@ export default function ClientDetailPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <div>
-        <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-900">
+        <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
           ← Back to dashboard
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{client.name}</h1>
@@ -394,7 +394,7 @@ export default function ClientDetailPage() {
         {client.locations.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">
             No locations yet. Add locations in the{" "}
-            <Link href="/dashboard" className="text-blue-600 underline">
+            <Link href="/dashboard/clients" className="text-blue-600 underline">
               Settings
             </Link>{" "}
             tab on the dashboard.

@@ -4,9 +4,20 @@ import {
   confirmChange,
   abortChangeByBookingToken,
 } from "@/lib/services/change";
+import { getRequestIp } from "@/lib/http/request";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   await ensureDb();
+
+  const ip = getRequestIp(request);
+  const limited = enforceRateLimit(ip, {
+    scope: "change:ip",
+    limit: 30,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (limited) return limited;
+
   const body = await request.json();
 
   try {

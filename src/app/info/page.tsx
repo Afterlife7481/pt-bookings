@@ -39,7 +39,7 @@ export default async function InfoPage() {
             PT Bookings
           </Link>
           {loggedIn ? (
-            <Link href="/dashboard">
+            <Link href="/dashboard/schedule">
               <Button variant="secondary" className="text-xs sm:text-sm">
                 Back to dashboard
               </Button>
@@ -407,7 +407,7 @@ export default async function InfoPage() {
         <div className="flex flex-wrap gap-3">
           {loggedIn ? (
             <>
-              <Link href="/dashboard">
+              <Link href="/dashboard/schedule">
                 <Button>Back to dashboard</Button>
               </Link>
               <Link href="/">

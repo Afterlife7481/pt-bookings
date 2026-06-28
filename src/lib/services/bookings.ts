@@ -8,6 +8,36 @@ import { getTrainerSettings } from "./settings";
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
 
+type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+export function assertSlotNotHeldByActiveBookingSync(
+  tx: DbTx,
+  slotId: string,
+  excludeBookingId?: string,
+) {
+  const existing = tx
+    .select()
+    .from(bookings)
+    .where(eq(bookings.slotId, slotId))
+    .get();
+  if (!existing || existing.id === excludeBookingId) return;
+  if (existing.status === "canceled") return;
+  throw new Error("Slot is not available");
+}
+
+export async function assertSlotNotHeldByActiveBooking(
+  db: ReturnType<typeof getDb>,
+  slotId: string,
+  excludeBookingId?: string,
+) {
+  const existing = await db.query.bookings.findFirst({
+    where: eq(bookings.slotId, slotId),
+  });
+  if (!existing || existing.id === excludeBookingId) return;
+  if (existing.status === "canceled") return;
+  throw new Error("Slot is not available");
+}
+
 export async function createBookingForSlot(params: {
   slotId: string;
   clientId: string;
@@ -24,49 +54,66 @@ export async function createBookingForSlot(params: {
     sendConfirmation = true,
   } = params;
 
-  const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
-  if (!slot || slot.status !== "available") {
-    throw new Error("Slot is not available");
-  }
+  const { bookingId, token, slotStartAt } = db.transaction((tx) => {
+    const slot = tx
+      .select()
+      .from(slots)
+      .where(eq(slots.id, slotId))
+      .get();
+    if (!slot || slot.status !== "available") {
+      throw new Error("Slot is not available");
+    }
 
-  const now = nowIso();
-  if (
-    slot.heldForClientId &&
-    slot.heldForClientId !== clientId &&
-    slot.holdExpiresAt &&
-    slot.holdExpiresAt >= now
-  ) {
-    throw new Error("This slot is reserved for another client");
-  }
+    const now = nowIso();
+    if (
+      slot.heldForClientId &&
+      slot.heldForClientId !== clientId &&
+      slot.holdExpiresAt &&
+      slot.holdExpiresAt >= now
+    ) {
+      throw new Error("This slot is reserved for another client");
+    }
 
-  await assertSlotNotHeldByActiveBooking(db, slotId);
+    assertSlotNotHeldByActiveBookingSync(tx, slotId);
 
-  const bookingId = nanoid();
-  const token = nanoid(12);
-  const ts = nowIso();
+    const newBookingId = nanoid();
+    const newToken = nanoid(12);
+    const ts = nowIso();
 
-  await db.insert(bookings).values({
-    id: bookingId,
-    trainerId,
-    slotId,
-    sessionStartAt: slot.startAt,
-    clientId,
-    token,
-    status: "confirmed",
-    override36h: false,
-    isRecurring,
-    createdAt: ts,
-    updatedAt: ts,
+    tx.insert(bookings).values({
+      id: newBookingId,
+      trainerId,
+      slotId,
+      sessionStartAt: slot.startAt,
+      clientId,
+      token: newToken,
+      status: "confirmed",
+      override36h: false,
+      isRecurring,
+      createdAt: ts,
+      updatedAt: ts,
+    }).run();
+
+    const claim = tx
+      .update(slots)
+      .set({
+        status: "booked",
+        heldForClientId: null,
+        holdExpiresAt: null,
+      })
+      .where(and(eq(slots.id, slotId), eq(slots.status, "available")))
+      .run();
+
+    if (claim.changes === 0) {
+      throw new Error("Slot is not available");
+    }
+
+    return {
+      bookingId: newBookingId,
+      token: newToken,
+      slotStartAt: slot.startAt,
+    };
   });
-
-  await db
-    .update(slots)
-    .set({
-      status: "booked",
-      heldForClientId: null,
-      holdExpiresAt: null,
-    })
-    .where(eq(slots.id, slotId));
 
   if (sendConfirmation) {
     const client = await db.query.clients.findFirst({
@@ -78,26 +125,13 @@ export async function createBookingForSlot(params: {
         clientId,
         phone: client.phone,
         bookingToken: token,
-        slotStartAt: slot.startAt,
+        slotStartAt,
         clientName: client.name,
       });
     }
   }
 
   return { bookingId, token };
-}
-
-export async function assertSlotNotHeldByActiveBooking(
-  db: ReturnType<typeof getDb>,
-  slotId: string,
-  excludeBookingId?: string,
-) {
-  const existing = await db.query.bookings.findFirst({
-    where: eq(bookings.slotId, slotId),
-  });
-  if (!existing || existing.id === excludeBookingId) return;
-  if (existing.status === "canceled") return;
-  throw new Error("Slot is not available");
 }
 
 export async function releaseSlot(slotId: string) {
