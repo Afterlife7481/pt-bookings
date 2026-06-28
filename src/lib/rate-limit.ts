@@ -72,3 +72,7 @@ export function enforceRateLimit(
   if (result.allowed) return null;
   return rateLimitResponse(result.retryAfterSec);
 }
+
+export function resetRateLimitsForTests() {
+  buckets.clear();
+}

@@ -8,3 +8,7 @@ export async function ensureDb() {
     initialized = true;
   }
 }
+
+export function resetEnsureDb() {
+  initialized = false;
+}

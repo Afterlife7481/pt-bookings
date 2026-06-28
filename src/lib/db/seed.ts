@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { eq } from "drizzle-orm";
-import { getDb, DB_PATH } from "./index";
+import { getDb, resetDbConnection } from "./index";
+import { resolveDbPath } from "./paths";
 import { trainers, clients } from "./schema";
 import { DEFAULT_TRAINER_ID, nowIso } from "@/lib/constants";
 import { createClient } from "@/lib/services/clients";
 import { runMigrations } from "./migrate";
-
-const DATA_DIR = path.dirname(DB_PATH);
+import { resetEnsureDb } from "./init";
 
 const SEED_CLIENTS = [
   { name: "Casey Morgan", phone: "+447700901101", lastMinuteOptIn: true },
@@ -23,14 +23,21 @@ const SEED_CLIENTS = [
 ];
 
 export function wipeDatabase() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  resetDbConnection();
+  resetEnsureDb();
+
+  const dbPath = resolveDbPath();
+  const dataDir = path.dirname(dbPath);
+  const base = path.basename(dbPath);
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
     return;
   }
 
-  for (const name of fs.readdirSync(DATA_DIR)) {
-    if (name.startsWith("pt-bookings.db")) {
-      fs.unlinkSync(path.join(DATA_DIR, name));
+  for (const name of fs.readdirSync(dataDir)) {
+    if (name === base || name.startsWith(`${base}-`)) {
+      fs.unlinkSync(path.join(dataDir, name));
     }
   }
 }

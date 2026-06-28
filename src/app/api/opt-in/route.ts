@@ -6,9 +6,24 @@ import {
 } from "@/lib/services/last-minute";
 import { getClientByToken } from "@/lib/services/clients";
 import { getTrainerSettings } from "@/lib/services/settings";
+import { getRequestIp } from "@/lib/http/request";
+import { enforceRateLimit } from "@/lib/rate-limit";
+
+function checkOptInRateLimit(request: Request) {
+  const ip = getRequestIp(request);
+  return enforceRateLimit(ip, {
+    scope: "opt-in:ip",
+    limit: 30,
+    windowMs: 60 * 60 * 1000,
+  });
+}
 
 export async function GET(request: Request) {
   await ensureDb();
+
+  const limited = checkOptInRateLimit(request);
+  if (limited) return limited;
+
   const token = new URL(request.url).searchParams.get("token");
   if (!token) {
     return Response.json({ error: "Token required" }, { status: 400 });
@@ -32,6 +47,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   await ensureDb();
+
+  const limited = checkOptInRateLimit(request);
+  if (limited) return limited;
+
   const body = await request.json();
   const token = body.token as string | undefined;
   if (!token) {

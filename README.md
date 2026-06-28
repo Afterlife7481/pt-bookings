@@ -28,6 +28,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |----------|---------|
 | `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (defaults to `http://localhost:3000`) |
 | `NODE_ENV` | `development` exposes magic-link URLs in API responses |
+| `PT_BOOKINGS_DB_PATH` | Override SQLite file path (used by tests and e2e) |
 
 ## Dashboard routes
 
@@ -57,6 +58,26 @@ The trainer dashboard is split into route-based sections:
 | `npm run db:migrate` | Apply schema migrations |
 | `npm run db:seed` | Seed sample data (same as reset) |
 | `npm run db:reset` | Wipe database and seed fresh sample data |
+| `npm test` | Run integration tests (Vitest) |
+| `npm run test:e2e` | Run Playwright smoke test (login → schedule → allocate) |
+
+## Testing
+
+**Unit / integration tests** (`npm test`) use Vitest with isolated temp SQLite databases. Coverage includes:
+
+- Rate limiting
+- Booking allocation and double-book prevention
+- Session change atomicity
+- Cancel deadlines
+- Trainer session expiry
+
+**End-to-end smoke test** (`npm run test:e2e`) seeds a dedicated database (`data/pt-bookings-e2e.db`), starts the app on port 3001, and walks through magic-link login → schedule → allocate via the UI.
+
+First-time e2e setup:
+
+```bash
+npx playwright install chromium
+```
 
 ## WhatsApp
 
@@ -84,7 +105,7 @@ Public client actions live on dedicated routes (not the trainer `/api/bookings` 
 - `POST /api/change` — start / confirm / abort session changes
 - `POST /api/client/sessions/cancel` — cancel a session
 
-These endpoints are rate-limited per IP.
+These endpoints are rate-limited per IP (including `/api/opt-in` for last-minute preferences).
 
 ### Booking integrity
 

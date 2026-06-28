@@ -10,6 +10,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -35,6 +37,10 @@ yarn-error.log*
 # database
 /data/*.db
 /data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+/data/pt-bookings-e2e.db*
+/e2e/fixtures.json
 
 # typescript
 *.tsbuildinfo
