@@ -501,7 +501,12 @@ export function WeekScheduleCalendar({
         />
       )}
 
-      <div className="mt-4 border-t border-slate-100 px-4 pt-4 sm:px-5">
+      <div
+        className={cn(
+          "border-t border-slate-100 px-4 pt-5 pb-5 sm:px-5",
+          viewMode === "week" ? "mt-6" : "mt-4",
+        )}
+      >
         {editable && (
           <p className="mb-2 text-xs text-slate-500">
             {viewMode === "day"

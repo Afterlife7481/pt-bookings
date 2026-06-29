@@ -7,6 +7,7 @@ import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE, MAX_CLIENT_BOOKING_WINDOW_W
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { LocationsSection } from "./LocationsSection";
 import { PaymentDetailsSection } from "./PaymentDetailsSection";
+import { logoutTrainer } from "../hooks/useTrainerSettings";
 import type { TrainerSettings } from "../types";
 
 export function SettingsTab({
@@ -93,6 +94,16 @@ export function SettingsTab({
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => logoutTrainer()}
+        >
+          Log out
+        </Button>
+      </div>
+
       <LocationsSection onChanged={onLocationsChanged} />
 
       <Card>

@@ -5,11 +5,7 @@ import { Badge, Button, Card, InlineNotice } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { TrainerSettings } from "../types";
 
-const COMING_SOON_INTEGRATIONS = [
-  "Connect your Stripe account",
-  "Connect your Revolut invoicing",
-  "Connect your Sterling account invoicing",
-] as const;
+const COMING_SOON_INTEGRATIONS = ["Stripe", "Revolut"] as const;
 
 export function PaymentDetailsSection({
   settings,

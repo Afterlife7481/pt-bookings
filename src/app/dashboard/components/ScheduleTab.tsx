@@ -53,9 +53,6 @@ export function ScheduleTab({
     <Card className="overflow-hidden !p-0">
       <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
         <h2 className="font-semibold">Weekly schedule</h2>
-        <p className="hidden text-sm text-slate-600 sm:block">
-          Open slots show last-minute matches. Click to send offers or allocate directly.
-        </p>
         {scheduleError && (
           <InlineNotice tone="error" className="flex items-start justify-between gap-3">
             <span>{scheduleError}</span>

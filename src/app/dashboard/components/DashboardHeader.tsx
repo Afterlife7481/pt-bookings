@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { logoutTrainer } from "../hooks/useTrainerSettings";
 import { NAV_ITEMS, type TrainerSettings } from "../types";
 
 function isNavActive(pathname: string, href: string) {
@@ -43,13 +42,6 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
             onClick={() => router.push("/dashboard/settings")}
           >
             Settings
-          </Button>
-          <Button
-            variant="secondary"
-            className="px-2 text-xs sm:px-4 sm:text-sm"
-            onClick={() => logoutTrainer()}
-          >
-            Log out
           </Button>
         </div>
       </div>

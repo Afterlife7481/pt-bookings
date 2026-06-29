@@ -235,23 +235,13 @@ export default async function InfoPage() {
 
         <div className="flex flex-wrap gap-3">
           {loggedIn ? (
-            <>
-              <Link href="/dashboard/schedule">
-                <Button>Back to dashboard</Button>
-              </Link>
-              <Link href="/">
-                <Button variant="secondary">Home</Button>
-              </Link>
-            </>
+            <Link href="/dashboard/schedule">
+              <Button>Back to dashboard</Button>
+            </Link>
           ) : (
-            <>
-              <Link href="/">
-                <Button variant="secondary">← Home</Button>
-              </Link>
-              <Link href="/login">
-                <Button>Trainer sign in</Button>
-              </Link>
-            </>
+            <Link href="/login">
+              <Button>Trainer sign in</Button>
+            </Link>
           )}
         </div>
       </div>
