@@ -23,10 +23,12 @@ import { WEEK_DAYS } from "@/lib/schedule-grid";
 export type TestFixtures = {
   trainerEmail: string;
   clientId: string;
+  clientToken: string;
   clientName: string;
   locationId: string;
   locationName: string;
   slotId: string;
+  clientBookSlotId?: string;
   weekStart: string;
   slotDayOfWeek: number;
   slotDayLabel: string;
@@ -93,6 +95,7 @@ async function seedWithSlot(daysAhead: number): Promise<TestFixtures> {
   return {
     trainerEmail: seeded.trainerEmail,
     clientId: firstClient.id,
+    clientToken: firstClient.token,
     clientName: firstClient.name,
     locationId: location.id,
     locationName: location.name,
@@ -152,6 +155,14 @@ export async function seedE2eFixtures(): Promise<TestFixtures> {
     location.id,
   );
 
+  const { slotId: clientBookSlotId } = await addScheduleSlot(
+    DEFAULT_TRAINER_ID,
+    weekStartForSlot,
+    dayOfWeek,
+    "11:00",
+    location.id,
+  );
+
   const slotDayLabel =
     WEEK_DAYS.find((day) => day.value === dayOfWeek)?.label ?? "Mon";
 
@@ -160,10 +171,12 @@ export async function seedE2eFixtures(): Promise<TestFixtures> {
   return {
     trainerEmail: seeded.trainerEmail,
     clientId: firstClient.id,
+    clientToken: firstClient.token,
     clientName: firstClient.name,
     locationId: location.id,
     locationName: location.name,
     slotId,
+    clientBookSlotId,
     weekStart,
     slotDayOfWeek: dayOfWeek,
     slotDayLabel,
@@ -178,8 +191,11 @@ export function writeE2eFixtures(fixtures: TestFixtures, filePath: string) {
       {
         trainerEmail: fixtures.trainerEmail,
         clientName: fixtures.clientName,
+        clientToken: fixtures.clientToken,
         locationName: fixtures.locationName,
         slotDayLabel: fixtures.slotDayLabel,
+        slotId: fixtures.slotId,
+        clientBookSlotId: fixtures.clientBookSlotId,
         weekStart: fixtures.weekStart,
         sessionToken: fixtures.sessionToken,
       },

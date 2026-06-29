@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { test, expect, type Page } from "@playwright/test";
+import { loginAsTrainer } from "./helpers/auth";
 
 type E2eFixtures = {
   trainerEmail: string;
@@ -32,34 +33,16 @@ async function waitForScheduleReady(page: Page) {
   ).toBeVisible();
 }
 
-test.describe("Trainer dashboard", () => {
-  test("login → schedule → allocate", async ({ page }) => {
+test.describe("WhatsApp tab", () => {
+  test("shows a booking confirmation after allocating a session", async ({
+    page,
+  }) => {
     const fixtures = loadFixtures();
 
-    const loginRes = await page.request.post("/api/auth/magic-link", {
-      data: { email: fixtures.trainerEmail, purpose: "login" },
-    });
-    expect(loginRes.ok()).toBeTruthy();
-    const loginData = await loginRes.json();
-    expect(loginData.devLink).toBeTruthy();
-
-    const verifyUrl = new URL(loginData.devLink as string);
-    const verifyPath = `${verifyUrl.pathname}${verifyUrl.search}`;
-
-    await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/settings") && response.status() === 200,
-      ),
-      page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/schedule") && response.status() === 200,
-      ),
-      page.goto(verifyPath),
-    ]);
-
-    await expect(page).toHaveURL(/\/dashboard\/schedule/);
-    await expect(page.getByRole("heading", { name: "Weekly schedule" })).toBeVisible();
+    await loginAsTrainer(page, fixtures.trainerEmail);
+    await expect(
+      page.getByRole("heading", { name: "Weekly schedule" }),
+    ).toBeVisible();
     await waitForScheduleReady(page);
 
     await page
@@ -78,5 +61,15 @@ test.describe("Trainer dashboard", () => {
     await expect(
       page.getByRole("link", { name: fixtures.clientName }),
     ).toBeVisible();
+
+    await page.goto("/dashboard/whatsapp");
+    await expect(page.getByText("Loading messages…")).toBeHidden({
+      timeout: 15_000,
+    });
+
+    const confirmations = page.getByText("Booking confirmation");
+    await expect(confirmations.first()).toBeVisible();
+    await expect(confirmations).not.toHaveCount(0);
+    await expect(page.getByText(/session is confirmed for/i).first()).toBeVisible();
   });
 });

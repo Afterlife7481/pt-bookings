@@ -5,7 +5,10 @@ import { bookings, clients, slots } from "@/lib/db/schema";
 import {
   cancelBookingByToken,
   createBookingForSlot,
+  sendInvoiceForBooking,
+  voidBookingForTrainer,
 } from "@/lib/services/bookings";
+import { updateTrainerSettings } from "@/lib/services/settings";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID, toLocalDateTimeString } from "@/lib/constants";
 
@@ -130,6 +133,102 @@ describe("cancelBookingByToken", () => {
 
     await expect(cancelBookingByToken(token)).rejects.toThrow(
       /Cancellations are not allowed/,
+    );
+  });
+});
+
+describe("voidBookingForTrainer", () => {
+  it("voids a past session", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await db
+      .update(slots)
+      .set({ startAt: toLocalDateTimeString(past) })
+      .where(eq(slots.id, fixtures.slotId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const detail = await voidBookingForTrainer(DEFAULT_TRAINER_ID, bookingId);
+    expect(detail?.booking.status).toBe("voided");
+  });
+
+  it("rejects voiding an upcoming session", async () => {
+    const fixtures = await seedTestFixtures();
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    await expect(
+      voidBookingForTrainer(DEFAULT_TRAINER_ID, bookingId),
+    ).rejects.toThrow(/Only past sessions can be voided/);
+  });
+});
+
+describe("sendInvoiceForBooking", () => {
+  it("records invoiceSentAt when price and bank details are set", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+      bankAccountNumber: "12345678",
+      bankSortCode: "12-34-56",
+    });
+    await db
+      .update(clients)
+      .set({ sessionPrice: 5000 })
+      .where(eq(clients.id, fixtures.clientId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const detail = await sendInvoiceForBooking(bookingId);
+    expect(detail?.booking.invoiceSentAt).toBeTruthy();
+  });
+
+  it("rejects invoices for voided sessions", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+      bankAccountNumber: "12345678",
+      bankSortCode: "12-34-56",
+    });
+    await db
+      .update(clients)
+      .set({ sessionPrice: 5000 })
+      .where(eq(clients.id, fixtures.clientId));
+
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await db
+      .update(slots)
+      .set({ startAt: toLocalDateTimeString(past) })
+      .where(eq(slots.id, fixtures.slotId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    await voidBookingForTrainer(DEFAULT_TRAINER_ID, bookingId);
+
+    await expect(sendInvoiceForBooking(bookingId)).rejects.toThrow(
+      /Cannot send invoice for a canceled or voided session/,
     );
   });
 });
