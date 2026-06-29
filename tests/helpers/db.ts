@@ -1,9 +1,7 @@
 import fs from "fs";
-import os from "os";
 import path from "path";
-import { eq } from "drizzle-orm";
 import { wipeDatabase, seedFresh } from "@/lib/db/seed";
-import { resetDbConnection } from "@/lib/db/index";
+import { closeDb } from "@/lib/db/index";
 import { resetEnsureDb } from "@/lib/db/init";
 import { runMigrations } from "@/lib/db/migrate";
 import {
@@ -19,6 +17,7 @@ import { createLocation, setClientLocations } from "@/lib/services/locations";
 import { addScheduleSlot } from "@/lib/services/schedule";
 import { createTrainerSession } from "@/lib/services/auth";
 import { WEEK_DAYS } from "@/lib/schedule-grid";
+import { eq } from "drizzle-orm";
 
 export type TestFixtures = {
   trainerEmail: string;
@@ -35,27 +34,11 @@ export type TestFixtures = {
   sessionToken?: string;
 };
 
-let testDbPath: string | null = null;
-
-export function getTestDbPath() {
-  if (!testDbPath) {
-    testDbPath = path.join(
-      os.tmpdir(),
-      `pt-bookings-test-${process.pid}-${Date.now()}.db`,
-    );
-  }
-  return testDbPath;
-}
-
-function prepareDatabase(useIsolatedTestDb: boolean) {
-  if (useIsolatedTestDb) {
-    process.env.PT_BOOKINGS_DB_PATH = getTestDbPath();
-  }
-
-  resetDbConnection();
+async function prepareDatabase() {
+  await closeDb();
   resetEnsureDb();
-  wipeDatabase();
-  runMigrations();
+  await runMigrations();
+  await wipeDatabase();
 }
 
 async function seedWithSlot(daysAhead: number): Promise<TestFixtures> {
@@ -107,12 +90,12 @@ async function seedWithSlot(daysAhead: number): Promise<TestFixtures> {
 }
 
 export async function seedTestFixtures(): Promise<TestFixtures> {
-  prepareDatabase(true);
+  await prepareDatabase();
   return seedWithSlot(7);
 }
 
 export async function seedE2eFixtures(): Promise<TestFixtures> {
-  prepareDatabase(false);
+  await prepareDatabase();
 
   const now = new Date();
   const weekStart = formatDate(startOfWeekMonday(now));
@@ -203,4 +186,8 @@ export function writeE2eFixtures(fixtures: TestFixtures, filePath: string) {
       2,
     ),
   );
+}
+
+export async function closeTestDb() {
+  await closeDb();
 }

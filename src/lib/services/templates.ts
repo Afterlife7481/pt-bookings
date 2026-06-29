@@ -194,22 +194,20 @@ type TemplateDbTx = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
 
-function insertTemplateSlotsTx(
+async function insertTemplateSlotsTx(
   tx: TemplateDbTx,
   templateId: string,
   normalized: TemplateSlotInput[],
 ) {
   for (const s of normalized) {
-    tx.insert(templateSlots)
-      .values({
-        id: nanoid(),
-        templateId,
-        dayOfWeek: s.dayOfWeek,
-        startTime: s.startTime,
-        endTime: s.endTime,
-        locationId: s.locationId,
-      })
-      .run();
+    await tx.insert(templateSlots).values({
+      id: nanoid(),
+      templateId,
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      locationId: s.locationId,
+    });
   }
 }
 
@@ -225,26 +223,24 @@ export async function saveTrainerTemplate(
   });
 
   if (existing) {
-    db.transaction((tx) => {
-      tx.delete(templateSlots)
-        .where(eq(templateSlots.templateId, existing.id))
-        .run();
-      insertTemplateSlotsTx(tx, existing.id, normalized);
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(templateSlots)
+        .where(eq(templateSlots.templateId, existing.id));
+      await insertTemplateSlotsTx(tx, existing.id, normalized);
     });
     return existing.id;
   }
 
   const id = nanoid();
-  db.transaction((tx) => {
-    tx.insert(weeklyTemplates)
-      .values({
-        id,
-        trainerId,
-        name: WEEKLY_TEMPLATE_NAME,
-        createdAt: nowIso(),
-      })
-      .run();
-    insertTemplateSlotsTx(tx, id, normalized);
+  await db.transaction(async (tx) => {
+    await tx.insert(weeklyTemplates).values({
+      id,
+      trainerId,
+      name: WEEKLY_TEMPLATE_NAME,
+      createdAt: nowIso(),
+    });
+    await insertTemplateSlotsTx(tx, id, normalized);
   });
   return id;
 }

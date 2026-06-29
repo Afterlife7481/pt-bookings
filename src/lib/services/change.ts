@@ -10,7 +10,7 @@ import {
   isWithinClientBookingWindow,
   nowIso,
 } from "@/lib/constants";
-import { assertSlotNotHeldByActiveBookingSync } from "./bookings";
+import { assertSlotNotHeldByActiveBookingTx } from "./bookings";
 import { getAvailableSlotsForChange } from "./templates";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
@@ -241,69 +241,63 @@ export async function confirmChange(
     throw new Error("Selected slot is outside your booking window");
   }
 
-  return db.transaction((tx) => {
-    const reqRow = tx
-      .select()
-      .from(changeRequests)
-      .where(eq(changeRequests.id, changeRequestId))
-      .get();
+  return db.transaction(async (tx) => {
+    const reqRow = await tx.query.changeRequests.findFirst({
+      where: eq(changeRequests.id, changeRequestId),
+    });
     if (!reqRow || reqRow.status !== "browsing") {
       throw new Error("Change request is no longer active");
     }
 
-    const toSlotRow = tx
-      .select()
-      .from(slots)
-      .where(eq(slots.id, toSlotId))
-      .get();
+    const toSlotRow = await tx.query.slots.findFirst({
+      where: eq(slots.id, toSlotId),
+    });
     if (!toSlotRow || toSlotRow.status !== "available") {
       throw new Error("Selected slot is no longer available");
     }
 
-    const bookingRow = tx
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, reqRow.bookingId))
-      .get();
+    const bookingRow = await tx.query.bookings.findFirst({
+      where: eq(bookings.id, reqRow.bookingId),
+    });
     if (!bookingRow) throw new Error("Booking not found");
 
-    assertSlotNotHeldByActiveBookingSync(tx, toSlotId, bookingRow.id);
+    await assertSlotNotHeldByActiveBookingTx(tx, toSlotId, bookingRow.id);
 
     const ts = nowIso();
     const fromSlotId = reqRow.fromSlotId;
 
-    tx.update(bookings)
+    await tx
+      .update(bookings)
       .set({
         slotId: toSlotId,
         sessionStartAt: toSlotRow.startAt,
         status: "confirmed",
         updatedAt: ts,
       })
-      .where(eq(bookings.id, bookingRow.id))
-      .run();
+      .where(eq(bookings.id, bookingRow.id));
 
-    const claim = tx
+    const claim = await tx
       .update(slots)
       .set({ status: "booked" })
       .where(and(eq(slots.id, toSlotId), eq(slots.status, "available")))
-      .run();
-    if (claim.changes === 0) {
+      .returning({ id: slots.id });
+    if (claim.length === 0) {
       throw new Error("Selected slot is no longer available");
     }
 
-    tx.update(slots)
+    await tx
+      .update(slots)
       .set({ status: "available" })
-      .where(eq(slots.id, fromSlotId))
-      .run();
+      .where(eq(slots.id, fromSlotId));
 
-    tx.update(changeRequests)
+    await tx
+      .update(changeRequests)
       .set({
         toSlotId,
         status: "confirmed",
         updatedAt: ts,
       })
-      .where(eq(changeRequests.id, changeRequestId))
-      .run();
+      .where(eq(changeRequests.id, changeRequestId));
 
     return { bookingId: bookingRow.id, fromSlotId, toSlotId };
   });

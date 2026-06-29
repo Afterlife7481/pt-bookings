@@ -427,28 +427,26 @@ export async function clearWeekScheduleSlotsDev(
     .where(inArray(bookings.slotId, slotIds));
   const bookingIds = weekBookings.map((row) => row.id);
 
-  db.transaction((tx) => {
-    tx.delete(lastMinuteInterests)
-      .where(inArray(lastMinuteInterests.slotId, slotIds))
-      .run();
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(lastMinuteInterests)
+      .where(inArray(lastMinuteInterests.slotId, slotIds));
 
     if (bookingIds.length > 0) {
-      tx.delete(changeRequests)
-        .where(inArray(changeRequests.bookingId, bookingIds))
-        .run();
+      await tx
+        .delete(changeRequests)
+        .where(inArray(changeRequests.bookingId, bookingIds));
     }
 
-    tx.delete(changeRequests)
-      .where(
-        or(
-          inArray(changeRequests.fromSlotId, slotIds),
-          inArray(changeRequests.toSlotId, slotIds),
-        ),
-      )
-      .run();
+    await tx.delete(changeRequests).where(
+      or(
+        inArray(changeRequests.fromSlotId, slotIds),
+        inArray(changeRequests.toSlotId, slotIds),
+      ),
+    );
 
-    tx.delete(bookings).where(inArray(bookings.slotId, slotIds)).run();
-    tx.delete(slots).where(inArray(slots.id, slotIds)).run();
+    await tx.delete(bookings).where(inArray(bookings.slotId, slotIds));
+    await tx.delete(slots).where(inArray(slots.id, slotIds));
   });
 
   return { removed: slotIds.length };

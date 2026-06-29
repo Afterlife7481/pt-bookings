@@ -1,5 +1,8 @@
+import { config } from "dotenv";
 import path from "path";
 import { defineConfig } from "vitest/config";
+
+config({ path: path.join(process.cwd(), ".env.local") });
 
 export default defineConfig({
   test: {

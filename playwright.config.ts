@@ -1,7 +1,7 @@
+import { config } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-import path from "path";
 
-const e2eDbPath = path.join(process.cwd(), "data", "pt-bookings-e2e.db");
+config({ path: ".env.local" });
 
 export default defineConfig({
   testDir: "./e2e",
@@ -27,8 +27,9 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      PT_BOOKINGS_DB_PATH: e2eDbPath,
+      DATABASE_URL: process.env.DATABASE_URL ?? "",
       E2E_TEST: "1",
+      NEXT_PUBLIC_APP_URL: "http://localhost:3001",
     },
   },
 });

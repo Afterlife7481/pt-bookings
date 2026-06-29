@@ -1,8 +1,6 @@
-import fs from "fs";
-import path from "path";
+import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { getDb, resetDbConnection } from "./index";
-import { resolveDbPath } from "./paths";
+import { closeDb, getDb } from "./index";
 import { trainers, clients } from "./schema";
 import { DEFAULT_TRAINER_ID, nowIso } from "@/lib/constants";
 import { createClient } from "@/lib/services/clients";
@@ -22,24 +20,28 @@ const SEED_CLIENTS = [
   { name: "Harper Singh", phone: "+447700901110", lastMinuteOptIn: false },
 ];
 
-export function wipeDatabase() {
-  resetDbConnection();
-  resetEnsureDb();
-
-  const dbPath = resolveDbPath();
-  const dataDir = path.dirname(dbPath);
-  const base = path.basename(dbPath);
-
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    return;
-  }
-
-  for (const name of fs.readdirSync(dataDir)) {
-    if (name === base || name.startsWith(`${base}-`)) {
-      fs.unlinkSync(path.join(dataDir, name));
-    }
-  }
+export async function wipeDatabase() {
+  const db = getDb();
+  await db.execute(sql`
+    TRUNCATE TABLE
+      whatsapp_messages,
+      last_minute_interests,
+      client_last_minute_preferences,
+      change_requests,
+      bookings,
+      slots,
+      recurring_preferences,
+      template_slots,
+      applied_weeks,
+      weekly_templates,
+      client_locations,
+      locations,
+      clients,
+      trainer_sessions,
+      trainer_magic_links,
+      trainers
+    CASCADE
+  `);
 }
 
 export async function seedFresh() {
@@ -88,8 +90,10 @@ export async function seed() {
 }
 
 async function resetAndSeed() {
-  wipeDatabase();
-  runMigrations();
+  await closeDb();
+  resetEnsureDb();
+  await runMigrations();
+  await wipeDatabase();
   const result = await seedFresh();
 
   console.log("Database reset complete.\n");
@@ -102,11 +106,13 @@ async function resetAndSeed() {
     );
     console.log(`  http://localhost:3000/c/${client.token}`);
   }
+  await closeDb();
 }
 
 if (require.main === module) {
-  resetAndSeed().catch((err) => {
+  resetAndSeed().catch(async (err) => {
     console.error(err);
+    await closeDb();
     process.exit(1);
   });
 }

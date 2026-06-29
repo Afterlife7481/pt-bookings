@@ -1,11 +1,13 @@
+import { sql } from "drizzle-orm";
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
+  boolean,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const trainers = sqliteTable("trainers", {
+export const trainers = pgTable("trainers", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
@@ -19,46 +21,38 @@ export const trainers = sqliteTable("trainers", {
   lastMinuteOfferLockHours: integer("last_minute_offer_lock_hours")
     .notNull()
     .default(1),
-  /** How far ahead clients can book or move sessions (in weeks). */
   clientBookingWindowWeeks: integer("client_booking_window_weeks")
     .notNull()
     .default(2),
   bankAccountNumber: text("bank_account_number"),
   bankSortCode: text("bank_sort_code"),
   bankName: text("bank_name"),
-  /** Name shown on payment requests (company or trainer). Falls back to trainer name. */
   paymentPayeeName: text("payment_payee_name"),
   createdAt: text("created_at").notNull(),
 });
 
-export const trainerMagicLinks = sqliteTable(
-  "trainer_magic_links",
-  {
-    id: text("id").primaryKey(),
-    email: text("email").notNull(),
-    name: text("name"),
-    purpose: text("purpose", { enum: ["signup", "login"] }).notNull(),
-    token: text("token").notNull().unique(),
-    expiresAt: text("expires_at").notNull(),
-    usedAt: text("used_at"),
-    createdAt: text("created_at").notNull(),
-  },
-);
+export const trainerMagicLinks = pgTable("trainer_magic_links", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name"),
+  purpose: text("purpose", { enum: ["signup", "login"] }).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull(),
+});
 
-export const trainerSessions = sqliteTable(
-  "trainer_sessions",
-  {
-    id: text("id").primaryKey(),
-    trainerId: text("trainer_id")
-      .notNull()
-      .references(() => trainers.id, { onDelete: "cascade" }),
-    token: text("token").notNull().unique(),
-    expiresAt: text("expires_at").notNull(),
-    createdAt: text("created_at").notNull(),
-  },
-);
+export const trainerSessions = pgTable("trainer_sessions", {
+  id: text("id").primaryKey(),
+  trainerId: text("trainer_id")
+    .notNull()
+    .references(() => trainers.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
 
-export const clients = sqliteTable("clients", {
+export const clients = pgTable("clients", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
     .notNull()
@@ -67,15 +61,12 @@ export const clients = sqliteTable("clients", {
   name: text("name").notNull(),
   email: text("email").notNull().default(""),
   phone: text("phone").notNull(),
-  lastMinuteOptIn: integer("last_minute_opt_in", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  /** Price per session in pence (e.g. 5000 = £50.00). Null if not set. */
+  lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
   sessionPrice: integer("session_price"),
   createdAt: text("created_at").notNull(),
 });
 
-export const locations = sqliteTable("locations", {
+export const locations = pgTable("locations", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
     .notNull()
@@ -85,7 +76,7 @@ export const locations = sqliteTable("locations", {
   createdAt: text("created_at").notNull(),
 });
 
-export const clientLocations = sqliteTable(
+export const clientLocations = pgTable(
   "client_locations",
   {
     id: text("id").primaryKey(),
@@ -105,7 +96,7 @@ export const clientLocations = sqliteTable(
   }),
 );
 
-export const weeklyTemplates = sqliteTable(
+export const weeklyTemplates = pgTable(
   "weekly_templates",
   {
     id: text("id").primaryKey(),
@@ -120,27 +111,27 @@ export const weeklyTemplates = sqliteTable(
   }),
 );
 
-export const templateSlots = sqliteTable("template_slots", {
+export const templateSlots = pgTable("template_slots", {
   id: text("id").primaryKey(),
   templateId: text("template_id")
     .notNull()
     .references(() => weeklyTemplates.id, { onDelete: "cascade" }),
-  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun .. 6=Sat
-  startTime: text("start_time").notNull(), // HH:mm
-  endTime: text("end_time").notNull(), // HH:mm
+  dayOfWeek: integer("day_of_week").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
   locationId: text("location_id").references(() => locations.id, {
     onDelete: "set null",
   }),
 });
 
-export const appliedWeeks = sqliteTable(
+export const appliedWeeks = pgTable(
   "applied_weeks",
   {
     id: text("id").primaryKey(),
     trainerId: text("trainer_id")
       .notNull()
       .references(() => trainers.id),
-    weekStart: text("week_start").notNull(), // YYYY-MM-DD (Monday)
+    weekStart: text("week_start").notNull(),
     createdAt: text("created_at").notNull(),
   },
   (table) => ({
@@ -151,7 +142,7 @@ export const appliedWeeks = sqliteTable(
   }),
 );
 
-export const slots = sqliteTable(
+export const slots = pgTable(
   "slots",
   {
     id: text("id").primaryKey(),
@@ -161,8 +152,8 @@ export const slots = sqliteTable(
     appliedWeekId: text("applied_week_id")
       .notNull()
       .references(() => appliedWeeks.id, { onDelete: "cascade" }),
-    startAt: text("start_at").notNull(), // ISO datetime
-    endAt: text("end_at").notNull(), // ISO datetime
+    startAt: text("start_at").notNull(),
+    endAt: text("end_at").notNull(),
     status: text("status", {
       enum: ["available", "booked", "pending_change"],
     }).notNull(),
@@ -183,38 +174,42 @@ export const slots = sqliteTable(
   }),
 );
 
-export const bookings = sqliteTable("bookings", {
-  id: text("id").primaryKey(),
-  trainerId: text("trainer_id")
-    .notNull()
-    .references(() => trainers.id),
-  slotId: text("slot_id").references(() => slots.id),
-  sessionStartAt: text("session_start_at").notNull(),
-  clientId: text("client_id")
-    .notNull()
-    .references(() => clients.id),
-  token: text("token").notNull().unique(),
-  status: text("status", {
-    enum: ["confirmed", "pending_change", "canceled", "voided"],
-  }).notNull(),
-  override36h: integer("override_36h", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  isRecurring: integer("is_recurring", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  sessionPaid: integer("session_paid", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  paymentType: text("payment_type", {
-    enum: ["cash", "bank_transfer", "card", "other"],
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id),
+    slotId: text("slot_id").references(() => slots.id),
+    sessionStartAt: text("session_start_at").notNull(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id),
+    token: text("token").notNull().unique(),
+    status: text("status", {
+      enum: ["confirmed", "pending_change", "canceled", "voided"],
+    }).notNull(),
+    override36h: boolean("override_36h").notNull().default(false),
+    isRecurring: boolean("is_recurring").notNull().default(false),
+    sessionPaid: boolean("session_paid").notNull().default(false),
+    paymentType: text("payment_type", {
+      enum: ["cash", "bank_transfer", "card", "other"],
+    }),
+    invoiceSentAt: text("invoice_sent_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    activeSlotIdx: uniqueIndex("bookings_active_slot_idx")
+      .on(table.slotId)
+      .where(
+        sql`${table.slotId} is not null and ${table.status} <> 'canceled'`,
+      ),
   }),
-  invoiceSentAt: text("invoice_sent_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+);
 
-export const recurringPreferences = sqliteTable(
+export const recurringPreferences = pgTable(
   "recurring_preferences",
   {
     id: text("id").primaryKey(),
@@ -240,7 +235,7 @@ export const recurringPreferences = sqliteTable(
   }),
 );
 
-export const changeRequests = sqliteTable("change_requests", {
+export const changeRequests = pgTable("change_requests", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
     .notNull()
@@ -260,7 +255,7 @@ export const changeRequests = sqliteTable("change_requests", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const clientLastMinutePreferences = sqliteTable(
+export const clientLastMinutePreferences = pgTable(
   "client_last_minute_preferences",
   {
     id: text("id").primaryKey(),
@@ -283,7 +278,7 @@ export const clientLastMinutePreferences = sqliteTable(
   }),
 );
 
-export const lastMinuteInterests = sqliteTable("last_minute_interests", {
+export const lastMinuteInterests = pgTable("last_minute_interests", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
     .notNull()
@@ -302,7 +297,7 @@ export const lastMinuteInterests = sqliteTable("last_minute_interests", {
   createdAt: text("created_at").notNull(),
 });
 
-export const whatsappMessages = sqliteTable("whatsapp_messages", {
+export const whatsappMessages = pgTable("whatsapp_messages", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
     .notNull()

@@ -4,7 +4,7 @@ let initialized = false;
 
 export async function ensureDb() {
   if (!initialized) {
-    runMigrations();
+    await runMigrations();
     initialized = true;
   }
 }

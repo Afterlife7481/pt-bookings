@@ -19,18 +19,18 @@ import {
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
 
-type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+type DbTx = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
 
-export function assertSlotNotHeldByActiveBookingSync(
+export async function assertSlotNotHeldByActiveBookingTx(
   tx: DbTx,
   slotId: string,
   excludeBookingId?: string,
 ) {
-  const existing = tx
-    .select()
-    .from(bookings)
-    .where(eq(bookings.slotId, slotId))
-    .get();
+  const existing = await tx.query.bookings.findFirst({
+    where: eq(bookings.slotId, slotId),
+  });
   if (!existing || existing.id === excludeBookingId) return;
   if (isInactiveBookingStatus(existing.status)) return;
   throw new Error("Slot is not available");
@@ -65,67 +65,67 @@ export async function createBookingForSlot(params: {
     sendConfirmation = true,
   } = params;
 
-  const { bookingId, token, slotStartAt, slotEndAt } = db.transaction((tx) => {
-    const slot = tx
-      .select()
-      .from(slots)
-      .where(eq(slots.id, slotId))
-      .get();
-    if (!slot || slot.status !== "available") {
-      throw new Error("Slot is not available");
-    }
+  const { bookingId, token, slotStartAt, slotEndAt } = await db.transaction(
+    async (tx) => {
+      const slot = await tx.query.slots.findFirst({
+        where: eq(slots.id, slotId),
+      });
+      if (!slot || slot.status !== "available") {
+        throw new Error("Slot is not available");
+      }
 
-    const now = nowIso();
-    if (
-      slot.heldForClientId &&
-      slot.heldForClientId !== clientId &&
-      slot.holdExpiresAt &&
-      slot.holdExpiresAt >= now
-    ) {
-      throw new Error("This slot is reserved for another client");
-    }
+      const now = nowIso();
+      if (
+        slot.heldForClientId &&
+        slot.heldForClientId !== clientId &&
+        slot.holdExpiresAt &&
+        slot.holdExpiresAt >= now
+      ) {
+        throw new Error("This slot is reserved for another client");
+      }
 
-    assertSlotNotHeldByActiveBookingSync(tx, slotId);
+      await assertSlotNotHeldByActiveBookingTx(tx, slotId);
 
-    const newBookingId = nanoid();
-    const newToken = nanoid(12);
-    const ts = nowIso();
+      const newBookingId = nanoid();
+      const newToken = nanoid(12);
+      const ts = nowIso();
 
-    tx.insert(bookings).values({
-      id: newBookingId,
-      trainerId,
-      slotId,
-      sessionStartAt: slot.startAt,
-      clientId,
-      token: newToken,
-      status: "confirmed",
-      override36h: false,
-      isRecurring,
-      createdAt: ts,
-      updatedAt: ts,
-    }).run();
+      await tx.insert(bookings).values({
+        id: newBookingId,
+        trainerId,
+        slotId,
+        sessionStartAt: slot.startAt,
+        clientId,
+        token: newToken,
+        status: "confirmed",
+        override36h: false,
+        isRecurring,
+        createdAt: ts,
+        updatedAt: ts,
+      });
 
-    const claim = tx
-      .update(slots)
-      .set({
-        status: "booked",
-        heldForClientId: null,
-        holdExpiresAt: null,
-      })
-      .where(and(eq(slots.id, slotId), eq(slots.status, "available")))
-      .run();
+      const claim = await tx
+        .update(slots)
+        .set({
+          status: "booked",
+          heldForClientId: null,
+          holdExpiresAt: null,
+        })
+        .where(and(eq(slots.id, slotId), eq(slots.status, "available")))
+        .returning({ id: slots.id });
 
-    if (claim.changes === 0) {
-      throw new Error("Slot is not available");
-    }
+      if (claim.length === 0) {
+        throw new Error("Slot is not available");
+      }
 
-    return {
-      bookingId: newBookingId,
-      token: newToken,
-      slotStartAt: slot.startAt,
-      slotEndAt: slot.endAt,
-    };
-  });
+      return {
+        bookingId: newBookingId,
+        token: newToken,
+        slotStartAt: slot.startAt,
+        slotEndAt: slot.endAt,
+      };
+    },
+  );
 
   if (sendConfirmation) {
     const client = await db.query.clients.findFirst({

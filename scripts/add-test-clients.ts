@@ -19,7 +19,7 @@ const testClients = [
 ];
 
 async function main() {
-  runMigrations();
+  await runMigrations();
   const db = getDb();
   const created: { name: string; token: string; phone: string; lastMinuteOptIn: boolean }[] = [];
 
