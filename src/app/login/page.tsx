@@ -130,8 +130,8 @@ function LoginForm() {
         </form>
 
         <p className="mt-4 text-center text-xs text-slate-500">
-          We&apos;ll email you a magic link to sign in. In development, the link
-          appears here and in the server console.
+          We&apos;ll email you a magic link to sign in. Until email is set up, the
+          link appears below (and in server logs).
         </p>
       </Card>
 
