@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { Button } from "@/components/ui";
 import {
   ScheduleViewToggle,
@@ -17,50 +17,147 @@ import {
   type ScheduleLocationOption,
 } from "@/components/schedule/ScheduleModals";
 import {
-  buildScheduleGrid,
+  countEntriesForDate,
   dateForWeekDay,
   dayHeader,
+  dayNumberForWeekDay,
   dayShortDate,
   defaultSelectedDay,
-  isPastSlot,
+  entryRowSpan,
+  findEntryForScheduleRow,
 } from "@/components/schedule/schedule-utils";
 import { cn } from "@/lib/utils";
-import { useMounted } from "@/lib/use-mounted";
-import {
-  addDays,
-  formatDate,
-  parseDateOnly,
-  hoursInScheduleRange,
-} from "@/lib/constants";
+import { addDays, formatDate, parseDateOnly } from "@/lib/constants";
 import {
   WEEK_DAYS,
-  dayHeaderInitial,
-  formatScheduleHour,
+  scheduleGridTimeLabel,
+  timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
 
+/** Height of each 30-minute row in day view. */
+const DAY_VIEW_ROW_HEIGHT = "2.75rem";
+
+function MobileDaySchedule({
+  weekStart,
+  selectedDay,
+  timeRows,
+  entries,
+  editable,
+  busyKey,
+  selectedOpenSlot,
+  onRequestAdd,
+  onOpenSlot,
+}: {
+  weekStart: string;
+  selectedDay: number;
+  timeRows: string[];
+  entries: ScheduleEntry[];
+  editable: boolean;
+  busyKey: string | null;
+  selectedOpenSlot: ScheduleEntry | null;
+  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
+  onOpenSlot: (entry: ScheduleEntry) => void;
+}) {
+  const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
+
+  return (
+    <div
+      className="overflow-hidden rounded-lg border border-slate-200"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "3.5rem 1fr",
+        gridTemplateRows: `repeat(${timeRows.length}, ${DAY_VIEW_ROW_HEIGHT})`,
+      }}
+    >
+      {timeRows.map((rowTime, rowIndex) => {
+        const gridRow = rowIndex + 1;
+        const match = findEntryForScheduleRow(entries, dateKey, rowTime);
+        const addKey = `add-${selectedDay}-${rowTime}`;
+        const canAdd = editable && onRequestAdd && !match;
+
+        return (
+          <Fragment key={rowTime}>
+            <div
+              style={{ gridColumn: 1, gridRow }}
+              className={cn(
+                "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-1 text-xs tabular-nums text-slate-500",
+                rowIndex > 0 && "border-t border-slate-100",
+              )}
+            >
+              {scheduleGridTimeLabel(rowTime, false)}
+            </div>
+
+            {match && !match.isStart ? null : (
+              <div
+                style={{
+                  gridColumn: 2,
+                  gridRow:
+                    match && match.isStart
+                      ? `${gridRow} / span ${entryRowSpan(match.entry)}`
+                      : gridRow,
+                }}
+                className={cn(
+                  "min-h-0 p-0.5",
+                  rowIndex > 0 && "border-t border-slate-100",
+                  match && match.isStart && "relative z-10",
+                )}
+              >
+                {match ? (
+                  <ScheduleCell
+                    entry={match.entry}
+                    editable={
+                      editable &&
+                      !match.entry.booking &&
+                      match.entry.status === "available"
+                    }
+                    onOpen={editable ? onOpenSlot : undefined}
+                    selected={selectedOpenSlot?.slotId === match.entry.slotId}
+                    mobile
+                  />
+                ) : canAdd ? (
+                  <button
+                    type="button"
+                    disabled={!!busyKey}
+                    onClick={() => onRequestAdd(selectedDay, rowTime)}
+                    className={cn(
+                      "flex h-full min-h-0 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition active:border-slate-400 active:bg-slate-50",
+                      busyKey === addKey && "opacity-50",
+                    )}
+                  >
+                    + Add slot
+                  </button>
+                ) : (
+                  <div className="h-full min-h-0 rounded-lg bg-slate-50/80" />
+                )}
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
 function DayPicker({
   weekStart,
   selectedDay,
   onSelectDay,
-  hours,
-  grid,
+  entries,
 }: {
   weekStart: string;
   selectedDay: number;
   onSelectDay: (day: number) => void;
-  hours: number[];
-  grid: Map<string, ScheduleEntry>;
+  entries: ScheduleEntry[];
 }) {
   return (
     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
         const dateKey = formatDate(dateForWeekDay(weekStart, day.value));
-        const daySlots = hours.filter((h) => grid.has(`${dateKey}-${h}`)).length;
+        const daySlots = countEntriesForDate(entries, dateKey);
 
         return (
           <button
@@ -100,174 +197,83 @@ function DayPicker({
   );
 }
 
-function MobileDaySchedule({
-  weekStart,
-  selectedDay,
-  hours,
-  grid,
-  editable,
-  busyKey,
-  selectedOpenSlot,
-  onRequestAdd,
-  onOpenSlot,
-  nowMs,
-}: {
-  weekStart: string;
-  selectedDay: number;
-  hours: number[];
-  grid: Map<string, ScheduleEntry>;
-  editable: boolean;
-  busyKey: string | null;
-  selectedOpenSlot: ScheduleEntry | null;
-  onRequestAdd?: (dayOfWeek: number, hour: number) => void;
-  onOpenSlot: (entry: ScheduleEntry) => void;
-  nowMs: number | null;
-}) {
-  const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
-
-  return (
-    <div className="space-y-2">
-      {hours.map((hour) => {
-        const entry = grid.get(`${dateKey}-${hour}`);
-        const addKey = `add-${selectedDay}-${hour}`;
-        const canAdd =
-          editable &&
-          onRequestAdd &&
-          !entry &&
-          !isPastSlot(weekStart, selectedDay, hour, nowMs);
-
-        return (
-          <div key={hour} className="flex items-center gap-3">
-            <div className="flex w-14 shrink-0 items-center justify-center text-sm tabular-nums text-slate-500">
-              {formatScheduleHour(hour)}
-            </div>
-            <div className="min-w-0 flex-1">
-              {entry ? (
-                <ScheduleCell
-                  entry={entry}
-                  editable={
-                    editable &&
-                    !entry.booking &&
-                    entry.status === "available"
-                  }
-                  onOpen={editable ? onOpenSlot : undefined}
-                  selected={selectedOpenSlot?.slotId === entry.slotId}
-                  mobile
-                />
-              ) : canAdd ? (
-                <button
-                  type="button"
-                  disabled={!!busyKey}
-                  onClick={() => onRequestAdd(selectedDay, hour)}
-                  className={cn(
-                    "flex min-h-12 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition active:border-slate-400 active:bg-slate-50",
-                    busyKey === addKey && "opacity-50",
-                  )}
-                >
-                  + Add slot
-                </button>
-              ) : (
-                <div className="min-h-12 rounded-lg bg-slate-50" />
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function WeekGrid({
   weekStart,
-  hours,
-  grid,
+  timeRows,
+  entries,
   editable,
   busyKey,
   selectedOpenSlot,
   onRequestAdd,
   onOpenSlot,
   compact = false,
-  nowMs,
 }: {
   weekStart: string;
-  hours: number[];
-  grid: Map<string, ScheduleEntry>;
+  timeRows: string[];
+  entries: ScheduleEntry[];
   editable: boolean;
   busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
-  onRequestAdd?: (dayOfWeek: number, hour: number) => void;
+  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   compact?: boolean;
-  nowMs: number | null;
 }) {
-  const rowHeight = compact ? "h-10" : "h-11";
-
   return (
     <WeeklyHourGrid
-      hours={hours}
+      timeRows={timeRows}
       variant={compact ? "compact" : "full"}
       wide={!compact}
-      getDayHeader={(day) =>
-        compact
-          ? dayHeaderInitial(day)
-          : {
-              primary: day.label,
-              secondary: dayHeader(weekStart, day.value).replace(/^\w+\s/, ""),
-            }
-      }
-      renderCell={(dayOfWeek, hour) => {
+      splitDayHeaderRows
+      getDayHeader={(day) => ({
+        primary: dayNumberForWeekDay(weekStart, day.value),
+        secondary: day.label.charAt(0),
+      })}
+      renderCell={(dayOfWeek, rowTime) => {
         const dateKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
-        const entry = grid.get(`${dateKey}-${hour}`);
+        const match = findEntryForScheduleRow(entries, dateKey, rowTime);
 
-        if (entry) {
-          return (
-            <ScheduleCell
-              entry={entry}
-              editable={
-                editable && !entry.booking && entry.status === "available"
-              }
-              onOpen={editable ? onOpenSlot : undefined}
-              selected={selectedOpenSlot?.slotId === entry.slotId}
-              compact={compact}
-            />
-          );
+        if (match && !match.isStart) {
+          return { covered: true };
         }
 
-        if (
-          editable &&
-          onRequestAdd &&
-          !isPastSlot(weekStart, dayOfWeek, hour, nowMs)
-        ) {
+        const entry = match?.entry ?? null;
+
+        if (entry) {
+          return {
+            rowSpan: entryRowSpan(entry),
+            content: (
+              <ScheduleCell
+                entry={entry}
+                editable={
+                  editable && !entry.booking && entry.status === "available"
+                }
+                onOpen={editable ? onOpenSlot : undefined}
+                selected={selectedOpenSlot?.slotId === entry.slotId}
+                compact={compact}
+              />
+            ),
+          };
+        }
+
+        if (editable && onRequestAdd) {
           return (
             <button
               type="button"
               disabled={!!busyKey}
-              onClick={() => onRequestAdd(dayOfWeek, hour)}
-              title="Add slot"
+              onClick={() => onRequestAdd(dayOfWeek, rowTime)}
+              title={`Add slot at ${rowTime}`}
               className={cn(
-                rowHeight,
-                "flex w-full items-center justify-center rounded border border-transparent bg-white transition",
-                compact
-                  ? "border-dashed border-slate-200 active:border-slate-300 active:bg-slate-50"
-                  : "group hover:border-slate-300 hover:bg-slate-50",
-                busyKey === `add-${dayOfWeek}-${hour}` && "opacity-50",
+                "flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600",
+                compact ? "text-[10px]" : "text-[10px]",
+                busyKey === `add-${dayOfWeek}-${rowTime}` && "opacity-50",
               )}
             >
-              <span
-                className={cn(
-                  "font-medium text-slate-400",
-                  compact
-                    ? "text-[10px]"
-                    : "text-[9px] text-slate-300 opacity-0 transition group-hover:opacity-100",
-                )}
-              >
-                {compact ? "+" : "+ Add"}
-              </span>
+              {compact ? "+" : "+ Add"}
             </button>
           );
         }
 
-        return <div className={cn(rowHeight, "bg-white")} />;
+        return <div className="h-full bg-white" />;
       }}
     />
   );
@@ -306,6 +312,7 @@ export function WeekScheduleCalendar({
     dayOfWeek: number,
     startTime: string,
     locationId: string,
+    endTime?: string,
   ) => Promise<void> | void;
   onRemoveSlot?: (slotId: string) => Promise<void> | void;
   onAllocateSlot?: (slotId: string, clientId: string) => Promise<void> | void;
@@ -315,16 +322,16 @@ export function WeekScheduleCalendar({
   ) => Promise<void> | void;
   onRefresh?: () => void | Promise<void>;
 }) {
-  const grid = buildScheduleGrid(weekStart, entries);
-  const hours = hoursInScheduleRange(scheduleStartTime, scheduleEndTime);
+  const timeRows = useMemo(
+    () => timeRowsInScheduleRange(scheduleStartTime, scheduleEndTime),
+    [scheduleStartTime, scheduleEndTime],
+  );
   const editable = !!(onAddSlot || onRemoveSlot || onAllocateSlot);
-  const mounted = useMounted();
-  const nowMs = mounted ? Date.now() : null;
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [selectedOpenSlot, setSelectedOpenSlot] = useState<ScheduleEntry | null>(null);
   const [pendingAdd, setPendingAdd] = useState<{
     dayOfWeek: number;
-    hour: number;
+    startTime: string;
   } | null>(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [viewMode, setViewMode] = useState<ScheduleView>(() => defaultView);
@@ -332,9 +339,8 @@ export function WeekScheduleCalendar({
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
 
   useEffect(() => {
-    if (!mounted) return;
     setSelectedDay(defaultSelectedDay(weekStart));
-  }, [weekStart, mounted]);
+  }, [weekStart]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1023px)");
@@ -355,13 +361,13 @@ export function WeekScheduleCalendar({
     await onRefresh?.();
   }
 
-  async function handleConfirmAdd(locationId: string) {
+  async function handleConfirmAdd(locationId: string, endTime: string) {
     if (!pendingAdd || !onAddSlot || busyKey) return;
-    const { dayOfWeek, hour } = pendingAdd;
-    const key = `add-${dayOfWeek}-${hour}`;
+    const { dayOfWeek, startTime } = pendingAdd;
+    const key = `add-${dayOfWeek}-${startTime}`;
     setBusyKey(key);
     try {
-      await onAddSlot(dayOfWeek, formatScheduleHour(hour), locationId);
+      await onAddSlot(dayOfWeek, startTime, locationId, endTime);
       setPendingAdd(null);
     } finally {
       setBusyKey(null);
@@ -387,9 +393,9 @@ export function WeekScheduleCalendar({
     }
   }
 
-  function requestAdd(dayOfWeek: number, hour: number) {
+  function requestAdd(dayOfWeek: number, startTime: string) {
     if (!onAddSlot || busyKey) return;
-    setPendingAdd({ dayOfWeek, hour });
+    setPendingAdd({ dayOfWeek, startTime });
   }
 
   async function handleRemove(slotId: string) {
@@ -442,26 +448,15 @@ export function WeekScheduleCalendar({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
-          <div className="flex flex-wrap items-center gap-2">
-            {showApplyTemplate && (
-              <Button
-                variant="secondary"
-                disabled={applyingTemplate}
-                onClick={() => setApplyTemplateOpen(true)}
-              >
-                {applyingTemplate ? "Applying…" : "Apply template"}
-              </Button>
-            )}
-            {editable && (
-              <span className="text-xs text-slate-500">
-                {viewMode === "day"
-                  ? "Tap + to add slots · tap open slots to offer or allocate"
-                  : useCompactWeekGrid
-                    ? "Tap + to add · tap open slots to manage"
-                    : "Click empty cells to add · click open slots to offer or allocate"}
-              </span>
-            )}
-          </div>
+          {showApplyTemplate && (
+            <Button
+              variant="secondary"
+              disabled={applyingTemplate}
+              onClick={() => setApplyTemplateOpen(true)}
+            >
+              {applyingTemplate ? "Applying…" : "Apply template"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -472,8 +467,7 @@ export function WeekScheduleCalendar({
               weekStart={weekStart}
               selectedDay={selectedDay}
               onSelectDay={setSelectedDay}
-              hours={hours}
-              grid={grid}
+              entries={entries}
             />
           </div>
 
@@ -482,32 +476,41 @@ export function WeekScheduleCalendar({
           <MobileDaySchedule
             weekStart={weekStart}
             selectedDay={selectedDay}
-            hours={hours}
-            grid={grid}
+            timeRows={timeRows}
+            entries={entries}
             editable={editable}
             busyKey={busyKey}
             selectedOpenSlot={selectedOpenSlot}
             onRequestAdd={onAddSlot ? requestAdd : undefined}
             onOpenSlot={openSlotActions}
-            nowMs={nowMs}
           />
         </div>
       ) : (
         <WeekGrid
           weekStart={weekStart}
-          hours={hours}
-          grid={grid}
+          timeRows={timeRows}
+          entries={entries}
           editable={editable}
           busyKey={busyKey}
           selectedOpenSlot={selectedOpenSlot}
           onRequestAdd={onAddSlot ? requestAdd : undefined}
           onOpenSlot={openSlotActions}
           compact={useCompactWeekGrid}
-          nowMs={nowMs}
         />
       )}
 
-      <ScheduleLegend />
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        {editable && (
+          <p className="mb-2 text-xs text-slate-500">
+            {viewMode === "day"
+              ? "Tap + to add slots · tap open slots to offer or allocate"
+              : useCompactWeekGrid
+                ? "Tap + to add · tap open slots to manage"
+                : "Click empty cells to add · click open slots to offer or allocate"}
+          </p>
+        )}
+        <ScheduleLegend />
+      </div>
 
       {applyTemplateOpen && onApplyTemplate && (
         <ApplyTemplateModal
@@ -527,7 +530,7 @@ export function WeekScheduleCalendar({
         <AddSlotModal
           weekStart={weekStart}
           dayOfWeek={pendingAdd.dayOfWeek}
-          hour={pendingAdd.hour}
+          startTime={pendingAdd.startTime}
           locations={locations}
           onConfirm={handleConfirmAdd}
           onClose={() => !busyKey && setPendingAdd(null)}

@@ -1,10 +1,20 @@
 import { nanoid } from "nanoid";
 import { eq, asc, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, clients, slots, changeRequests } from "@/lib/db/schema";
-import { isWithinBookingDeadline, nowIso, parseLocalDateTime } from "@/lib/constants";
-import { sendWhatsAppConfirmation } from "@/lib/whatsapp";
+import { bookings, clients, slots, changeRequests, locations } from "@/lib/db/schema";
+import {
+  isWithinBookingDeadline,
+  isInactiveBookingStatus,
+  nowIso,
+  parseLocalDateTime,
+  type SessionPaymentType,
+} from "@/lib/constants";
+import { sendWhatsAppConfirmation, sendWhatsAppInvoice } from "@/lib/whatsapp";
 import { getTrainerSettings } from "./settings";
+import {
+  getPaymentDetailsForMessage,
+  hasBankTransferDetails,
+} from "@/lib/payments";
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
 
@@ -21,7 +31,7 @@ export function assertSlotNotHeldByActiveBookingSync(
     .where(eq(bookings.slotId, slotId))
     .get();
   if (!existing || existing.id === excludeBookingId) return;
-  if (existing.status === "canceled") return;
+  if (isInactiveBookingStatus(existing.status)) return;
   throw new Error("Slot is not available");
 }
 
@@ -34,7 +44,7 @@ export async function assertSlotNotHeldByActiveBooking(
     where: eq(bookings.slotId, slotId),
   });
   if (!existing || existing.id === excludeBookingId) return;
-  if (existing.status === "canceled") return;
+  if (isInactiveBookingStatus(existing.status)) return;
   throw new Error("Slot is not available");
 }
 
@@ -54,7 +64,7 @@ export async function createBookingForSlot(params: {
     sendConfirmation = true,
   } = params;
 
-  const { bookingId, token, slotStartAt } = db.transaction((tx) => {
+  const { bookingId, token, slotStartAt, slotEndAt } = db.transaction((tx) => {
     const slot = tx
       .select()
       .from(slots)
@@ -112,6 +122,7 @@ export async function createBookingForSlot(params: {
       bookingId: newBookingId,
       token: newToken,
       slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
     };
   });
 
@@ -126,6 +137,7 @@ export async function createBookingForSlot(params: {
         phone: client.phone,
         bookingToken: token,
         slotStartAt,
+        slotEndAt,
         clientName: client.name,
       });
     }
@@ -175,7 +187,7 @@ export async function cancelBookingByToken(bookingToken: string) {
   const booking = await db.query.bookings.findFirst({
     where: eq(bookings.token, bookingToken),
   });
-  if (!booking || booking.status === "canceled") {
+  if (!booking || isInactiveBookingStatus(booking.status)) {
     throw new Error("Booking not found");
   }
 
@@ -221,11 +233,7 @@ export async function cancelBookingByToken(bookingToken: string) {
 
   const { cancelDeadlineHours } = await getTrainerSettings(booking.trainerId);
   if (
-    isWithinBookingDeadline(
-      slot.startAt,
-      booking.override36h,
-      cancelDeadlineHours,
-    )
+    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours)
   ) {
     throw new Error(
       `Cancellations are not allowed within ${cancelDeadlineHours} hours of your session. Please contact your trainer.`,
@@ -245,6 +253,7 @@ export type ClientSession = {
   status: string;
   isRecurring: boolean;
   startAt: string;
+  endAt: string | null;
 };
 
 export async function listClientSessions(clientId: string): Promise<{
@@ -275,10 +284,11 @@ export async function listClientSessions(clientId: string): Promise<{
       status: row.booking.status,
       isRecurring: row.booking.isRecurring,
       startAt,
+      endAt: row.slot?.endAt ?? null,
     };
 
     const isPast = parseLocalDateTime(startAt).getTime() < now;
-    if (row.booking.status === "canceled" || isPast) {
+    if (isInactiveBookingStatus(row.booking.status) || isPast) {
       history.push(session);
     } else {
       upcoming.push(session);
@@ -355,7 +365,235 @@ export async function sendConfirmationForBooking(bookingId: string) {
       phone: client.phone,
       bookingToken: booking.token,
       slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
       clientName: client.name,
     });
   }
+}
+
+export type TrainerBookingDetail = {
+  booking: {
+    id: string;
+    token: string;
+    status: string;
+    isRecurring: boolean;
+    sessionPaid: boolean;
+    paymentType: SessionPaymentType | null;
+    invoiceSentAt: string | null;
+    sessionStartAt: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  slot: {
+    id: string;
+    startAt: string;
+    endAt: string;
+    status: string;
+  } | null;
+  location: { id: string; name: string } | null;
+  client: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    sessionPrice: number | null;
+  };
+};
+
+async function getBookingForTrainer(trainerId: string, bookingId: string) {
+  const db = getDb();
+  return db.query.bookings.findFirst({
+    where: and(eq(bookings.id, bookingId), eq(bookings.trainerId, trainerId)),
+  });
+}
+
+export async function getBookingDetailForTrainer(
+  trainerId: string,
+  bookingId: string,
+): Promise<TrainerBookingDetail | null> {
+  const booking = await getBookingForTrainer(trainerId, bookingId);
+  if (!booking) return null;
+
+  const db = getDb();
+  const slot = booking.slotId
+    ? await db.query.slots.findFirst({
+        where: eq(slots.id, booking.slotId),
+      })
+    : null;
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, booking.clientId),
+  });
+  if (!client) return null;
+
+  const location = slot?.locationId
+    ? await db.query.locations.findFirst({
+        where: eq(locations.id, slot.locationId),
+      })
+    : null;
+
+  return {
+    booking: {
+      id: booking.id,
+      token: booking.token,
+      status: booking.status,
+      isRecurring: booking.isRecurring,
+      sessionPaid: booking.sessionPaid,
+      paymentType: booking.paymentType,
+      invoiceSentAt: booking.invoiceSentAt ?? null,
+      sessionStartAt: booking.sessionStartAt,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+    },
+    slot: slot
+      ? {
+          id: slot.id,
+          startAt: slot.startAt,
+          endAt: slot.endAt,
+          status: slot.status,
+        }
+      : null,
+    location: location ? { id: location.id, name: location.name } : null,
+    client: {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      sessionPrice: client.sessionPrice,
+    },
+  };
+}
+
+export async function updateBookingPaymentForTrainer(
+  trainerId: string,
+  bookingId: string,
+  updates: {
+    sessionPaid?: boolean;
+    paymentType?: SessionPaymentType | null;
+  },
+) {
+  const booking = await getBookingForTrainer(trainerId, bookingId);
+  if (!booking) throw new Error("Booking not found");
+
+  const patch: {
+    sessionPaid?: boolean;
+    paymentType?: SessionPaymentType | null;
+    updatedAt: string;
+  } = { updatedAt: nowIso() };
+
+  if (updates.sessionPaid !== undefined) {
+    patch.sessionPaid = updates.sessionPaid;
+  }
+
+  if (updates.paymentType !== undefined) {
+    patch.paymentType = updates.paymentType;
+  }
+
+  const db = getDb();
+  await db.update(bookings).set(patch).where(eq(bookings.id, bookingId));
+
+  return getBookingDetailForTrainer(trainerId, bookingId);
+}
+
+export async function cancelBookingForTrainer(
+  trainerId: string,
+  bookingId: string,
+) {
+  const booking = await getBookingForTrainer(trainerId, bookingId);
+  if (!booking) throw new Error("Booking not found");
+  if (isInactiveBookingStatus(booking.status)) {
+    throw new Error("Session is already inactive");
+  }
+
+  await cancelBooking(bookingId);
+}
+
+export async function voidBookingForTrainer(
+  trainerId: string,
+  bookingId: string,
+) {
+  const booking = await getBookingForTrainer(trainerId, bookingId);
+  if (!booking) throw new Error("Booking not found");
+  if (isInactiveBookingStatus(booking.status)) {
+    throw new Error("Session is already inactive");
+  }
+
+  const db = getDb();
+  const slot = booking.slotId
+    ? await db.query.slots.findFirst({
+        where: eq(slots.id, booking.slotId),
+      })
+    : null;
+  const sessionStartAt = slot?.startAt ?? booking.sessionStartAt;
+
+  if (parseLocalDateTime(sessionStartAt).getTime() >= Date.now()) {
+    throw new Error(
+      "Only past sessions can be voided. Cancel upcoming sessions instead.",
+    );
+  }
+
+  await db
+    .update(bookings)
+    .set({
+      status: "voided",
+      updatedAt: nowIso(),
+    })
+    .where(eq(bookings.id, bookingId));
+
+  return getBookingDetailForTrainer(trainerId, bookingId);
+}
+
+export async function sendInvoiceForBooking(bookingId: string) {
+  const db = getDb();
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.id, bookingId),
+  });
+  if (!booking) throw new Error("Booking not found");
+  if (booking.status === "canceled" || booking.status === "voided") {
+    throw new Error("Cannot send invoice for a canceled or voided session");
+  }
+
+  const slot = booking.slotId
+    ? await db.query.slots.findFirst({
+        where: eq(slots.id, booking.slotId),
+      })
+    : null;
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, booking.clientId),
+  });
+  if (!client) throw new Error("Client not found");
+
+  if (client.sessionPrice == null) {
+    throw new Error("Set a session price for this client before sending an invoice");
+  }
+
+  const settings = await getTrainerSettings(booking.trainerId);
+  const paymentDetails = getPaymentDetailsForMessage(settings);
+  if (!hasBankTransferDetails(paymentDetails)) {
+    throw new Error(
+      "Add bank account and sort code in Settings → Payment details before sending an invoice",
+    );
+  }
+
+  const slotStartAt = slot?.startAt ?? booking.sessionStartAt;
+  const slotEndAt = slot?.endAt ?? null;
+
+  await sendWhatsAppInvoice({
+    trainerId: booking.trainerId,
+    clientId: client.id,
+    phone: client.phone,
+    clientName: client.name,
+    slotStartAt,
+    slotEndAt,
+    amountPence: client.sessionPrice,
+    paymentDetails,
+  });
+
+  const ts = nowIso();
+  await db
+    .update(bookings)
+    .set({ invoiceSentAt: ts, updatedAt: ts })
+    .where(eq(bookings.id, bookingId));
+
+  return getBookingDetailForTrainer(booking.trainerId, bookingId);
 }

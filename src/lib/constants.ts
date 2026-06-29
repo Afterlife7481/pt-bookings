@@ -1,4 +1,11 @@
 export const SESSION_DURATION_MINUTES = 60;
+
+/** Slot start/end times must fall on this grid (e.g. 09:00, 09:30). */
+export const SCHEDULE_TIME_STEP_MINUTES = 30;
+
+/** HTML time input step attribute (seconds). */
+export const SCHEDULE_TIME_INPUT_STEP_SECONDS =
+  SCHEDULE_TIME_STEP_MINUTES * 60;
 export const BOOKING_WINDOW_DAYS = 14;
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;
@@ -8,6 +15,40 @@ export const CHANGE_TIMEOUT_MINUTES = 30;
 export const DEFAULT_TRAINER_ID = "trainer_default";
 export const SESSION_COOKIE = "pt_session";
 export const DEFAULT_TIMEZONE = "Europe/London";
+
+export const SESSION_PAYMENT_TYPES = [
+  { value: "cash", label: "Cash" },
+  { value: "bank_transfer", label: "Bank transfer" },
+  { value: "card", label: "Card" },
+  { value: "other", label: "Other" },
+] as const;
+
+export type SessionPaymentType = (typeof SESSION_PAYMENT_TYPES)[number]["value"];
+
+export function sessionPaymentTypeLabel(
+  value: SessionPaymentType | null | undefined,
+): string {
+  if (!value) return "Not set";
+  return (
+    SESSION_PAYMENT_TYPES.find((option) => option.value === value)?.label ??
+    value
+  );
+}
+
+export function parseSessionPaymentType(
+  value: unknown,
+): SessionPaymentType | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") {
+    throw new Error("Invalid payment type");
+  }
+  if (
+    !SESSION_PAYMENT_TYPES.some((option) => option.value === value)
+  ) {
+    throw new Error("Invalid payment type");
+  }
+  return value as SessionPaymentType;
+}
 
 export const TRAINER_TIMEZONE_OPTIONS = [
   { value: "Europe/London", label: "United Kingdom (London)" },
@@ -96,12 +137,19 @@ export function slotDayOfWeek(startAt: string): number {
   return new Date(y, m - 1, d).getDay();
 }
 
-export function formatSlotLabel(iso: string): string {
-  const [datePart, timePart] = iso.split("T");
+export function formatSlotLabel(isoStart: string, isoEnd?: string | null): string {
+  const [datePart, timePart] = isoStart.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  const time = timePart?.slice(0, 5) ?? "";
-  return `${date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} ${time}`;
+  const start = timePart?.slice(0, 5) ?? "";
+  const dateLabel = date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  if (!isoEnd) return `${dateLabel} ${start}`;
+  const end = isoEnd.split("T")[1]?.slice(0, 5) ?? "";
+  return `${dateLabel} ${start}–${end}`;
 }
 
 export function hoursUntil(iso: string): number {
@@ -118,20 +166,13 @@ export function parseLocalDateTime(iso: string): Date {
 
 export function isWithinBookingDeadline(
   slotStartAt: string,
-  overrideDeadline: boolean,
   deadlineHours: number,
 ): boolean {
-  if (overrideDeadline) return false;
   return hoursUntil(slotStartAt) < deadlineHours;
 }
 
-/** @deprecated use isWithinBookingDeadline */
-export function isWithinChangeDeadline(
-  slotStartAt: string,
-  override36h: boolean,
-  deadlineHours: number = CHANGE_DEADLINE_HOURS,
-): boolean {
-  return isWithinBookingDeadline(slotStartAt, override36h, deadlineHours);
+export function isInactiveBookingStatus(status: string): boolean {
+  return status === "canceled" || status === "voided";
 }
 
 export function appBaseUrl(): string {
@@ -159,6 +200,77 @@ export const DEFAULT_SCHEDULE_END = "21:00";
 
 export function parseTimeToHour(time: string): number {
   return parseInt(time.split(":")[0] ?? "0", 10);
+}
+
+export function parseTimeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return (hours ?? 0) * 60 + (minutes ?? 0);
+}
+
+export function formatMinutesAsTime(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export function addMinutesToTime(time: string, minutes: number): string {
+  return formatMinutesAsTime(parseTimeToMinutes(time) + minutes);
+}
+
+export function formatTimeRange(startTime: string, endTime: string): string {
+  return `${startTime}–${endTime}`;
+}
+
+export function defaultSlotEndTime(
+  startTime: string,
+  durationMinutes = SESSION_DURATION_MINUTES,
+): string {
+  return addMinutesToTime(startTime, durationMinutes);
+}
+
+export function slotDurationMinutes(startTime: string, endTime: string): number {
+  return parseTimeToMinutes(endTime) - parseTimeToMinutes(startTime);
+}
+
+export function assertValidTimeRange(startTime: string, endTime: string) {
+  if (parseTimeToMinutes(endTime) <= parseTimeToMinutes(startTime)) {
+    throw new Error("End time must be after start time");
+  }
+}
+
+export function isScheduleTimeAligned(
+  time: string,
+  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+): boolean {
+  return parseTimeToMinutes(time) % stepMinutes === 0;
+}
+
+export function assertValidScheduleSlotTimes(startTime: string, endTime: string) {
+  assertValidTimeRange(startTime, endTime);
+  if (!isScheduleTimeAligned(startTime)) {
+    throw new Error(
+      "Start time must use 30-minute increments (for example 09:00 or 09:30, not 09:45).",
+    );
+  }
+  if (!isScheduleTimeAligned(endTime)) {
+    throw new Error(
+      "End time must use 30-minute increments (for example 10:00 or 10:30, not 10:15).",
+    );
+  }
+}
+
+export function timeRangesOverlap(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string,
+): boolean {
+  const a0 = parseTimeToMinutes(aStart);
+  const a1 = parseTimeToMinutes(aEnd);
+  const b0 = parseTimeToMinutes(bStart);
+  const b1 = parseTimeToMinutes(bEnd);
+  return a0 < b1 && b0 < a1;
 }
 
 export function hoursInScheduleRange(startTime: string, endTime: string): number[] {

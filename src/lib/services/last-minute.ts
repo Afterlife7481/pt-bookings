@@ -20,8 +20,44 @@ import {
 import { sendWhatsAppLastMinute } from "@/lib/whatsapp";
 import { createBookingForSlot } from "./bookings";
 import { getTrainerSettings } from "./settings";
+import { getTrainerTemplateOverlay } from "./templates";
+import { dayOfWeekLabel } from "@/lib/schedule-grid";
+import { isScheduleTimeAligned } from "@/lib/constants";
 
 export type LastMinuteSlotRef = { dayOfWeek: number; startTime: string };
+
+export type LastMinuteTemplateSlot = {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  locationId: string;
+  locationName: string;
+};
+
+function templateSlotKey(dayOfWeek: number, startTime: string): string {
+  return `${dayOfWeek}-${startTime}`;
+}
+
+export function filterTemplateSlotsForClient(
+  templateSlots: LastMinuteTemplateSlot[],
+  enabledLocationIds: string[],
+): LastMinuteTemplateSlot[] {
+  if (enabledLocationIds.length === 0) return [];
+  const enabled = new Set(enabledLocationIds);
+  return templateSlots.filter((slot) => enabled.has(slot.locationId));
+}
+
+export function filterPreferencesToTemplateSlots(
+  preferences: LastMinuteSlotRef[],
+  templateSlots: LastMinuteTemplateSlot[],
+): LastMinuteSlotRef[] {
+  const allowed = new Set(
+    templateSlots.map((slot) => templateSlotKey(slot.dayOfWeek, slot.startTime)),
+  );
+  return preferences.filter((pref) =>
+    allowed.has(templateSlotKey(pref.dayOfWeek, pref.startTime)),
+  );
+}
 
 export type LastMinuteOfferStatus =
   | "offered"
@@ -55,6 +91,32 @@ export async function setClientLastMinutePreferences(
     unique.set(`${pref.dayOfWeek}-${pref.startTime}`, pref);
   }
   const normalized = [...unique.values()];
+
+  if (normalized.length > 0) {
+    const templateSlots = await getTrainerTemplateOverlay(trainerId);
+    if (templateSlots.length === 0) {
+      throw new Error(
+        "Your trainer has not set up a weekly template yet.",
+      );
+    }
+
+    const allowed = new Set(
+      templateSlots.map((slot) =>
+        templateSlotKey(slot.dayOfWeek, slot.startTime),
+      ),
+    );
+
+    for (const pref of normalized) {
+      if (!isScheduleTimeAligned(pref.startTime)) {
+        throw new Error(`Invalid time: ${pref.startTime}`);
+      }
+      if (!allowed.has(templateSlotKey(pref.dayOfWeek, pref.startTime))) {
+        throw new Error(
+          `${dayOfWeekLabel(pref.dayOfWeek)} ${pref.startTime} is not an available session time`,
+        );
+      }
+    }
+  }
 
   await db
     .delete(clientLastMinutePreferences)
@@ -461,11 +523,81 @@ export async function sendLastMinuteOffer(
     phone: client.phone,
     slotId,
     slotStartAt: slot.startAt,
+    slotEndAt: slot.endAt,
     clientName: client.name,
     lockHours: lastMinuteOfferLockHours,
   });
 
   return { expiresAt, lockHours: lastMinuteOfferLockHours };
+}
+
+export type LastMinuteOfferPreview = {
+  clientName: string;
+  clientToken: string;
+  slotStartAt: string;
+  slotEndAt: string;
+  locationName: string | null;
+  expiresAt: string | null;
+  canAccept: boolean;
+  unavailableReason: string | null;
+};
+
+export async function getLastMinuteOfferPreview(
+  slotId: string,
+  clientId: string,
+): Promise<LastMinuteOfferPreview | null> {
+  const db = getDb();
+  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  if (!slot) return null;
+
+  await clearExpiredSlotHolds(slot.trainerId);
+  slot =
+    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+  });
+  if (!client) return null;
+
+  const offer = await db.query.lastMinuteInterests.findFirst({
+    where: and(
+      eq(lastMinuteInterests.slotId, slotId),
+      eq(lastMinuteInterests.clientId, clientId),
+      eq(lastMinuteInterests.status, "offered"),
+    ),
+  });
+
+  const location = slot.locationId
+    ? await db.query.locations.findFirst({
+        where: eq(locations.id, slot.locationId),
+      })
+    : null;
+
+  const now = nowIso();
+  const expiresAt = slot.holdExpiresAt ?? offer?.expiresAt ?? null;
+
+  let unavailableReason: string | null = null;
+  if (slot.status !== "available") {
+    unavailableReason = "This slot is no longer available.";
+  } else if (!offer) {
+    unavailableReason = "No active offer found for this slot.";
+  } else if (slot.heldForClientId !== clientId) {
+    unavailableReason = "This offer is no longer reserved for you.";
+  } else if (!expiresAt || expiresAt < now) {
+    unavailableReason =
+      "This offer has expired. Please contact your trainer if you still want the slot.";
+  }
+
+  return {
+    clientName: client.name,
+    clientToken: client.token,
+    slotStartAt: slot.startAt,
+    slotEndAt: slot.endAt,
+    locationName: location?.name ?? null,
+    expiresAt,
+    canAccept: unavailableReason == null,
+    unavailableReason,
+  };
 }
 
 export async function acceptLastMinuteOffer(slotId: string, clientId: string) {

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Button, InlineNotice } from "@/components/ui";
 import { SheetModal } from "@/components/SheetModal";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import type {
   RecurringSlotAssignment,
-  SelectedRecurringSlot,
   TemplateSlotOverlay,
 } from "@/components/RecurringWeekCalendar";
 
@@ -25,89 +24,81 @@ export function RecurringSlotDetailModal({
   dayOfWeek,
   startTime,
   assignment,
-  selected,
   templateSlot,
   currentClientName,
   enabledLocations,
   canManageRecurring,
   hasTemplate,
+  saving,
+  error,
   onClose,
-  onAdd,
+  onSave,
   onRemove,
 }: {
   dayOfWeek: number;
   startTime: string;
   assignment: RecurringSlotAssignment | null;
-  selected: SelectedRecurringSlot | null;
   templateSlot: TemplateSlotOverlay | null;
   currentClientName: string;
   enabledLocations: EnabledLocation[];
   canManageRecurring: boolean;
   hasTemplate: boolean;
+  saving: boolean;
+  error: string | null;
   onClose: () => void;
-  onAdd: (locationId: string) => void;
-  onRemove: () => void;
+  onSave: () => void | Promise<void>;
+  onRemove: () => void | Promise<void>;
 }) {
   const bookedByOther = assignment && !assignment.isCurrentClient;
-  const isSelected = selected !== null;
+  const isSaved = assignment?.isCurrentClient ?? false;
   const assignmentLocation =
     assignment?.locationName ?? templateSlot?.locationName ?? null;
-  const displayLocation = selected?.locationName ?? assignmentLocation;
 
-  const templateLocationInEnabled =
+  const templateLocationEnabled =
     templateSlot &&
     enabledLocations.some((loc) => loc.id === templateSlot.locationId);
 
-  const defaultLocationId =
-    (templateSlot &&
-      enabledLocations.find((loc) => loc.id === templateSlot.locationId)?.id) ??
-    enabledLocations[0]?.id ??
-    "";
-
-  const [locationId, setLocationId] = useState(defaultLocationId);
-
-  useEffect(() => {
-    setLocationId(defaultLocationId);
-  }, [defaultLocationId, dayOfWeek, startTime]);
-
-  const selectedLocation = enabledLocations.find((loc) => loc.id === locationId);
-  const differsFromTemplate =
-    templateSlot &&
-    selectedLocation &&
-    selectedLocation.id !== templateSlot.locationId;
-
   const statusLabel = bookedByOther
     ? `Assigned to ${assignment!.clientName}`
-    : isSelected
-      ? "Selected (save to confirm)"
-      : assignment?.isCurrentClient
-        ? "Saved for this client"
-        : templateSlot
-          ? "Available (template slot)"
-          : "Available";
+    : isSaved
+      ? "Saved for this client"
+      : templateSlot
+        ? "Available (template slot)"
+        : "Available";
 
-  const canAdd =
-    canManageRecurring && !bookedByOther && !isSelected && enabledLocations.length > 0;
-  const canRemove = canManageRecurring && !bookedByOther && isSelected;
+  const canSave =
+    canManageRecurring &&
+    !bookedByOther &&
+    !isSaved &&
+    templateSlot &&
+    templateLocationEnabled;
+  const canRemove = canManageRecurring && !bookedByOther && isSaved;
 
   return (
     <SheetModal
       title={`${dayOfWeekLabel(dayOfWeek)} ${startTime}`}
       subtitle="Recurring slot details"
-      onClose={onClose}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
       footer={
         <>
-          {canAdd && (
-            <Button type="button" onClick={() => onAdd(locationId)}>
-              Add recurring slot
+          {canSave && (
+            <Button type="button" disabled={saving} onClick={() => void onSave()}>
+              {saving ? "Saving…" : "Save recurring slot"}
             </Button>
           )}
           {canRemove && (
-            <Button type="button" variant="danger" onClick={onRemove}>
-              Remove from selection
+            <Button
+              type="button"
+              variant="danger"
+              disabled={saving}
+              onClick={() => void onRemove()}
+            >
+              {saving ? "Saving…" : "Remove recurring slot"}
             </Button>
           )}
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>
             Close
           </Button>
         </>
@@ -116,38 +107,50 @@ export function RecurringSlotDetailModal({
       <div className="mt-4 space-y-4">
         <DetailRow label="Status" value={statusLabel} />
 
+        {error && (
+          <InlineNotice tone="error">{error}</InlineNotice>
+        )}
+
         {bookedByOther && (
           <>
             <DetailRow label="Client" value={assignment!.clientName} />
-            {displayLocation && (
-              <DetailRow label="Location" value={displayLocation} />
+            {assignmentLocation && (
+              <DetailRow label="Location" value={assignmentLocation} />
             )}
           </>
         )}
 
-        {!bookedByOther && isSelected && (
+        {!bookedByOther && isSaved && (
           <>
             <DetailRow label="Client" value={currentClientName} />
-            <DetailRow label="Location" value={selected!.locationName} />
-          </>
-        )}
-
-        {!bookedByOther && !isSelected && assignment?.isCurrentClient && (
-          <>
-            <DetailRow label="Client" value={currentClientName} />
-            {displayLocation && (
-              <DetailRow label="Location" value={displayLocation} />
+            {assignmentLocation && (
+              <DetailRow label="Location" value={assignmentLocation} />
             )}
           </>
         )}
 
         {templateSlot && (
-          <DetailRow label="Weekly template" value={templateSlot.locationName} />
+          <>
+            <DetailRow
+              label="Weekly template"
+              value={`${templateSlot.startTime}–${templateSlot.endTime} · ${templateSlot.locationName}`}
+            />
+            {!isSaved && !bookedByOther && (
+              <DetailRow label="Location" value={templateSlot.locationName} />
+            )}
+          </>
         )}
 
         {!hasTemplate && (
           <InlineNotice tone="warning">
             Create a weekly template before assigning recurring slots.
+          </InlineNotice>
+        )}
+
+        {hasTemplate && !templateSlot && !bookedByOther && (
+          <InlineNotice tone="warning">
+            There is no weekly template slot at this time. Recurring assignments
+            must match a template slot.
           </InlineNotice>
         )}
 
@@ -158,45 +161,20 @@ export function RecurringSlotDetailModal({
           </InlineNotice>
         )}
 
-        {canAdd && (
-          <>
-            <InlineNotice tone="warning">
-              This will be a recurring slot for{" "}
-              <strong>{selectedLocation?.name ?? "the selected location"}</strong>.
-            </InlineNotice>
+        {templateSlot && !templateLocationEnabled && !bookedByOther && !isSaved && (
+          <InlineNotice tone="warning">
+            Enable <strong>{templateSlot.locationName}</strong> for this client
+            to assign this recurring slot. The location must match the weekly
+            template — it cannot be changed.
+          </InlineNotice>
+        )}
 
-            {differsFromTemplate && (
-              <InlineNotice tone="warning">
-                The weekly template uses{" "}
-                <strong>{templateSlot!.locationName}</strong> for this time.
-              </InlineNotice>
-            )}
-
-            {enabledLocations.length > 1 && (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-slate-600">Location</span>
-                <select
-                  className="rounded-lg border border-slate-300 px-3 py-2"
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                >
-                  {enabledLocations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                      {templateSlot?.locationId === loc.id ? " (template)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            {templateSlot && !templateLocationInEnabled && (
-              <InlineNotice tone="warning">
-                The template location ({templateSlot.locationName}) is not enabled
-                for this client.
-              </InlineNotice>
-            )}
-          </>
+        {canSave && templateSlot && (
+          <InlineNotice tone="warning">
+            This will save a recurring slot for{" "}
+            <strong>{currentClientName}</strong> at{" "}
+            <strong>{templateSlot.locationName}</strong>.
+          </InlineNotice>
         )}
       </div>
     </SheetModal>

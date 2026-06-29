@@ -11,6 +11,7 @@ import {
 import { nowIso } from "@/lib/constants";
 import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
+import { dayOfWeekLabel } from "@/lib/schedule-grid";
 
 export type RecurringSlotRef = {
   dayOfWeek: number;
@@ -170,10 +171,10 @@ export async function getClientDetail(trainerId: string, clientId: string) {
       id: booking.id,
       token: booking.token,
       status: booking.status,
-      override36h: booking.override36h,
       isRecurring: booking.isRecurring,
       sessionStartAt: booking.sessionStartAt,
       slotStartAt: slot?.startAt ?? booking.sessionStartAt,
+      slotEndAt: slot?.endAt ?? null,
     })),
   };
 }
@@ -272,10 +273,32 @@ export async function setRecurringPreferences(
       );
     }
 
+    const templateByKey = new Map(
+      template.slots.map((slot) => [
+        `${slot.dayOfWeek}-${slot.startTime}`,
+        slot,
+      ]),
+    );
+
     for (const slot of slots) {
-      if (!slot.locationId || !enabledLocationIds.includes(slot.locationId)) {
+      const templateSlot = templateByKey.get(
+        `${slot.dayOfWeek}-${slot.startTime}`,
+      );
+      if (!templateSlot?.locationId) {
         throw new Error(
-          "Each recurring slot must use a location enabled for this client",
+          `No weekly template slot on ${dayOfWeekLabel(slot.dayOfWeek)} at ${slot.startTime}`,
+        );
+      }
+
+      if (slot.locationId !== templateSlot.locationId) {
+        throw new Error(
+          `${dayOfWeekLabel(slot.dayOfWeek)} ${slot.startTime} must use ${templateSlot.locationName ?? "the template location"} — recurring locations must match the weekly template`,
+        );
+      }
+
+      if (!enabledLocationIds.includes(slot.locationId)) {
+        throw new Error(
+          `Enable ${templateSlot.locationName ?? "the template location"} for this client before assigning ${dayOfWeekLabel(slot.dayOfWeek)} ${slot.startTime}`,
         );
       }
     }
@@ -338,20 +361,4 @@ export async function setRecurringPreference(
     trainerId,
     recurring ? [recurring] : [],
   );
-}
-
-export async function toggleBookingOverride36h(bookingId: string) {
-  const db = getDb();
-  const booking = await db.query.bookings.findFirst({
-    where: eq(bookings.id, bookingId),
-  });
-  if (!booking) throw new Error("Booking not found");
-
-  await db
-    .update(bookings)
-    .set({
-      override36h: !booking.override36h,
-      updatedAt: nowIso(),
-    })
-    .where(eq(bookings.id, bookingId));
 }

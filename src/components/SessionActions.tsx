@@ -73,8 +73,7 @@ export function SessionActions({
       {blockedByDeadline && (
         <p className="mt-3 text-sm text-slate-500">
           Changes and cancellations are not allowed within {cancelDeadlineHours}{" "}
-          hours of your session unless your trainer allows it. Please contact
-          your trainer.
+          hours of your session. Please contact your trainer.
         </p>
       )}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

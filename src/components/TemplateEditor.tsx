@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { TemplateWeekCalendar } from "@/components/TemplateWeekCalendar";
+import { defaultSlotEndTime, slotDurationMinutes } from "@/lib/constants";
 
 export type TemplateSlotView = {
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   locationId: string | null;
   locationName: string | null;
 };
@@ -22,6 +24,7 @@ type LocationOption = { id: string; name: string };
 export type DraftSlot = {
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   locationId: string;
   locationName: string;
 };
@@ -45,6 +48,7 @@ function slotsToDraft(slots: TemplateSlotView[], locations: LocationOption[]): D
     slots.map((slot) => ({
       dayOfWeek: slot.dayOfWeek,
       startTime: slot.startTime,
+      endTime: slot.endTime ?? defaultSlotEndTime(slot.startTime),
       locationId: slot.locationId ?? locations[0]?.id ?? "",
       locationName:
         slot.locationName ??
@@ -55,11 +59,22 @@ function slotsToDraft(slots: TemplateSlotView[], locations: LocationOption[]): D
 }
 
 function draftToPayload(slots: DraftSlot[]) {
-  return slots.map(({ dayOfWeek, startTime, locationId }) => ({
+  return slots.map(({ dayOfWeek, startTime, endTime, locationId }) => ({
     dayOfWeek,
     startTime,
+    endTime,
     locationId,
   }));
+}
+
+function averageDurationLabel(slots: DraftSlot[] | TemplateSlotView[]) {
+  if (slots.length === 0) return null;
+  const minutes = slots.map((s) =>
+    slotDurationMinutes(s.startTime, s.endTime ?? defaultSlotEndTime(s.startTime)),
+  );
+  const avg = Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length);
+  if (avg % 60 === 0) return `${avg / 60}h sessions`;
+  return `${avg} min avg`;
 }
 
 export function TemplateEditorForm({
@@ -87,6 +102,10 @@ export function TemplateEditorForm({
     () => templateLocationSummary(draftSlots),
     [draftSlots],
   );
+  const durationSummary = useMemo(
+    () => averageDurationLabel(draftSlots),
+    [draftSlots],
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,12 +130,14 @@ export function TemplateEditorForm({
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-medium text-slate-900">
             {draftSlots.length} slot{draftSlots.length === 1 ? "" : "s"}
+            {durationSummary ? ` · ${durationSummary}` : ""}
           </p>
           <p className="text-sm text-slate-500">{locationSummary}</p>
         </div>
         <p className="mb-3 text-sm text-slate-500">
-          Click <span className="font-medium text-slate-700">+</span> to add a slot,
-          or click an open slot to change its location or remove it.
+          Click <span className="font-medium text-slate-700">+</span> to add a
+          slot, then set its start time, end time, and location. Times must use
+          30-minute steps (09:00, 09:30, 10:00, …).
         </p>
         {locations.length === 0 && (
           <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -171,6 +192,7 @@ export function WeeklyTemplatePanel({
   const locationSummary = template
     ? templateLocationSummary(template.slots)
     : "No locations set";
+  const durationSummary = template ? averageDurationLabel(template.slots) : null;
 
   async function saveTemplate(slots: DraftSlot[]) {
     const res = await fetch("/api/templates", {
@@ -191,8 +213,8 @@ export function WeeklyTemplatePanel({
       <Card>
         <h2 className="font-semibold">Weekly template</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Your default weekly slot pattern. Apply it from the Schedule tab to
-          populate open weeks.
+          Plan your typical week — each slot has its own start and end time, plus
+          a location. Apply it from the Schedule tab to populate open weeks.
         </p>
         <div className="mt-4">
           <TemplateEditorForm
@@ -216,8 +238,8 @@ export function WeeklyTemplatePanel({
         <div>
           <h2 className="font-semibold">Weekly template</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {template.slots.length} slot{template.slots.length === 1 ? "" : "s"} ·{" "}
-            {locationSummary}
+            {template.slots.length} slot{template.slots.length === 1 ? "" : "s"}
+            {durationSummary ? ` · ${durationSummary}` : ""} · {locationSummary}
           </p>
         </div>
         <Button variant="secondary" onClick={() => setEditing(true)}>

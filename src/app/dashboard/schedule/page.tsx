@@ -26,6 +26,7 @@ export default function SchedulePage() {
       onAllocateSlot={schedule.allocateScheduleSlot}
       onUpdateSlotLocation={schedule.updateScheduleSlotLocation}
       onRefresh={schedule.refresh}
+      onClearWeekDev={schedule.clearWeekSlotsDev}
     />
   );
 }

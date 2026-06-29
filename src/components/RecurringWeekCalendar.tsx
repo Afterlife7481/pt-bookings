@@ -2,14 +2,16 @@ import { useMemo } from "react";
 import {
   DEFAULT_SCHEDULE_END,
   DEFAULT_SCHEDULE_START,
-  hoursInScheduleRange,
+  defaultSlotEndTime,
 } from "@/lib/constants";
 import {
   dayHeaderInitial,
-  hourFromTime,
   hourToStartTime,
   parseRecurringSlotKey,
   recurringSlotKey,
+  slotCoversGridRow,
+  slotGridRowSpan,
+  timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
 import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
@@ -26,6 +28,7 @@ export type RecurringSlotAssignment = {
 export type TemplateSlotOverlay = {
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   locationId: string;
   locationName: string;
 };
@@ -46,7 +49,7 @@ export const parseSlotKey = parseRecurringSlotKey;
 function buildAssignmentMap(assignments: RecurringSlotAssignment[]) {
   const map = new Map<string, RecurringSlotAssignment>();
   for (const assignment of assignments) {
-    map.set(`${assignment.dayOfWeek}-${hourFromTime(assignment.startTime)}`, assignment);
+    map.set(recurringSlotKey(assignment.dayOfWeek, assignment.startTime), assignment);
   }
   return map;
 }
@@ -54,7 +57,7 @@ function buildAssignmentMap(assignments: RecurringSlotAssignment[]) {
 function buildOverlayMap(overlay: TemplateSlotOverlay[]) {
   const map = new Map<string, TemplateSlotOverlay>();
   for (const slot of overlay) {
-    map.set(`${slot.dayOfWeek}-${hourFromTime(slot.startTime)}`, slot);
+    map.set(recurringSlotKey(slot.dayOfWeek, slot.startTime), slot);
   }
   return map;
 }
@@ -139,6 +142,56 @@ function SlotCell({
   );
 }
 
+type GridLayer = {
+  startTime: string;
+  endTime: string;
+  assignment: RecurringSlotAssignment | null;
+  templateOverlay: TemplateSlotOverlay | null;
+  selected: SelectedRecurringSlot | null;
+  onOpen: () => void;
+};
+
+function layerAtRow(
+  dayOfWeek: number,
+  rowTime: string,
+  assignmentMap: Map<string, RecurringSlotAssignment>,
+  overlayMap: Map<string, TemplateSlotOverlay>,
+  selectedSlots: Map<string, SelectedRecurringSlot>,
+  onCellClick: (dayOfWeek: number, startTime: string) => void,
+): GridLayer | null {
+  for (const [key, assignment] of assignmentMap) {
+    if (assignment.dayOfWeek !== dayOfWeek) continue;
+    const endTime = defaultSlotEndTime(assignment.startTime);
+    if (slotCoversGridRow(assignment.startTime, endTime, rowTime)) {
+      const startTime = assignment.startTime;
+      return {
+        startTime,
+        endTime,
+        assignment,
+        templateOverlay: overlayMap.get(key) ?? null,
+        selected: selectedSlots.get(recurringSlotKey(dayOfWeek, startTime)) ?? null,
+        onOpen: () => onCellClick(dayOfWeek, startTime),
+      };
+    }
+  }
+
+  for (const [key, overlay] of overlayMap) {
+    if (overlay.dayOfWeek !== dayOfWeek) continue;
+    if (slotCoversGridRow(overlay.startTime, overlay.endTime, rowTime)) {
+      return {
+        startTime: overlay.startTime,
+        endTime: overlay.endTime,
+        assignment: null,
+        templateOverlay: overlay,
+        selected: selectedSlots.get(key) ?? null,
+        onOpen: () => onCellClick(dayOfWeek, overlay.startTime),
+      };
+    }
+  }
+
+  return null;
+}
+
 export function RecurringWeekCalendar({
   assignments,
   selectedSlots,
@@ -156,29 +209,52 @@ export function RecurringWeekCalendar({
 }) {
   const assignmentMap = useMemo(() => buildAssignmentMap(assignments), [assignments]);
   const overlayMap = useMemo(() => buildOverlayMap(templateOverlay), [templateOverlay]);
-  const hours = useMemo(
-    () => hoursInScheduleRange(scheduleStartTime, scheduleEndTime),
+  const timeRows = useMemo(
+    () => timeRowsInScheduleRange(scheduleStartTime, scheduleEndTime),
     [scheduleStartTime, scheduleEndTime],
   );
 
   return (
-    <WeeklyHourGrid
-      className="mt-4"
-      hours={hours}
-      variant="compact"
-      compactRowSize="3rem"
+      <WeeklyHourGrid
+        timeRows={timeRows}
+        variant="compact"
+        className="mt-4"
       getDayHeader={dayHeaderInitial}
-      renderCell={(dayOfWeek, hour) => {
-        const startTime = hourToStartTime(hour);
-        const key = recurringSlotKey(dayOfWeek, startTime);
-        return (
-          <SlotCell
-            assignment={assignmentMap.get(`${dayOfWeek}-${hour}`) ?? null}
-            templateOverlay={overlayMap.get(`${dayOfWeek}-${hour}`) ?? null}
-            selected={selectedSlots.get(key) ?? null}
-            onOpen={() => onCellClick(dayOfWeek, startTime)}
-          />
+      renderCell={(dayOfWeek, rowTime) => {
+        const layer = layerAtRow(
+          dayOfWeek,
+          rowTime,
+          assignmentMap,
+          overlayMap,
+          selectedSlots,
+          onCellClick,
         );
+
+        if (!layer) {
+          return (
+            <button
+              type="button"
+              onClick={() => onCellClick(dayOfWeek, rowTime)}
+              className="h-full w-full rounded border border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
+            />
+          );
+        }
+
+        if (layer.startTime !== rowTime) {
+          return { covered: true };
+        }
+
+        return {
+          rowSpan: slotGridRowSpan(layer.startTime, layer.endTime),
+          content: (
+            <SlotCell
+              assignment={layer.assignment}
+              templateOverlay={layer.templateOverlay}
+              selected={layer.selected}
+              onOpen={layer.onOpen}
+            />
+          ),
+        };
       }}
     />
   );

@@ -24,10 +24,11 @@ export type BookingRow = {
     id: string;
     token: string;
     status: string;
-    override36h: boolean;
     isRecurring: boolean;
+    sessionPaid: boolean;
+    invoiceSentAt: string | null;
   };
-  slot: { id: string; startAt: string; status: string };
+  slot: { id: string; startAt: string; endAt: string; status: string };
   client: { id: string; name: string };
 };
 
@@ -56,6 +57,10 @@ export type TrainerSettings = {
   timezone: string;
   name: string;
   email: string;
+  bankAccountNumber: string | null;
+  bankSortCode: string | null;
+  bankName: string | null;
+  paymentPayeeName: string | null;
 };
 
 export type LocationRow = {

@@ -18,6 +18,7 @@ function SessionList({
     status: string;
     isRecurring: boolean;
     startAt: string;
+    endAt: string | null;
   }[];
   emptyMessage: string;
 }) {
@@ -35,11 +36,13 @@ function SessionList({
           >
             <div>
               <p className="text-sm font-medium text-slate-900">
-                {formatSlot(session.startAt)}
+                {formatSlot(session.startAt, session.endAt)}
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {session.status === "canceled" ? (
                   <Badge tone="danger">Canceled</Badge>
+                ) : session.status === "voided" ? (
+                  <Badge tone="danger">Voided</Badge>
                 ) : session.status === "pending_change" ? (
                   <Badge tone="warning">Changing</Badge>
                 ) : (
@@ -69,7 +72,7 @@ export default async function ClientHomePage({
   const { upcoming, history } = await listClientSessions(client.id);
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 p-6">
+    <main className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
       <div>
         <p className="text-sm text-slate-500">Your sessions</p>
         <h1 className="text-2xl font-bold">Hi {client.name}</h1>

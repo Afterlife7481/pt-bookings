@@ -5,9 +5,17 @@ import { Button } from "@/components/ui";
 import { LocationSelect } from "@/components/LocationSelect";
 import { SheetModal } from "@/components/SheetModal";
 import { OpenSlotLastMinuteSection } from "@/components/OpenSlotLastMinuteSection";
-import { formatDate, formatSlotLabel } from "@/lib/constants";
-import { formatScheduleHour } from "@/lib/schedule-grid";
+import {
+  assertValidScheduleSlotTimes,
+  defaultSlotEndTime,
+  formatDate,
+  formatSlotLabel,
+  isScheduleTimeAligned,
+  SCHEDULE_TIME_INPUT_STEP_SECONDS,
+  slotDurationMinutes,
+} from "@/lib/constants";
 import type { ScheduleEntry } from "@/lib/services/schedule";
+import { hasActiveLastMinuteOffer } from "@/lib/services/schedule";
 import { dateForWeekDay } from "./schedule-utils";
 
 export type ScheduleClientOption = { id: string; name: string };
@@ -17,7 +25,7 @@ export type ScheduleTemplateOption = { id: string; name: string };
 export function AddSlotModal({
   weekStart,
   dayOfWeek,
-  hour,
+  startTime,
   locations,
   onConfirm,
   onClose,
@@ -25,16 +33,38 @@ export function AddSlotModal({
 }: {
   weekStart: string;
   dayOfWeek: number;
-  hour: number;
+  startTime: string;
   locations: ScheduleLocationOption[];
-  onConfirm: (locationId: string) => Promise<void>;
+  onConfirm: (locationId: string, endTime: string) => Promise<void>;
   onClose: () => void;
   busy: boolean;
 }) {
+  const [endTime, setEndTime] = useState(defaultSlotEndTime(startTime));
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
-  const slotLabel = formatSlotLabel(
-    `${formatDate(dateForWeekDay(weekStart, dayOfWeek))}T${formatScheduleHour(hour)}:00`,
-  );
+  const [error, setError] = useState<string | null>(null);
+  const slotDate = formatDate(dateForWeekDay(weekStart, dayOfWeek));
+  const slotLabel = formatSlotLabel(`${slotDate}T${startTime}:00`, `${slotDate}T${endTime}:00`);
+
+  useEffect(() => {
+    setEndTime(defaultSlotEndTime(startTime));
+    setError(null);
+  }, [startTime]);
+
+  const durationMinutes =
+    startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
+  const timesAligned =
+    isScheduleTimeAligned(startTime) && isScheduleTimeAligned(endTime);
+  const durationValid = durationMinutes != null && durationMinutes > 0 && timesAligned;
+
+  function handleConfirm() {
+    try {
+      assertValidScheduleSlotTimes(startTime, endTime);
+      setError(null);
+      void onConfirm(locationId, endTime);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invalid times");
+    }
+  }
 
   return (
     <SheetModal
@@ -42,21 +72,48 @@ export function AddSlotModal({
       subtitle={slotLabel}
       onClose={onClose}
       footer={
-        <>
-          <Button
-            className="w-full py-3 sm:py-2"
-            disabled={!locationId || busy}
-            onClick={() => onConfirm(locationId)}
-          >
-            {busy ? "Adding…" : "Add slot"}
-          </Button>
-          <Button variant="secondary" className="w-full py-3 sm:py-2" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
-        </>
+        <Button
+          className="w-full py-3 sm:py-2"
+          disabled={!locationId || !durationValid || busy}
+          onClick={handleConfirm}
+        >
+          {busy ? "Adding…" : "Add slot"}
+        </Button>
       }
     >
-      <div className="mt-4">
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-wrap gap-4">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-600">Start</span>
+            <input
+              type="time"
+              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              value={startTime}
+              readOnly
+              disabled
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-slate-600">End</span>
+            <input
+              type="time"
+              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
+              className="rounded-lg border border-slate-300 px-3 py-2"
+              value={endTime}
+              onChange={(e) => {
+                setEndTime(e.target.value);
+                setError(null);
+              }}
+              disabled={busy}
+              required
+            />
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">
+          End time must use 30-minute steps (for example 10:00 or 10:30).
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <LocationSelect
           locations={locations}
           value={locationId}
@@ -104,10 +161,12 @@ export function OpenSlotModal({
     await onUpdateLocation(entry.slotId, nextLocationId);
   }
 
+  const offerActive = hasActiveLastMinuteOffer(entry.lastMinute);
+
   return (
     <SheetModal
       title="Open slot"
-      subtitle={formatSlotLabel(entry.startAt)}
+      subtitle={formatSlotLabel(entry.startAt, entry.endAt)}
       onClose={onClose}
       footer={
         <>
@@ -123,17 +182,19 @@ export function OpenSlotModal({
           <Button
             variant="danger"
             className="w-full py-3 sm:py-2"
-            disabled={busy}
+            disabled={busy || offerActive}
             onClick={() => onRemove(entry.slotId)}
           >
             Remove slot
           </Button>
-          <Button variant="secondary" className="w-full py-3 sm:py-2" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
         </>
       }
     >
+      {offerActive && (
+        <p className="text-sm text-amber-800">
+          This slot cannot be removed while a last-minute offer is active.
+        </p>
+      )}
       {entry.lastMinute && (
         <OpenSlotLastMinuteSection
           slotId={entry.slotId}
@@ -205,25 +266,15 @@ export function ApplyTemplateModal({
       subtitle="Adds any template slots not already on this week."
       onClose={onClose}
       footer={
-        <>
-          {hasTemplate && (
-            <Button
-              className="w-full py-3 sm:py-2"
-              disabled={applying}
-              onClick={() => void onApply()}
-            >
-              {applying ? "Applying…" : "Apply to this week"}
-            </Button>
-          )}
+        hasTemplate ? (
           <Button
-            variant="secondary"
             className="w-full py-3 sm:py-2"
             disabled={applying}
-            onClick={onClose}
+            onClick={() => void onApply()}
           >
-            Cancel
+            {applying ? "Applying…" : "Apply to this week"}
           </Button>
-        </>
+        ) : undefined
       }
     >
       {!hasTemplate ? (

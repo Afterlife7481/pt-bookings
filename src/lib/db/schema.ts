@@ -19,6 +19,11 @@ export const trainers = sqliteTable("trainers", {
   lastMinuteOfferLockHours: integer("last_minute_offer_lock_hours")
     .notNull()
     .default(1),
+  bankAccountNumber: text("bank_account_number"),
+  bankSortCode: text("bank_sort_code"),
+  bankName: text("bank_name"),
+  /** Name shown on payment requests (company or trainer). Falls back to trainer name. */
+  paymentPayeeName: text("payment_payee_name"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -118,6 +123,7 @@ export const templateSlots = sqliteTable("template_slots", {
     .references(() => weeklyTemplates.id, { onDelete: "cascade" }),
   dayOfWeek: integer("day_of_week").notNull(), // 0=Sun .. 6=Sat
   startTime: text("start_time").notNull(), // HH:mm
+  endTime: text("end_time").notNull(), // HH:mm
   locationId: text("location_id").references(() => locations.id, {
     onDelete: "set null",
   }),
@@ -152,6 +158,7 @@ export const slots = sqliteTable(
       .notNull()
       .references(() => appliedWeeks.id, { onDelete: "cascade" }),
     startAt: text("start_at").notNull(), // ISO datetime
+    endAt: text("end_at").notNull(), // ISO datetime
     status: text("status", {
       enum: ["available", "booked", "pending_change"],
     }).notNull(),
@@ -184,7 +191,7 @@ export const bookings = sqliteTable("bookings", {
     .references(() => clients.id),
   token: text("token").notNull().unique(),
   status: text("status", {
-    enum: ["confirmed", "pending_change", "canceled"],
+    enum: ["confirmed", "pending_change", "canceled", "voided"],
   }).notNull(),
   override36h: integer("override_36h", { mode: "boolean" })
     .notNull()
@@ -192,6 +199,13 @@ export const bookings = sqliteTable("bookings", {
   isRecurring: integer("is_recurring", { mode: "boolean" })
     .notNull()
     .default(false),
+  sessionPaid: integer("session_paid", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  paymentType: text("payment_type", {
+    enum: ["cash", "bank_transfer", "card", "other"],
+  }),
+  invoiceSentAt: text("invoice_sent_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -292,7 +306,7 @@ export const whatsappMessages = sqliteTable("whatsapp_messages", {
   clientId: text("client_id").references(() => clients.id),
   phone: text("phone").notNull(),
   messageType: text("message_type", {
-    enum: ["confirmation", "last_minute", "interest_ack"],
+    enum: ["confirmation", "last_minute", "interest_ack", "invoice"],
   }).notNull(),
   body: text("body").notNull(),
   status: text("status", {

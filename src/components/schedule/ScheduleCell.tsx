@@ -1,6 +1,11 @@
 import { cn } from "@/lib/utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
+import { formatTimeRange, slotTimeLabel } from "@/lib/constants";
 import { openSlotColorClasses, openSlotTextClasses } from "./schedule-utils";
+
+function entryTimeRange(entry: ScheduleEntry) {
+  return formatTimeRange(slotTimeLabel(entry.startAt), slotTimeLabel(entry.endAt));
+}
 
 export function ScheduleCell({
   entry,
@@ -19,10 +24,8 @@ export function ScheduleCell({
 }) {
   const booked = entry.booking && entry.status !== "available";
   const sizeClass = mobile
-    ? "min-h-12 px-3 py-2"
-    : compact
-      ? "h-full min-h-0 px-0.5 py-0.5"
-      : "h-11 px-1 py-0.5";
+    ? "h-full min-h-0 px-3 py-2"
+    : "h-full min-h-0 px-1 py-0.5";
   const nameClass = mobile
     ? "text-sm font-medium"
     : compact
@@ -30,18 +33,18 @@ export function ScheduleCell({
       : "truncate text-[10px] font-medium";
   const subClass = mobile ? "text-xs" : compact ? "text-[8px] leading-tight" : "text-[9px]";
 
+  const timeLabel = entryTimeRange(entry);
+
   if (booked && entry.booking) {
     const recurring = entry.booking.isRecurring;
 
     return (
       <a
-        href={`/s/${entry.booking.token}`}
-        target="_blank"
-        rel="noreferrer"
+        href={`/dashboard/sessions/${entry.booking.id}`}
         title={
           entry.location
-            ? `${entry.booking.clientName} · ${entry.location.name}`
-            : entry.booking.clientName
+            ? `${timeLabel} · ${entry.booking.clientName} · ${entry.location.name}`
+            : `${timeLabel} · ${entry.booking.clientName}`
         }
         className={cn(
           sizeClass,
@@ -80,12 +83,12 @@ export function ScheduleCell({
         onClick={() => onOpen(entry)}
         title={
           isHeld && lm?.heldClientName
-            ? `Held for ${lm.heldClientName}`
+            ? `${timeLabel} · Held for ${lm.heldClientName}`
             : hasMatch
-              ? `${lm!.eligibleCount} last-minute match${lm!.eligibleCount === 1 ? "" : "es"}`
+              ? `${timeLabel} · ${lm!.eligibleCount} last-minute match${lm!.eligibleCount === 1 ? "" : "es"}`
               : entry.location
-                ? entry.location.name
-                : "Open slot"
+                ? `${timeLabel} · ${entry.location.name}`
+                : `${timeLabel} · Open slot`
         }
         className={cn(
           sizeClass,

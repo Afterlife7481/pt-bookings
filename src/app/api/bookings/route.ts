@@ -6,7 +6,6 @@ import {
   createBookingForSlot,
   sendConfirmationForBooking,
 } from "@/lib/services/bookings";
-import { toggleBookingOverride36h } from "@/lib/services/clients";
 
 export async function GET() {
   await ensureDb();
@@ -47,11 +46,6 @@ export async function POST(request: Request) {
 
   if (body.action === "send_confirmation") {
     await sendConfirmationForBooking(body.bookingId);
-    return Response.json({ ok: true });
-  }
-
-  if (body.action === "toggle_override_36h") {
-    await toggleBookingOverride36h(body.bookingId);
     return Response.json({ ok: true });
   }
 

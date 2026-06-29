@@ -60,9 +60,10 @@ export default async function InfoPage() {
             How PT Bookings works
           </h1>
           <p className="mt-2 text-slate-600">
-            A scheduling app for personal trainers: one weekly calendar for
-            bookings and last-minute offers, recurring clients, session changes,
-            and a simple client portal with WhatsApp message logging.
+            A scheduling app for personal trainers: a 30-minute calendar for
+            bookings and last-minute offers, flexible session lengths, recurring
+            clients, session changes, and a simple client portal with WhatsApp
+            message logging.
           </p>
         </div>
 
@@ -89,6 +90,9 @@ export default async function InfoPage() {
             <a href="#settings" className="text-slate-700 hover:text-slate-900">
               Settings
             </a>
+            <a href="#payments" className="text-slate-700 hover:text-slate-900">
+              Payments
+            </a>
           </nav>
         </Card>
 
@@ -97,7 +101,9 @@ export default async function InfoPage() {
             <p>
               PT Bookings helps you run a weekly session calendar, keep recurring
               clients on their usual slots, and fill gaps when someone cancels or
-              moves a session — all from a single schedule view.
+              moves a session — all from a single schedule view. Sessions can be
+              any length in 30-minute steps (for example 45 minutes, 1 hour, or
+              90 minutes).
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
@@ -132,39 +138,81 @@ export default async function InfoPage() {
               <div>
                 <h3 className="font-medium text-slate-800">Schedule</h3>
                 <p className="mt-1">
-                  Your main workspace — a week-at-a-glance calendar in day or week
-                  view (default set in Settings). Navigate between weeks, add
-                  slots, apply a weekly template, and manage every session.
+                  Your main workspace — a calendar in{" "}
+                  <strong className="font-medium text-slate-800">day</strong> or{" "}
+                  <strong className="font-medium text-slate-800">week</strong>{" "}
+                  view (default set in Settings). Both views use a{" "}
+                  <strong className="font-medium text-slate-800">
+                    30-minute grid
+                  </strong>
+                  : longer slots span multiple rows so you can see duration at a
+                  glance. Navigate between weeks, add slots, apply a weekly
+                  template, and manage every session.
                 </p>
                 <ul className="mt-2 list-disc space-y-1 pl-5">
                   <li>
+                    In <strong className="font-medium text-slate-800">week</strong>{" "}
+                    view, day columns show the date on the first row (e.g.{" "}
+                    <strong className="font-medium text-slate-800">Jun 24</strong>
+                    ) and the day initial below (
+                    <strong className="font-medium text-slate-800">M</strong>,{" "}
+                    <strong className="font-medium text-slate-800">T</strong>, …).
+                  </li>
+                  <li>
                     <strong className="font-medium text-slate-800">Booked</strong>{" "}
-                    cells show the client name and location (recurring sessions
-                    appear in blue).
+                    cells show the client name and location. Click a booking to
+                    open the{" "}
+                    <strong className="font-medium text-slate-800">
+                      trainer session page
+                    </strong>{" "}
+                    (not the client link). Recurring sessions appear in{" "}
+                    <strong className="font-medium text-slate-800">blue</strong>;
+                    one-off bookings are{" "}
+                    <strong className="font-medium text-slate-800">dark grey</strong>.
                   </li>
                   <li>
                     <strong className="font-medium text-slate-800">Open</strong>{" "}
-                    cells are green and show how many last-minute clients match
-                    that day and time.
+                    cells are green and show the training location. If clients
+                    have matching last-minute preferences, the cell turns{" "}
+                    <strong className="font-medium text-slate-800">amber</strong>{" "}
+                    and shows how many matches there are.
                   </li>
                   <li>
-                    <strong className="font-medium text-slate-800">Held</strong>{" "}
-                    cells turn blue when a last-minute offer is active for a
-                    specific client.
+                    When you send a last-minute offer, the slot is{" "}
+                    <strong className="font-medium text-slate-800">locked</strong>{" "}
+                    for that client and appears{" "}
+                    <strong className="font-medium text-slate-800">purple</strong>{" "}
+                    until the hold expires or they accept.
                   </li>
                   <li>
-                    Click an open slot to send last-minute offers or allocate a
-                    client directly — see the Last-minute section below.
+                    Tap or click an open slot to send last-minute offers, allocate
+                    a client directly, or change the location. Close the modal
+                    with the{" "}
+                    <strong className="font-medium text-slate-800">×</strong>{" "}
+                    in the top-right corner. You cannot remove a slot while a
+                    last-minute offer is active — wait for the hold to expire or
+                    for the client to respond.
                   </li>
                   <li>
-                    Click empty cells to add new slots. Use{" "}
+                    Tap or click{" "}
+                    <strong className="font-medium text-slate-800">+ Add</strong>{" "}
+                    on any empty cell to create a slot. Choose start time, end
+                    time (30-minute steps only), and location. You can add slots
+                    in past weeks as well as future ones — the schedule is fully
+                    under your control.
+                  </li>
+                  <li>
+                    Use{" "}
                     <strong className="font-medium text-slate-800">
                       Apply template
                     </strong>{" "}
-                    on an empty week to populate slots from a saved pattern
-                    (templates are managed in Settings).
+                    on a week with no bookings to populate open slots from your
+                    saved weekly pattern (templates are managed in Settings).
                   </li>
                 </ul>
+                <p className="mt-2 text-slate-500">
+                  A colour legend and short usage hint appear below the calendar.
+                </p>
               </div>
 
               <div>
@@ -172,18 +220,113 @@ export default async function InfoPage() {
                 <p className="mt-1">
                   Table of all clients with contact details, session price, and
                   last-minute opt-in status. Open a client to edit their profile,
-                  set recurring weekly slots, choose allowed locations, copy their
-                  portal link, and view their bookings.
+                  set recurring weekly slots (location must match your template),
+                  choose allowed locations, copy their portal link, and view
+                  upcoming bookings and{" "}
+                  <strong className="font-medium text-slate-800">History</strong>{" "}
+                  (past sessions, including{" "}
+                  <strong className="font-medium text-slate-800">canceled</strong>{" "}
+                  and{" "}
+                  <strong className="font-medium text-slate-800">voided</strong>{" "}
+                  — useful if you want to see how often a client canceled). Use{" "}
+                  <strong className="font-medium text-slate-800">Session</strong>{" "}
+                  to open the trainer session page;{" "}
+                  <strong className="font-medium text-slate-800">Client link</strong>{" "}
+                  opens the shareable client URL.
                 </p>
               </div>
 
               <div>
                 <h3 className="font-medium text-slate-800">Sessions</h3>
                 <p className="mt-1">
-                  Table of all bookings with status, client name, session time,
-                  and quick actions (e.g. override the cancel deadline, open the
-                  client session link).
+                  Two lists —{" "}
+                  <strong className="font-medium text-slate-800">
+                    Upcoming sessions
+                  </strong>{" "}
+                  and{" "}
+                  <strong className="font-medium text-slate-800">
+                    Past sessions
+                  </strong>{" "}
+                  (up to 100 shown in total). Columns:{" "}
+                  <strong className="font-medium text-slate-800">Client</strong>{" "}
+                  (name with a{" "}
+                  <strong className="font-medium text-slate-800">Session</strong>{" "}
+                  link underneath to open the trainer session page),{" "}
+                  <strong className="font-medium text-slate-800">When</strong>{" "}
+                  (date and time on two lines),{" "}
+                  <strong className="font-medium text-slate-800">Status</strong>{" "}
+                  —{" "}
+                  <strong className="font-medium text-slate-800">
+                    Recurring
+                  </strong>{" "}
+                  (from template apply or recurring preference) or{" "}
+                  <strong className="font-medium text-slate-800">Manual</strong>{" "}
+                  (direct allocation, last-minute accept, or client self-book),{" "}
+                  <strong className="font-medium text-slate-800">
+                    Changing
+                  </strong>{" "}
+                  while a client reschedules,{" "}
+                  <strong className="font-medium text-slate-800">Past</strong>{" "}
+                  plus booking type for completed sessions, or{" "}
+                  <strong className="font-medium text-slate-800">Voided</strong>.
+                  One badge per line. And{" "}
+                  <strong className="font-medium text-slate-800">Payment</strong>{" "}
+                  (paid/unpaid and invoice sent/not sent, stacked one badge per
+                  line).{" "}
+                  <strong className="font-medium text-slate-800">
+                    Canceled
+                  </strong>{" "}
+                  sessions are hidden here; see the client profile{" "}
+                  <strong className="font-medium text-slate-800">History</strong>{" "}
+                  section for those.
                 </p>
+                <p className="mt-2">
+                  The trainer session page (
+                  <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
+                    /dashboard/sessions/…
+                  </code>
+                  ) is for you only. It is separate from the client session link (
+                  <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
+                    /s/…
+                  </code>
+                  ).
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>
+                    <strong className="font-medium text-slate-800">
+                      Upcoming sessions
+                    </strong>{" "}
+                    — Mark payment status, set payment type, send WhatsApp
+                    confirmation, send an invoice, cancel the session, or copy
+                    the client link. Use{" "}
+                    <strong className="font-medium text-slate-800">
+                      Change on schedule
+                    </strong>{" "}
+                    to move the booking via the calendar.
+                  </li>
+                  <li>
+                    <strong className="font-medium text-slate-800">
+                      Past sessions
+                    </strong>{" "}
+                    — Change, confirmation, and cancel are disabled (the session
+                    already happened). You can still record payment, send or
+                    resend an invoice, or{" "}
+                    <strong className="font-medium text-slate-800">
+                      Void session
+                    </strong>{" "}
+                    if the booking should not count (e.g. booked in error).
+                    Voiding is past-only and cannot be undone.
+                  </li>
+                  <li>
+                    <strong className="font-medium text-slate-800">
+                      Cancel vs void
+                    </strong>{" "}
+                    — Cancel is for upcoming sessions: the slot is freed for
+                    rebooking. Void is for past sessions only: the record stays
+                    for your audit trail but is marked as if it did not take
+                    place. Neither action hard-deletes the booking row.
+                  </li>
+                </ul>
               </div>
 
               <div>
@@ -198,8 +341,9 @@ export default async function InfoPage() {
               <div>
                 <h3 className="font-medium text-slate-800">Settings</h3>
                 <p className="mt-1">
-                  App preferences, training locations, and a link to manage
-                  weekly templates. See the Settings section below for details.
+                  App preferences, payment details, training locations, and a
+                  link to manage weekly templates. See Settings and Payments
+                  below for details.
                 </p>
               </div>
             </div>
@@ -217,8 +361,8 @@ export default async function InfoPage() {
               <li>See upcoming sessions and session history</li>
               <li>Book a new session from available slots</li>
               <li>
-                Set last-minute time preferences on a weekly grid (saved
-                automatically when they opt in)
+                Opt in to last-minute openings — green slots turn blue when
+                selected (saved automatically)
               </li>
               <li>
                 Open a session page to view details, cancel, or change the time
@@ -226,22 +370,52 @@ export default async function InfoPage() {
             </ul>
 
             <div className="mt-2">
+              <h3 className="font-medium text-slate-800">Last-minute opt-in</h3>
+              <p className="mt-1">
+                Clients choose which template session times they would accept if
+                something opens up. The grid matches the trainer schedule — a
+                compact 30-minute week view. Only template slots at locations
+                enabled for that client are shown.{" "}
+                <strong className="font-medium text-slate-800">Green</strong>{" "}
+                slots are available to opt in; tap one to opt in and it turns{" "}
+                <strong className="font-medium text-slate-800">blue</strong>.
+                Choices save automatically. If no locations are enabled or no
+                matching template slots exist, the client cannot opt in yet.
+              </p>
+            </div>
+
+            <div className="mt-2">
               <h3 className="font-medium text-slate-800">Changing a session</h3>
               <p className="mt-1">
                 From a session page, the client can start a change flow and pick a
                 new slot. Changes are blocked inside the cancellation deadline
                 (configurable in Settings, default 36 hours before the session).
-                Trainers can override the deadline per booking from the Sessions
-                tab.
+                To change within that window, the client must contact you
+                directly.
               </p>
             </div>
 
             <div className="mt-2">
               <h3 className="font-medium text-slate-800">Cancelling</h3>
               <p className="mt-1">
-                Clients can cancel within the same deadline rules. The freed slot
-                appears on your Schedule as an open cell so you can offer it
-                last-minute or allocate it directly.
+                Clients can cancel outside the deadline (see Settings). Inside
+                that window they must contact you — there is no trainer override.
+                When a session is canceled the booking is kept (soft delete):
+                status becomes canceled, the original date/time is preserved, and
+                the slot is freed on your Schedule for last-minute offers or
+                direct allocation. Canceled sessions appear in the client&apos;s
+                portal history and on the client profile History section, but not
+                on the main Sessions tab.
+              </p>
+            </div>
+
+            <div className="mt-2">
+              <h3 className="font-medium text-slate-800">Voided sessions</h3>
+              <p className="mt-1">
+                If a past session should not count (booked in error, etc.), you
+                can void it from the trainer session page. The client sees it as
+                voided in their history. Voided sessions stay in the database for
+                your audit trail but payment and invoice actions are disabled.
               </p>
             </div>
           </Section>
@@ -269,6 +443,13 @@ export default async function InfoPage() {
                 — Book any client immediately, without the offer-and-claim flow
                 (useful for walk-ins or clients who did not opt in).
               </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Location
+                </strong>{" "}
+                — Change the venue for an open slot. Remove is only available
+                when no last-minute offer is active on that slot.
+              </li>
             </ul>
 
             <p className="mt-3">End-to-end flow:</p>
@@ -278,15 +459,16 @@ export default async function InfoPage() {
                 <strong className="font-medium text-slate-800">
                   Client opts in
                 </strong>{" "}
-                — On their portal, they pick the day/time windows they would
-                accept (auto-saved).
+                — On their portal, they tap green template slots; opted-in slots
+                turn blue (auto-saved).
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
                   Slot opens
                 </strong>{" "}
                 — A cancel, reschedule, or empty template slot appears on
-                Schedule (green = open, blue = held for a client).
+                Schedule (green = open, amber = last-minute matches, purple =
+                locked for an offer).
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
@@ -299,8 +481,13 @@ export default async function InfoPage() {
                 <strong className="font-medium text-slate-800">
                   Client accepts
                 </strong>{" "}
-                — They receive a WhatsApp message with a claim link. Tapping it
-                books the session if the hold is still valid.
+                — They receive a WhatsApp message with a link. The link opens a
+                confirmation page showing session details and an{" "}
+                <strong className="font-medium text-slate-800">
+                  Accept session
+                </strong>{" "}
+                button — the booking is not created until they tap accept (if
+                the hold is still valid).
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
@@ -341,14 +528,19 @@ export default async function InfoPage() {
                 <strong className="font-medium text-slate-800">
                   Last-minute offer
                 </strong>{" "}
-                — When you offer an open slot to a client, including a claim
-                link and lock duration.
+                — When you offer an open slot to a client, including a link to
+                view and accept the offer, plus the lock duration.
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
                   Interest acknowledgement
                 </strong>{" "}
                 — Legacy acknowledgement when a client expresses interest.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">Invoice</strong>{" "}
+                — When you send an invoice from the trainer session page, with
+                the session amount and your bank payment details.
               </li>
             </ul>
           </Section>
@@ -360,7 +552,9 @@ export default async function InfoPage() {
                 <strong className="font-medium text-slate-800">
                   Schedule hours
                 </strong>{" "}
-                — Start and end time shown on calendar grids.
+                — Start and end time for calendar grids (Schedule tab and
+                template editor). Rows are shown in 30-minute steps within this
+                range.
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
@@ -373,7 +567,8 @@ export default async function InfoPage() {
                   Cancel / change deadline
                 </strong>{" "}
                 — How many hours before a session clients can still cancel or
-                reschedule (default 36).
+                reschedule (default 36). Inside that window they must message
+                you — the app does not allow a per-session override.
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
@@ -390,15 +585,85 @@ export default async function InfoPage() {
                 <strong className="font-medium text-slate-800">
                   Manage templates
                 </strong>{" "}
-                to create and edit reusable weekly slot patterns (e.g.
-                Mon/Wed/Fri mornings). Apply them from the Schedule tab; clients
-                with matching recurring preferences are auto-booked when a
-                template is applied.
+                to plan your typical week on the same 30-minute grid used on
+                Schedule. Click{" "}
+                <strong className="font-medium text-slate-800">+</strong> to add
+                a slot, then set its{" "}
+                <strong className="font-medium text-slate-800">start time</strong>
+                ,{" "}
+                <strong className="font-medium text-slate-800">end time</strong>
+                , and{" "}
+                <strong className="font-medium text-slate-800">location</strong>{" "}
+                (times must land on 30-minute steps, e.g. 09:00 or 09:30).
+                Longer slots span multiple rows on the grid. Overlapping slots
+                on the same day are rejected when you save — your previous
+                template is kept unchanged until the conflict is fixed. Apply a
+                saved template from the Schedule tab; clients with matching
+                recurring preferences are auto-booked when a template is applied.
               </li>
               <li>
                 <strong className="font-medium text-slate-800">Locations</strong>{" "}
-                — Add, rename, or remove training venues. Slots and clients can
-                be tied to specific locations.
+                — Add, rename, or remove training venues. Template and schedule
+                slots require a location; clients can be restricted to specific
+                venues.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Payment details
+                </strong>{" "}
+                — Company or trainer name, bank name, account number, and sort
+                code for invoice WhatsApp messages. See Payments below.
+              </li>
+            </ul>
+          </Section>
+
+          <Section id="payments" title="Payments">
+            <p>
+              Track payment per session on the trainer session page, and store
+              your bank details in Settings for future payment requests.
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Session payment
+                </strong>{" "}
+                — On each trainer session page, mark a session as{" "}
+                <strong className="font-medium text-slate-800">Paid</strong> or{" "}
+                <strong className="font-medium text-slate-800">Unpaid</strong>{" "}
+                and choose a payment type: Cash, Bank transfer, Card, or Other.
+                The Sessions tab Payment column shows paid/unpaid and invoice
+                status at a glance (one badge per line). Not available on
+                voided sessions.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Send invoice
+                </strong>{" "}
+                — On the trainer session page, send a WhatsApp with the session
+                amount and your payment details (payee name, bank name, sort
+                code, and account number). Works on past sessions until voided.
+                Resend anytime; the Sessions tab shows{" "}
+                <strong className="font-medium text-slate-800">
+                  Invoice sent
+                </strong>{" "}
+                or{" "}
+                <strong className="font-medium text-slate-800">
+                  Invoice not sent
+                </strong>.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Payment details (Settings)
+                </strong>{" "}
+                — Save your company or trainer name, bank name, account number,
+                and sort code for invoice messages.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Integrations (coming soon)
+                </strong>{" "}
+                — Connect Stripe, Revolut invoicing, or Sterling account
+                invoicing from Settings → Payment details.
               </li>
             </ul>
           </Section>

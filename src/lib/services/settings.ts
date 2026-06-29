@@ -21,7 +21,39 @@ export type TrainerSettings = {
   scheduleDefaultView: ScheduleDefaultView;
   cancelDeadlineHours: number;
   lastMinuteOfferLockHours: number;
+  bankAccountNumber: string | null;
+  bankSortCode: string | null;
+  bankName: string | null;
+  paymentPayeeName: string | null;
 };
+
+function normalizeBankAccountNumber(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 6 || digits.length > 8) {
+    throw new Error("Account number must be 6–8 digits");
+  }
+  return digits;
+}
+
+function normalizeBankSortCode(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length !== 6) {
+    throw new Error("Sort code must be 6 digits");
+  }
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
 
 export async function getTrainerSettings(
   trainerId: string,
@@ -44,6 +76,10 @@ export async function getTrainerSettings(
       trainer.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS,
     lastMinuteOfferLockHours:
       trainer.lastMinuteOfferLockHours ?? DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS,
+    bankAccountNumber: trainer.bankAccountNumber ?? null,
+    bankSortCode: trainer.bankSortCode ?? null,
+    bankName: trainer.bankName ?? null,
+    paymentPayeeName: trainer.paymentPayeeName ?? null,
   };
 }
 
@@ -58,6 +94,10 @@ export async function updateTrainerSettings(
       | "timezone"
       | "cancelDeadlineHours"
       | "lastMinuteOfferLockHours"
+      | "bankAccountNumber"
+      | "bankSortCode"
+      | "bankName"
+      | "paymentPayeeName"
     >
   >,
 ) {
@@ -91,6 +131,24 @@ export async function updateTrainerSettings(
     updates.timezone = timezone;
   }
 
+  if (updates.bankAccountNumber !== undefined) {
+    updates.bankAccountNumber = normalizeBankAccountNumber(
+      updates.bankAccountNumber,
+    );
+  }
+
+  if (updates.bankSortCode !== undefined) {
+    updates.bankSortCode = normalizeBankSortCode(updates.bankSortCode);
+  }
+
+  if (updates.bankName !== undefined) {
+    updates.bankName = normalizeOptionalText(updates.bankName);
+  }
+
+  if (updates.paymentPayeeName !== undefined) {
+    updates.paymentPayeeName = normalizeOptionalText(updates.paymentPayeeName);
+  }
+
   if (updates.scheduleStartTime !== undefined || updates.scheduleEndTime !== undefined) {
     const current = await getTrainerSettings(trainerId);
     const start = updates.scheduleStartTime ?? current.scheduleStartTime;
@@ -119,6 +177,18 @@ export async function updateTrainerSettings(
       }),
       ...(updates.lastMinuteOfferLockHours !== undefined && {
         lastMinuteOfferLockHours: updates.lastMinuteOfferLockHours,
+      }),
+      ...(updates.bankAccountNumber !== undefined && {
+        bankAccountNumber: updates.bankAccountNumber,
+      }),
+      ...(updates.bankSortCode !== undefined && {
+        bankSortCode: updates.bankSortCode,
+      }),
+      ...(updates.bankName !== undefined && {
+        bankName: updates.bankName,
+      }),
+      ...(updates.paymentPayeeName !== undefined && {
+        paymentPayeeName: updates.paymentPayeeName,
       }),
     })
     .where(eq(trainers.id, trainerId));

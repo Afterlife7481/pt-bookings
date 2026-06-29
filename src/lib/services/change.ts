@@ -5,6 +5,7 @@ import { bookings, changeRequests, slots } from "@/lib/db/schema";
 import {
   CHANGE_TIMEOUT_MINUTES,
   addMinutes,
+  isInactiveBookingStatus,
   isWithinBookingDeadline,
   nowIso,
 } from "@/lib/constants";
@@ -114,7 +115,7 @@ export async function startChangeRequest(
   const booking = await db.query.bookings.findFirst({
     where: eq(bookings.token, bookingToken),
   });
-  if (!booking || booking.status === "canceled") {
+  if (!booking || isInactiveBookingStatus(booking.status)) {
     throw new Error("Booking not found");
   }
   if (!booking.slotId) {
@@ -129,11 +130,7 @@ export async function startChangeRequest(
   const { cancelDeadlineHours } = await getTrainerSettings(booking.trainerId);
 
   if (
-    isWithinBookingDeadline(
-      slot.startAt,
-      booking.override36h,
-      cancelDeadlineHours,
-    ) &&
+    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours) &&
     booking.status !== "pending_change"
   ) {
     const id = nanoid();

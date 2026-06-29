@@ -71,7 +71,7 @@ export function useSchedulePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "apply",
-          weekStart: scheduleRange.weekStart || weekStart,
+          weekStart,
         }),
       });
       await refresh();
@@ -90,15 +90,17 @@ export function useSchedulePage() {
     dayOfWeek: number,
     startTime: string,
     locationId: string,
+    endTime?: string,
   ) {
     await runScheduleAction(async () => {
       await fetchJson("/api/schedule/slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          weekStart: scheduleRange.weekStart || weekStart,
+          weekStart,
           dayOfWeek,
           startTime,
+          endTime,
           locationId,
         }),
       });
@@ -133,6 +135,28 @@ export function useSchedulePage() {
     });
   }
 
+  async function clearWeekSlotsDev() {
+    if (process.env.NODE_ENV !== "development") return;
+
+    const activeWeek = weekStart || defaultWeekStart();
+    const confirmed = window.confirm(
+      `Dev tool: delete ALL slots for the week starting ${activeWeek}? Bookings on those slots will also be removed.`,
+    );
+    if (!confirmed) return;
+
+    setScheduleError(null);
+    try {
+      await fetchJson("/api/schedule/dev/clear-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart: activeWeek }),
+      });
+      await refresh();
+    } catch (e) {
+      setScheduleError(e instanceof ApiError ? e.message : "Failed to clear week");
+    }
+  }
+
   return {
     weekStart,
     scheduleEntries,
@@ -152,5 +176,6 @@ export function useSchedulePage() {
     updateScheduleSlotLocation,
     removeScheduleSlot,
     allocateScheduleSlot,
+    clearWeekSlotsDev,
   };
 }

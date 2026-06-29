@@ -2,16 +2,29 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
+import { LastMinutePreferenceCell } from "@/components/LastMinutePreferenceCell";
 import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
+import { formatTimeRange } from "@/lib/constants";
 import {
-  dayHeaderInitial,
-  hourToStartTime,
+  dayOfWeekLabel,
   recurringSlotKey,
+  slotCoversGridRow,
+  slotGridRowSpan,
+  timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
-import { hoursInScheduleRange } from "@/lib/constants";
 
 type Preference = { dayOfWeek: number; startTime: string };
+
+type TemplateSlot = {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  locationId: string;
+  locationName: string;
+};
+
+type EnabledLocation = { id: string; name: string };
 
 type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
@@ -29,6 +42,26 @@ function keysToPreferences(keys: Set<string>): Preference[] {
   });
 }
 
+function templateSlotAtRow(
+  templateSlots: TemplateSlot[],
+  dayOfWeek: number,
+  rowTime: string,
+) {
+  const slot =
+    templateSlots.find(
+      (s) =>
+        s.dayOfWeek === dayOfWeek &&
+        slotCoversGridRow(s.startTime, s.endTime, rowTime),
+    ) ?? null;
+
+  if (!slot) return null;
+
+  return {
+    slot,
+    isStart: slot.startTime === rowTime,
+  };
+}
+
 export function LastMinutePreferencesForm({
   clientToken,
 }: {
@@ -36,6 +69,10 @@ export function LastMinutePreferencesForm({
 }) {
   const [optIn, setOptIn] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [templateSlots, setTemplateSlots] = useState<TemplateSlot[]>([]);
+  const [enabledLocations, setEnabledLocations] = useState<EnabledLocation[]>(
+    [],
+  );
   const [scheduleStartTime, setScheduleStartTime] = useState("07:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("21:00");
   const [loading, setLoading] = useState(true);
@@ -66,6 +103,8 @@ export function LastMinutePreferencesForm({
         preferences: Preference[];
         scheduleStartTime: string;
         scheduleEndTime: string;
+        templateSlots: TemplateSlot[];
+        enabledLocations: EnabledLocation[];
       } = await res.json();
       const keys = new Set(
         data.preferences.map((p) => recurringSlotKey(p.dayOfWeek, p.startTime)),
@@ -75,6 +114,8 @@ export function LastMinutePreferencesForm({
       savedSignatureRef.current = keysSignature(keys);
       setScheduleStartTime(data.scheduleStartTime);
       setScheduleEndTime(data.scheduleEndTime);
+      setTemplateSlots(data.templateSlots ?? []);
+      setEnabledLocations(data.enabledLocations ?? []);
       setLoading(false);
     }
     load();
@@ -95,8 +136,8 @@ export function LastMinutePreferencesForm({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [saveStatus, isDirty]);
 
-  const hours = useMemo(
-    () => hoursInScheduleRange(scheduleStartTime, scheduleEndTime),
+  const timeRows = useMemo(
+    () => timeRowsInScheduleRange(scheduleStartTime, scheduleEndTime),
     [scheduleStartTime, scheduleEndTime],
   );
 
@@ -188,8 +229,7 @@ export function LastMinutePreferencesForm({
     };
   }, [clientToken]);
 
-  function toggleSlot(dayOfWeek: number, hour: number) {
-    const startTime = hourToStartTime(hour);
+  function toggleSlot(dayOfWeek: number, startTime: string) {
     const key = recurringSlotKey(dayOfWeek, startTime);
     setSelectedKeys((prev) => {
       const next = new Set(prev);
@@ -230,15 +270,28 @@ export function LastMinutePreferencesForm({
               ? "Changes save automatically"
               : null;
 
+  const hasAvailableSlots = templateSlots.length > 0;
+  const locationSummary =
+    enabledLocations.length > 0
+      ? enabledLocations.map((loc) => loc.name).join(", ")
+      : null;
+
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-medium">Last-minute openings</p>
           <p className="text-sm text-slate-600">
-            Choose when you are usually free. Your trainer will manually offer
-            you matching slots when something opens up.
+            Tap open slots to opt in for last-minute offers. Only session times
+            from your trainer&apos;s template at your available locations are
+            shown.
           </p>
+          {locationSummary && (
+            <p className="mt-1 text-sm text-slate-500">
+              Your locations:{" "}
+              <span className="font-medium text-slate-700">{locationSummary}</span>
+            </p>
+          )}
         </div>
         {statusMessage && (
           <p
@@ -258,36 +311,69 @@ export function LastMinutePreferencesForm({
 
       {optIn ? (
         <>
-          <WeeklyHourGrid
-            hours={hours}
-            variant="compact"
-            getDayHeader={dayHeaderInitial}
-            renderCell={(dayOfWeek, hour) => {
-              const startTime = hourToStartTime(hour);
-              const selected = selectedKeys.has(
-                recurringSlotKey(dayOfWeek, startTime),
-              );
-              return (
-                <button
-                  type="button"
-                  onClick={() => toggleSlot(dayOfWeek, hour)}
-                  title={startTime}
-                  disabled={saveStatus === "saving"}
-                  className={cn(
-                    "h-10 w-full rounded border px-0.5 py-0.5 text-center transition",
-                    selected
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50",
-                    saveStatus === "saving" && "opacity-70",
-                  )}
-                >
-                  <span className="block text-[9px] font-medium leading-tight">
-                    {selected ? "✓" : null}
-                  </span>
-                </button>
-              );
-            }}
-          />
+          {!hasAvailableSlots ? (
+            <p className="text-sm text-amber-800">
+              {enabledLocations.length === 0
+                ? "Your trainer has not enabled any locations for you yet, so there are no session times to choose from."
+                : "Your trainer has not set up matching template slots at your locations yet."}
+            </p>
+          ) : (
+            <>
+              <WeeklyHourGrid
+                timeRows={timeRows}
+                variant="full"
+                compactRowSize="1.375rem"
+                dayColMin="5.5rem"
+                className="w-full"
+                getDayHeader={(day) => ({ primary: day.label })}
+                renderCell={(dayOfWeek, rowTime) => {
+                  const match = templateSlotAtRow(
+                    templateSlots,
+                    dayOfWeek,
+                    rowTime,
+                  );
+
+                  if (!match) {
+                    return <div className="h-full bg-white" />;
+                  }
+
+                  if (!match.isStart) {
+                    return { covered: true };
+                  }
+
+                  const { slot } = match;
+                  const selected = selectedKeys.has(
+                    recurringSlotKey(dayOfWeek, slot.startTime),
+                  );
+                  const label = formatTimeRange(slot.startTime, slot.endTime);
+
+                  return {
+                    rowSpan: slotGridRowSpan(slot.startTime, slot.endTime),
+                    content: (
+                      <LastMinutePreferenceCell
+                        locationName={slot.locationName}
+                        selected={selected}
+                        disabled={saveStatus === "saving"}
+                        onToggle={() => toggleSlot(dayOfWeek, slot.startTime)}
+                        title={`${dayOfWeekLabel(dayOfWeek)} ${label} · ${slot.locationName}`}
+                      />
+                    ),
+                  };
+                }}
+              />
+
+              <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded border border-green-200 bg-green-50" />
+                  Available to opt in
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded border border-blue-200 bg-blue-50" />
+                  Opted in
+                </span>
+              </div>
+            </>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -301,11 +387,19 @@ export function LastMinutePreferencesForm({
         </>
       ) : (
         <Button
-          disabled={saveStatus === "saving"}
+          disabled={saveStatus === "saving" || !hasAvailableSlots}
           onClick={() => setOptIn(true)}
         >
           Opt in
         </Button>
+      )}
+
+      {!hasAvailableSlots && !optIn && (
+        <p className="text-sm text-amber-800">
+          {enabledLocations.length === 0
+            ? "Ask your trainer to enable locations for you before opting in."
+            : "Your trainer needs template slots at your locations before you can opt in."}
+        </p>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -6,6 +6,7 @@ import { Button, Card, InlineNotice } from "@/components/ui";
 import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE } from "@/lib/constants";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { LocationsSection } from "./LocationsSection";
+import { PaymentDetailsSection } from "./PaymentDetailsSection";
 import type { TrainerSettings } from "../types";
 
 export function SettingsTab({
@@ -160,8 +161,8 @@ export function SettingsTab({
             </h3>
             <p className="mt-1 text-sm text-slate-500">
               Clients cannot change or cancel a session within this many hours of
-              the start time. Trainers can override this per booking from the
-              Sessions tab.
+              the start time. To change inside that window, they must contact
+              you directly.
             </p>
             <label className="mt-3 flex flex-col gap-1 text-sm">
               <span className="text-slate-600">Hours before session</span>
@@ -207,11 +208,13 @@ export function SettingsTab({
         </form>
       </Card>
 
+      <PaymentDetailsSection settings={settings} onSaved={onSaved} />
+
       <Card>
         <h3 className="text-sm font-medium text-slate-900">Weekly template</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Define your weekly slot pattern and apply it to the schedule. Also used
-          as the reference for recurring slot locations on client profiles.
+          Define your weekly slot pattern and apply it to the schedule. Each slot
+          has its own start and end time — set durations in the template editor.
         </p>
         <Link href="/dashboard/settings/templates">
           <Button type="button" variant="secondary" className="mt-4">

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export function ScheduleLegend() {
+export function ScheduleLegend({ className }: { className?: string }) {
   const items = [
     { swatch: "bg-blue-600", label: "Recurring slot" },
     { swatch: "bg-slate-800", label: "Booked slot" },
@@ -16,7 +16,12 @@ export function ScheduleLegend() {
   ] as const;
 
   return (
-    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
+    <div
+      className={cn(
+        "flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600",
+        className,
+      )}
+    >
       {items.map((item) => (
         <span key={item.label} className="inline-flex items-center gap-1.5">
           <span className={cn("h-3 w-3 shrink-0 rounded", item.swatch)} />

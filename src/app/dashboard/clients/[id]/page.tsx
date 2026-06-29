@@ -14,16 +14,16 @@ import {
 import { RecurringSlotDetailModal } from "@/components/RecurringSlotDetailModal";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
-import { clientHomeUrl } from "@/lib/constants";
+import { clientHomeUrl, parseLocalDateTime } from "@/lib/constants";
 
 type ClientBooking = {
   id: string;
   token: string;
   status: string;
-  override36h: boolean;
   isRecurring: boolean;
   sessionStartAt: string;
   slotStartAt: string;
+  slotEndAt: string | null;
 };
 
 type ClientLocationOption = {
@@ -144,6 +144,9 @@ export default function ClientDetailPage() {
       const locationNameById = new Map(
         locations.map((loc) => [loc.id, loc.name]),
       );
+      const enabledIds = new Set(
+        locations.filter((loc) => loc.enabled).map((loc) => loc.id),
+      );
       const overlayByKey = new Map(
         data.templateOverlay.map((slot) => [
           slotKey(slot.dayOfWeek, slot.startTime),
@@ -155,17 +158,15 @@ export default function ClientDetailPage() {
       for (const pref of prefs) {
         const key = slotKey(pref.dayOfWeek, pref.startTime);
         const overlay = overlayByKey.get(key);
-        const locationId =
-          pref.locationId ?? overlay?.locationId ?? null;
-        if (!locationId) continue;
+        if (!overlay) continue;
+        if (pref.locationId && pref.locationId !== overlay.locationId) continue;
+        if (!enabledIds.has(overlay.locationId)) continue;
         next.set(key, {
           dayOfWeek: pref.dayOfWeek,
           startTime: pref.startTime,
-          locationId,
+          locationId: overlay.locationId,
           locationName:
-            locationNameById.get(locationId) ??
-            overlay?.locationName ??
-            "Unknown location",
+            locationNameById.get(overlay.locationId) ?? overlay.locationName,
         });
       }
       setSelectedSlots(next);
@@ -244,42 +245,49 @@ export default function ClientDetailPage() {
     hasTemplate && enabledLocations.length > 0;
 
   function openSlotDetail(dayOfWeek: number, startTime: string) {
+    setRecurringError(null);
     setDetailSlot({ dayOfWeek, startTime });
   }
 
-  function addSlotFromDetail(locationId: string) {
-    if (!detailSlot || !client) return;
+  async function saveSlotFromDetail() {
+    if (!detailSlot || !client) return false;
 
-    const location = enabledLocations.find((loc) => loc.id === locationId);
-    if (!location) return;
-
-    const key = slotKey(detailSlot.dayOfWeek, detailSlot.startTime);
-    setSelectedSlots((prev) => {
-      const next = new Map(prev);
-      next.set(key, {
-        dayOfWeek: detailSlot.dayOfWeek,
-        startTime: detailSlot.startTime,
-        locationId,
-        locationName: location.name,
-      });
-      return next;
-    });
-    setDetailSlot(null);
-  }
-
-  function removeSlotFromDetail() {
-    if (!detailSlot) return;
+    const overlay = templateOverlay.find(
+      (slot) =>
+        slot.dayOfWeek === detailSlot.dayOfWeek &&
+        slot.startTime === detailSlot.startTime,
+    );
+    if (!overlay || !enabledLocationIds.has(overlay.locationId)) return false;
 
     const key = slotKey(detailSlot.dayOfWeek, detailSlot.startTime);
-    setSelectedSlots((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
+    const next = new Map(selectedSlots);
+    next.set(key, {
+      dayOfWeek: detailSlot.dayOfWeek,
+      startTime: detailSlot.startTime,
+      locationId: overlay.locationId,
+      locationName: overlay.locationName,
     });
-    setDetailSlot(null);
+
+    const ok = await saveRecurringSlots([...next.values()]);
+    if (ok) setDetailSlot(null);
+    return ok;
   }
 
-  async function saveRecurringSlots(slots: SelectedRecurringSlot[]) {
+  async function removeSlotFromDetail() {
+    if (!detailSlot) return false;
+
+    const key = slotKey(detailSlot.dayOfWeek, detailSlot.startTime);
+    const next = new Map(selectedSlots);
+    next.delete(key);
+
+    const ok = await saveRecurringSlots([...next.values()]);
+    if (ok) setDetailSlot(null);
+    return ok;
+  }
+
+  async function saveRecurringSlots(
+    slots: SelectedRecurringSlot[],
+  ): Promise<boolean> {
     setSavingRecurring(true);
     setRecurringError(null);
     const res = await fetch(`/api/clients/${clientId}`, {
@@ -298,11 +306,12 @@ export default function ClientDetailPage() {
 
     if (!res.ok) {
       setRecurringError(data.error ?? "Failed to save");
-      return;
+      return false;
     }
 
     setClient(data);
     loadRecurringOptions(data.recurringPreferences, data.locations);
+    return true;
   }
 
   async function toggleLocation(locationId: string, enabled: boolean) {
@@ -371,7 +380,7 @@ export default function ClientDetailPage() {
       : client.bookings.filter(
           (b) =>
             b.status !== "canceled" &&
-            new Date(b.slotStartAt).getTime() >= now,
+            parseLocalDateTime(b.slotStartAt).getTime() >= now,
         );
   const history =
     now === null
@@ -379,7 +388,7 @@ export default function ClientDetailPage() {
       : client.bookings.filter(
           (b) =>
             b.status === "canceled" ||
-            new Date(b.slotStartAt).getTime() < now,
+            parseLocalDateTime(b.slotStartAt).getTime() < now,
         );
 
   return (
@@ -511,9 +520,9 @@ export default function ClientDetailPage() {
       <Card>
         <h2 className="font-semibold">Recurring slots</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Slots show client and location at a glance — click any slot for full
-          details or to add/remove recurring sessions. Dashed cells indicate your
-          indicate your weekly template.
+          Assign recurring sessions from your weekly template. Each slot uses
+          the template&apos;s location — enable that location for the client
+          above, then click a template slot and save from the modal.
         </p>
 
         {!hasTemplate && (
@@ -532,12 +541,7 @@ export default function ClientDetailPage() {
           </p>
         )}
 
-        {selectedSlots.size > 0 && (
-          <p className="mt-2 text-sm font-medium text-slate-700">
-            {selectedSlots.size} slot{selectedSlots.size === 1 ? "" : "s"} selected
-          </p>
-        )}
-        {recurringError && (
+        {recurringError && !detailSlot && (
           <p className="mt-3 text-sm text-red-600">{recurringError}</p>
         )}
         {loadingOptions ? (
@@ -552,26 +556,17 @@ export default function ClientDetailPage() {
             scheduleEndTime={scheduleEndTime}
           />
         )}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button
-            disabled={savingRecurring || !canManageRecurring}
-            onClick={() => saveRecurringSlots([...selectedSlots.values()])}
-          >
-            Save recurring slots
-          </Button>
-          {(client.recurringPreferences.length > 0 || selectedSlots.size > 0) && (
+        {(client.recurringPreferences.length > 0) && (
+          <div className="mt-4">
             <Button
               variant="secondary"
               disabled={savingRecurring}
-              onClick={() => {
-                setSelectedSlots(new Map());
-                saveRecurringSlots([]);
-              }}
+              onClick={() => saveRecurringSlots([])}
             >
-              Clear all
+              {savingRecurring ? "Clearing…" : "Clear all recurring slots"}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </Card>
 
       {detailSlot && client && (
@@ -585,11 +580,6 @@ export default function ClientDetailPage() {
                 slotKey(detailSlot.dayOfWeek, detailSlot.startTime),
             ) ?? null
           }
-          selected={
-            selectedSlots.get(
-              slotKey(detailSlot.dayOfWeek, detailSlot.startTime),
-            ) ?? null
-          }
           templateSlot={
             templateOverlay.find(
               (slot) =>
@@ -601,8 +591,10 @@ export default function ClientDetailPage() {
           enabledLocations={enabledLocations}
           canManageRecurring={canManageRecurring}
           hasTemplate={hasTemplate}
-          onClose={() => setDetailSlot(null)}
-          onAdd={addSlotFromDetail}
+          saving={savingRecurring}
+          error={recurringError}
+          onClose={() => !savingRecurring && setDetailSlot(null)}
+          onSave={saveSlotFromDetail}
           onRemove={removeSlotFromDetail}
         />
       )}
@@ -619,14 +611,19 @@ export default function ClientDetailPage() {
             {upcoming.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div>
-                  <p className="text-sm font-medium">{formatSlot(b.slotStartAt)}</p>
+                  <p className="text-sm font-medium">{formatSlot(b.slotStartAt, b.slotEndAt)}</p>
                   <div className="mt-1 flex flex-wrap gap-2">
                     <Badge>{b.status}</Badge>
                     {b.isRecurring && <Badge>Recurring</Badge>}
-                    {b.override36h && <Badge tone="warning">36h override</Badge>}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/dashboard/sessions/${b.id}`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Session
+                  </Link>
                   <Button
                     variant="secondary"
                     className="px-3 py-1.5 text-xs"
@@ -657,19 +654,27 @@ export default function ClientDetailPage() {
             {history.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <div>
-                  <p className="text-sm font-medium">{formatSlot(b.slotStartAt)}</p>
+                  <p className="text-sm font-medium">{formatSlot(b.slotStartAt, b.slotEndAt)}</p>
                   <Badge>{b.status}</Badge>
                 </div>
-                {b.status !== "canceled" && (
-                  <a
-                    className="text-sm text-blue-600 underline"
-                    href={`/s/${b.token}`}
-                    target="_blank"
-                    rel="noreferrer"
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={`/dashboard/sessions/${b.id}`}
+                    className="text-sm text-blue-600 hover:underline"
                   >
-                    Session link
-                  </a>
-                )}
+                    Session
+                  </Link>
+                  {b.status !== "canceled" && (
+                    <a
+                      className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+                      href={`/s/${b.token}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Client link
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

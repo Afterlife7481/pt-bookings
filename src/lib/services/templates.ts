@@ -14,16 +14,21 @@ import {
 import {
   BOOKING_WINDOW_DAYS,
   addDays,
+  assertValidScheduleSlotTimes,
+  defaultSlotEndTime,
   formatDate,
   nowIso,
   parseTimeOnDate,
   parseDateOnly,
+  parseTimeToMinutes,
   slotDayOfWeek,
   slotTimeLabel,
   startOfWeekMonday,
+  timeRangesOverlap,
   toLocalDateTimeString,
   parseLocalDateTime,
 } from "@/lib/constants";
+import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
 import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
@@ -48,6 +53,7 @@ export type TrainerTemplate = {
     templateId: string;
     dayOfWeek: number;
     startTime: string;
+    endTime: string;
     locationId: string | null;
     locationName: string | null;
   }[];
@@ -56,6 +62,7 @@ export type TrainerTemplate = {
 export type TemplateSlotOverlay = {
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   locationId: string;
   locationName: string;
 };
@@ -63,8 +70,42 @@ export type TemplateSlotOverlay = {
 export type TemplateSlotInput = {
   dayOfWeek: number;
   startTime: string;
+  endTime: string;
   locationId: string;
 };
+
+function validateTemplateSlots(slotDefs: TemplateSlotInput[]) {
+  const byDay = new Map<number, TemplateSlotInput[]>();
+
+  for (const slot of slotDefs) {
+    assertValidScheduleSlotTimes(slot.startTime, slot.endTime);
+    const daySlots = byDay.get(slot.dayOfWeek) ?? [];
+    daySlots.push(slot);
+    byDay.set(slot.dayOfWeek, daySlots);
+  }
+
+  for (const [dayOfWeek, daySlots] of byDay) {
+    const sorted = [...daySlots].sort(
+      (a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime),
+    );
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+      if (
+        timeRangesOverlap(
+          current.startTime,
+          current.endTime,
+          next.startTime,
+          next.endTime,
+        )
+      ) {
+        throw new Error(
+          `Template slots overlap on ${dayOfWeekLabel(dayOfWeek)} (${current.startTime}–${current.endTime} and ${next.startTime}–${next.endTime}). Your template was not saved.`,
+        );
+      }
+    }
+  }
+}
 
 async function loadTemplateWithSlots(
   templateId: string,
@@ -120,6 +161,7 @@ export async function getTrainerTemplateOverlay(
     .map((slot) => ({
       dayOfWeek: slot.dayOfWeek,
       startTime: slot.startTime,
+      endTime: slot.endTime,
       locationId: slot.locationId,
       locationName: slot.locationName ?? "Unknown location",
     }));
@@ -128,12 +170,10 @@ export async function getTrainerTemplateOverlay(
 /** @deprecated use getTrainerTemplateOverlay */
 export const getDefaultTemplateOverlay = getTrainerTemplateOverlay;
 
-async function insertTemplateSlots(
+async function prepareTemplateSlotDefs(
   trainerId: string,
-  templateId: string,
   slotDefs: TemplateSlotInput[],
-) {
-  const db = getDb();
+): Promise<TemplateSlotInput[]> {
   const unique = new Map<string, TemplateSlotInput>();
   for (const slot of slotDefs) {
     await assertTrainerLocation(trainerId, slot.locationId);
@@ -145,17 +185,31 @@ async function insertTemplateSlots(
     throw new Error("Add at least one slot to the template");
   }
 
-  for (const s of normalized) {
-    await db.insert(templateSlots).values({
-      id: nanoid(),
-      templateId,
-      dayOfWeek: s.dayOfWeek,
-      startTime: s.startTime,
-      locationId: s.locationId,
-    });
-  }
+  validateTemplateSlots(normalized);
+  return normalized;
+}
 
-  return normalized.length;
+type TemplateDbTx = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
+
+function insertTemplateSlotsTx(
+  tx: TemplateDbTx,
+  templateId: string,
+  normalized: TemplateSlotInput[],
+) {
+  for (const s of normalized) {
+    tx.insert(templateSlots)
+      .values({
+        id: nanoid(),
+        templateId,
+        dayOfWeek: s.dayOfWeek,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        locationId: s.locationId,
+      })
+      .run();
+  }
 }
 
 export async function saveTrainerTemplate(
@@ -163,26 +217,34 @@ export async function saveTrainerTemplate(
   slotDefs: TemplateSlotInput[],
 ) {
   const db = getDb();
+  const normalized = await prepareTemplateSlotDefs(trainerId, slotDefs);
+
   const existing = await db.query.weeklyTemplates.findFirst({
     where: eq(weeklyTemplates.trainerId, trainerId),
   });
 
   if (existing) {
-    await db
-      .delete(templateSlots)
-      .where(eq(templateSlots.templateId, existing.id));
-    await insertTemplateSlots(trainerId, existing.id, slotDefs);
+    db.transaction((tx) => {
+      tx.delete(templateSlots)
+        .where(eq(templateSlots.templateId, existing.id))
+        .run();
+      insertTemplateSlotsTx(tx, existing.id, normalized);
+    });
     return existing.id;
   }
 
   const id = nanoid();
-  await db.insert(weeklyTemplates).values({
-    id,
-    trainerId,
-    name: WEEKLY_TEMPLATE_NAME,
-    createdAt: nowIso(),
+  db.transaction((tx) => {
+    tx.insert(weeklyTemplates)
+      .values({
+        id,
+        trainerId,
+        name: WEEKLY_TEMPLATE_NAME,
+        createdAt: nowIso(),
+      })
+      .run();
+    insertTemplateSlotsTx(tx, id, normalized);
   });
-  await insertTemplateSlots(trainerId, id, slotDefs);
   return id;
 }
 
@@ -265,6 +327,9 @@ export async function applyTemplateToWeek(
     if (startAt < today) continue;
 
     const startAtStr = toLocalDateTimeString(startAt);
+    const endAtStr = toLocalDateTimeString(
+      parseTimeOnDate(formatDate(slotDate), ts.endTime),
+    );
     const existingSlot = await db.query.slots.findFirst({
       where: and(
         eq(slots.trainerId, template.trainerId),
@@ -285,6 +350,7 @@ export async function applyTemplateToWeek(
         trainerId: template.trainerId,
         appliedWeekId: appliedWeek.id,
         startAt: startAtStr,
+        endAt: endAtStr,
         status: "available",
         locationId,
         createdAt: nowIso(),
@@ -421,9 +487,13 @@ export async function getAvailableSlotsForChange(
   });
 }
 
+const SESSION_LIST_LIMIT = 100;
+
 export async function listBookings(trainerId: string) {
   const db = getDb();
-  return db
+  const now = Date.now();
+
+  const rows = await db
     .select({
       booking: bookings,
       slot: slots,
@@ -439,6 +509,21 @@ export async function listBookings(trainerId: string) {
       ),
     )
     .orderBy(asc(slots.startAt));
+
+  const upcoming: typeof rows = [];
+  const past: typeof rows = [];
+
+  for (const row of rows) {
+    if (parseLocalDateTime(row.slot.startAt).getTime() >= now) {
+      upcoming.push(row);
+    } else {
+      past.push(row);
+    }
+  }
+
+  past.reverse();
+
+  return [...upcoming, ...past].slice(0, SESSION_LIST_LIMIT);
 }
 
 export async function listAppliedWeeks(trainerId: string) {

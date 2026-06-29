@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
-import { acceptLastMinuteOffer } from "@/lib/services/last-minute";
+import { getLastMinuteOfferPreview } from "@/lib/services/last-minute";
+import { LastMinuteOfferClaim } from "@/components/LastMinuteOfferClaim";
 import { Card } from "@/components/ui";
-import { formatSlot } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -23,28 +24,23 @@ export default async function InterestClaimPage({
     );
   }
 
-  try {
-    const result = await acceptLastMinuteOffer(slotId, clientId);
+  const preview = await getLastMinuteOfferPreview(slotId, clientId);
+
+  if (!preview) {
     return (
       <main className="mx-auto max-w-lg p-6">
         <Card>
-          <h1 className="text-xl font-semibold">Session booked</h1>
-          <p className="mt-2 text-slate-600">
-            Your session for {formatSlot(result.slot!.startAt)} is confirmed.
-            Check WhatsApp for details.
-          </p>
-        </Card>
-      </main>
-    );
-  } catch (e) {
-    return (
-      <main className="mx-auto max-w-lg p-6">
-        <Card>
-          <p className="text-red-600">
-            {e instanceof Error ? e.message : "Something went wrong"}
-          </p>
+          <p className="text-red-600">Offer not found.</p>
         </Card>
       </main>
     );
   }
+
+  return (
+    <LastMinuteOfferClaim
+      slotId={slotId}
+      clientId={clientId}
+      preview={preview}
+    />
+  );
 }

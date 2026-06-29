@@ -1,4 +1,12 @@
 /** Monday-first day columns for weekly grids. */
+import {
+  SCHEDULE_TIME_STEP_MINUTES,
+  formatMinutesAsTime,
+  parseTimeToMinutes,
+} from "@/lib/constants";
+
+export { SCHEDULE_TIME_STEP_MINUTES as SCHEDULE_GRID_STEP_MINUTES };
+
 export const WEEK_DAYS = [
   { value: 1, label: "Mon", longLabel: "Monday" },
   { value: 2, label: "Tue", longLabel: "Tuesday" },
@@ -62,4 +70,53 @@ export function dayHeaderInitial(day: WeekDayColumn): { primary: string } {
 
 export function dayHeaderShort(day: WeekDayColumn): { primary: string } {
   return { primary: day.label };
+}
+
+export function timeRowsInScheduleRange(
+  startTime: string,
+  endTime: string,
+  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+): string[] {
+  const startMin = parseTimeToMinutes(startTime);
+  const endMin = parseTimeToMinutes(endTime);
+  if (endMin <= startMin) return [];
+  const rows: string[] = [];
+  for (let t = startMin; t < endMin; t += stepMinutes) {
+    rows.push(formatMinutesAsTime(t));
+  }
+  return rows;
+}
+
+export function slotGridRowSpan(
+  startTime: string,
+  endTime: string,
+  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+): number {
+  const duration = parseTimeToMinutes(endTime) - parseTimeToMinutes(startTime);
+  if (duration <= 0) return 1;
+  return Math.max(1, duration / stepMinutes);
+}
+
+export function slotCoversGridRow(
+  startTime: string,
+  endTime: string,
+  rowTime: string,
+  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+): boolean {
+  const rowStart = parseTimeToMinutes(rowTime);
+  const rowEnd = rowStart + stepMinutes;
+  const slotStart = parseTimeToMinutes(startTime);
+  const slotEnd = parseTimeToMinutes(endTime);
+  return slotStart < rowEnd && rowStart < slotEnd;
+}
+
+export function scheduleGridTimeLabel(
+  rowTime: string,
+  compact: boolean,
+): string {
+  const [hh, mm] = rowTime.split(":");
+  if (mm === "00") {
+    return compact ? String(parseInt(hh ?? "0", 10)) : rowTime;
+  }
+  return compact ? `:${mm}` : rowTime;
 }

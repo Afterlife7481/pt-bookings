@@ -45,12 +45,38 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export function formatSlot(startAt: string) {
+export function formatSlot(startAt: string, endAt?: string | null) {
+  const { date, time } = formatSlotLines(startAt, endAt);
+  return `${date} ${time}`;
+}
+
+export function formatSlotLines(startAt: string, endAt?: string | null) {
   const [datePart, timePart] = startAt.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  const time = timePart?.slice(0, 5) ?? "";
-  return `${date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} ${time}`;
+  const start = timePart?.slice(0, 5) ?? "";
+  const dateLabel = date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const timeLabel = endAt
+    ? `${start}–${endAt.split("T")[1]?.slice(0, 5) ?? ""}`
+    : start;
+  return { date: dateLabel, time: timeLabel };
+}
+
+export function formatDurationMinutes(minutes: number): string {
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  if (minutes > 60) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  }
+  return `${minutes} minutes`;
 }
 
 export function formatDayLabel(dateKey: string): string {

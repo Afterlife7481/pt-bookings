@@ -8,12 +8,17 @@ import {
   interestClaimUrl,
   nowIso,
 } from "@/lib/constants";
+import {
+  formatInvoiceAmount,
+  formatPaymentOptionsText,
+  type PaymentDetailsForMessage,
+} from "@/lib/payments";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
   clientId?: string;
   phone: string;
-  messageType: "confirmation" | "last_minute" | "interest_ack";
+  messageType: "confirmation" | "last_minute" | "interest_ack" | "invoice";
   body: string;
 }) {
   const db = getDb();
@@ -35,10 +40,11 @@ export async function sendWhatsAppConfirmation(params: {
   phone: string;
   bookingToken: string;
   slotStartAt: string;
+  slotEndAt?: string | null;
   clientName: string;
 }) {
   const link = bookingUrl(params.bookingToken);
-  const body = `Hi ${params.clientName}, your PT session is confirmed for ${formatSlotLabel(params.slotStartAt)}. View details and manage your booking: ${link}`;
+  const body = `Hi ${params.clientName}, your PT session is confirmed for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
@@ -57,11 +63,12 @@ export async function sendWhatsAppLastMinute(params: {
   phone: string;
   slotId: string;
   slotStartAt: string;
+  slotEndAt?: string | null;
   clientName: string;
   lockHours: number;
 }) {
   const link = interestClaimUrl(params.slotId, params.clientId);
-  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept. Tap to book: ${link}`;
+  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept. View and accept: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
@@ -79,9 +86,10 @@ export async function sendWhatsAppInterestAck(params: {
   clientId: string;
   phone: string;
   slotStartAt: string;
+  slotEndAt?: string | null;
   clientName: string;
 }) {
-  const body = `Thanks ${params.clientName}! Your trainer has been notified of your interest in ${formatSlotLabel(params.slotStartAt)}.`;
+  const body = `Thanks ${params.clientName}! Your trainer has been notified of your interest in ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}.`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
@@ -90,6 +98,33 @@ export async function sendWhatsAppInterestAck(params: {
     clientId: params.clientId,
     phone: params.phone,
     messageType: "interest_ack",
+    body,
+  });
+}
+
+export async function sendWhatsAppInvoice(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  amountPence: number;
+  paymentDetails: PaymentDetailsForMessage;
+}) {
+  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const amount = formatInvoiceAmount(params.amountPence);
+  const paymentLines = formatPaymentOptionsText(params.paymentDetails);
+
+  const body = `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
+
+  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "invoice",
     body,
   });
 }

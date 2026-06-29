@@ -1,4 +1,8 @@
-import { addDays, formatDate, parseDateOnly } from "@/lib/constants";
+import { addDays, parseDateOnly, slotTimeLabel } from "@/lib/constants";
+import {
+  slotCoversGridRow,
+  slotGridRowSpan,
+} from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 
@@ -23,6 +27,12 @@ export function dayShortDate(weekStart: string, dayOfWeek: number): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+export function dayNumberForWeekDay(weekStart: string, dayOfWeek: number): string {
+  const d = dateForWeekDay(weekStart, dayOfWeek);
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  return `${month} ${d.getDate()}`;
+}
+
 export function defaultSelectedDay(weekStart: string): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -34,34 +44,63 @@ export function defaultSelectedDay(weekStart: string): number {
   return 1;
 }
 
-export function isPastSlot(
-  weekStart: string,
-  dayOfWeek: number,
-  hour: number,
-  nowMs: number | null,
-): boolean {
-  if (nowMs === null) return false;
-  const d = dateForWeekDay(weekStart, dayOfWeek);
-  d.setHours(hour, 0, 0, 0);
-  return d.getTime() < nowMs;
-}
-
-export function hourFromStartAt(startAt: string): number {
-  return parseInt(startAt.split("T")[1]?.slice(0, 2) ?? "0", 10);
-}
-
 export function dateKeyFromStartAt(startAt: string): string {
   return startAt.split("T")[0] ?? "";
+}
+
+export function scheduleRowKey(dateKey: string, rowTime: string): string {
+  return `${dateKey}-${rowTime}`;
+}
+
+export function entryStartTime(entry: ScheduleEntry): string {
+  return slotTimeLabel(entry.startAt);
+}
+
+export function entryEndTime(entry: ScheduleEntry): string {
+  return slotTimeLabel(entry.endAt);
 }
 
 export function buildScheduleGrid(_weekStart: string, entries: ScheduleEntry[]) {
   const map = new Map<string, ScheduleEntry>();
   for (const entry of entries) {
     const dateKey = dateKeyFromStartAt(entry.startAt);
-    const hour = hourFromStartAt(entry.startAt);
-    map.set(`${dateKey}-${hour}`, entry);
+    map.set(scheduleRowKey(dateKey, entryStartTime(entry)), entry);
   }
   return map;
+}
+
+export function countEntriesForDate(
+  entries: ScheduleEntry[],
+  dateKey: string,
+): number {
+  return entries.filter((e) => dateKeyFromStartAt(e.startAt) === dateKey).length;
+}
+
+export function findEntryForScheduleRow(
+  entries: ScheduleEntry[],
+  dateKey: string,
+  rowTime: string,
+): { entry: ScheduleEntry; isStart: boolean } | null {
+  const entry =
+    entries.find((e) => {
+      if (dateKeyFromStartAt(e.startAt) !== dateKey) return false;
+      return slotCoversGridRow(
+        entryStartTime(e),
+        entryEndTime(e),
+        rowTime,
+      );
+    }) ?? null;
+
+  if (!entry) return null;
+
+  return {
+    entry,
+    isStart: entryStartTime(entry) === rowTime,
+  };
+}
+
+export function entryRowSpan(entry: ScheduleEntry): number {
+  return slotGridRowSpan(entryStartTime(entry), entryEndTime(entry));
 }
 
 export function openSlotColorClasses(

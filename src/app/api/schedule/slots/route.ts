@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       body.dayOfWeek,
       body.startTime,
       body.locationId,
+      body.endTime,
     );
     return Response.json(result, { status: 201 });
   } catch (e) {

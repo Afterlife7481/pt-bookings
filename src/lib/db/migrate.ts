@@ -148,6 +148,13 @@ export function runMigrations() {
   upgradeRecurringPreferenceLocationSchema(sqlite);
   upgradeDefaultTemplateSchema(sqlite);
   upgradeSingleWeeklyTemplatePerTrainer(sqlite);
+  upgradeSlotDurationSchema(sqlite);
+  upgradeBookingPaymentSchema(sqlite);
+  upgradeTrainerPaymentDetailsSchema(sqlite);
+  upgradeBookingInvoiceSchema(sqlite);
+  upgradeTrainerPaymentPayeeSchema(sqlite);
+  upgradeWhatsAppInvoiceMessageType(sqlite);
+  upgradeBookingVoidedStatusSchema(sqlite);
   sqlite.close();
 }
 
@@ -649,6 +656,209 @@ function upgradeDefaultTemplateSchema(sqlite: Database.Database) {
       setDefault.run(template.id, trainer.id);
     }
   }
+}
+
+function addOneHourToTime(startTime: string): string {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const total = (hours ?? 0) * 60 + (minutes ?? 0) + 60;
+  const endHours = Math.floor(total / 60);
+  const endMinutes = total % 60;
+  return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
+}
+
+function addOneHourToStartAt(startAt: string): string {
+  const [datePart, timePart = "00:00:00"] = startAt.split("T");
+  const endTime = addOneHourToTime(timePart.slice(0, 5));
+  return `${datePart}T${endTime}:00`;
+}
+
+function upgradeSlotDurationSchema(sqlite: Database.Database) {
+  const templateColumns = sqlite
+    .prepare("PRAGMA table_info(template_slots)")
+    .all() as { name: string }[];
+
+  if (!templateColumns.some((c) => c.name === "end_time")) {
+    sqlite.exec("ALTER TABLE template_slots ADD COLUMN end_time TEXT");
+    const rows = sqlite
+      .prepare("SELECT id, start_time FROM template_slots")
+      .all() as { id: string; start_time: string }[];
+    const update = sqlite.prepare(
+      "UPDATE template_slots SET end_time = ? WHERE id = ?",
+    );
+    for (const row of rows) {
+      update.run(addOneHourToTime(row.start_time), row.id);
+    }
+  }
+
+  const slotColumns = sqlite
+    .prepare("PRAGMA table_info(slots)")
+    .all() as { name: string }[];
+
+  if (!slotColumns.some((c) => c.name === "end_at")) {
+    sqlite.exec("ALTER TABLE slots ADD COLUMN end_at TEXT");
+    const rows = sqlite
+      .prepare("SELECT id, start_at FROM slots")
+      .all() as { id: string; start_at: string }[];
+    const update = sqlite.prepare("UPDATE slots SET end_at = ? WHERE id = ?");
+    for (const row of rows) {
+      update.run(addOneHourToStartAt(row.start_at), row.id);
+    }
+  }
+}
+
+function upgradeBookingPaymentSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(bookings)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "session_paid")) {
+    sqlite.exec(
+      "ALTER TABLE bookings ADD COLUMN session_paid INTEGER NOT NULL DEFAULT 0",
+    );
+  }
+
+  if (!columns.some((c) => c.name === "payment_type")) {
+    sqlite.exec(`
+      ALTER TABLE bookings ADD COLUMN payment_type TEXT
+      CHECK(payment_type IS NULL OR payment_type IN ('cash', 'bank_transfer', 'card', 'other'))
+    `);
+  }
+}
+
+function upgradeTrainerPaymentDetailsSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(trainers)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "bank_account_number")) {
+    sqlite.exec("ALTER TABLE trainers ADD COLUMN bank_account_number TEXT");
+  }
+
+  if (!columns.some((c) => c.name === "bank_sort_code")) {
+    sqlite.exec("ALTER TABLE trainers ADD COLUMN bank_sort_code TEXT");
+  }
+}
+
+function upgradeBookingInvoiceSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(bookings)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "invoice_sent_at")) {
+    sqlite.exec("ALTER TABLE bookings ADD COLUMN invoice_sent_at TEXT");
+  }
+}
+
+function upgradeTrainerPaymentPayeeSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(trainers)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "bank_name")) {
+    sqlite.exec("ALTER TABLE trainers ADD COLUMN bank_name TEXT");
+  }
+
+  if (!columns.some((c) => c.name === "payment_payee_name")) {
+    sqlite.exec("ALTER TABLE trainers ADD COLUMN payment_payee_name TEXT");
+  }
+}
+
+function upgradeWhatsAppInvoiceMessageType(sqlite: Database.Database) {
+  const table = sqlite
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='whatsapp_messages'",
+    )
+    .get() as { sql: string } | undefined;
+
+  if (!table?.sql || table.sql.includes("'invoice'")) return;
+
+  sqlite.exec(`
+    CREATE TABLE whatsapp_messages_new (
+      id TEXT PRIMARY KEY,
+      trainer_id TEXT NOT NULL REFERENCES trainers(id),
+      client_id TEXT REFERENCES clients(id),
+      phone TEXT NOT NULL,
+      message_type TEXT NOT NULL CHECK(message_type IN ('confirmation', 'last_minute', 'interest_ack', 'invoice')),
+      body TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'sent', 'failed')),
+      created_at TEXT NOT NULL
+    );
+    INSERT INTO whatsapp_messages_new
+    SELECT id, trainer_id, client_id, phone, message_type, body, status, created_at
+    FROM whatsapp_messages;
+    DROP TABLE whatsapp_messages;
+    ALTER TABLE whatsapp_messages_new RENAME TO whatsapp_messages;
+  `);
+}
+
+function upgradeBookingVoidedStatusSchema(sqlite: Database.Database) {
+  const table = sqlite
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='bookings'",
+    )
+    .get() as { sql: string } | undefined;
+
+  if (!table?.sql || table.sql.includes("'voided'")) return;
+
+  const columns = sqlite
+    .prepare("PRAGMA table_info(bookings)")
+    .all() as { name: string }[];
+
+  const columnNames = columns.map((c) => c.name);
+  const hasSessionPaid = columnNames.includes("session_paid");
+  const hasPaymentType = columnNames.includes("payment_type");
+  const hasInvoiceSentAt = columnNames.includes("invoice_sent_at");
+
+  sqlite.pragma("foreign_keys = OFF");
+  try {
+    sqlite.exec(`
+      CREATE TABLE bookings_void_migration (
+        id TEXT PRIMARY KEY,
+        trainer_id TEXT NOT NULL REFERENCES trainers(id),
+        slot_id TEXT REFERENCES slots(id),
+        session_start_at TEXT NOT NULL,
+        client_id TEXT NOT NULL REFERENCES clients(id),
+        token TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL CHECK(status IN ('confirmed', 'pending_change', 'canceled', 'voided')),
+        override_36h INTEGER NOT NULL DEFAULT 0,
+        is_recurring INTEGER NOT NULL DEFAULT 0,
+        session_paid INTEGER NOT NULL DEFAULT 0,
+        payment_type TEXT CHECK(payment_type IS NULL OR payment_type IN ('cash', 'bank_transfer', 'card', 'other')),
+        invoice_sent_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      INSERT INTO bookings_void_migration (
+        id, trainer_id, slot_id, session_start_at, client_id, token, status,
+        override_36h, is_recurring, session_paid, payment_type, invoice_sent_at,
+        created_at, updated_at
+      )
+      SELECT
+        id,
+        trainer_id,
+        slot_id,
+        session_start_at,
+        client_id,
+        token,
+        status,
+        override_36h,
+        is_recurring,
+        ${hasSessionPaid ? "session_paid" : "0"},
+        ${hasPaymentType ? "payment_type" : "NULL"},
+        ${hasInvoiceSentAt ? "invoice_sent_at" : "NULL"},
+        created_at,
+        updated_at
+      FROM bookings;
+
+      DROP TABLE bookings;
+      ALTER TABLE bookings_void_migration RENAME TO bookings;
+    `);
+  } finally {
+    sqlite.pragma("foreign_keys = ON");
+  }
+
+  createBookingsActiveSlotIndex(sqlite);
 }
 
 if (require.main === module) {

@@ -13,6 +13,8 @@ function whatsAppTypeLabel(messageType: string): string {
       return "Last-minute offer";
     case "interest_ack":
       return "Interest acknowledgement";
+    case "invoice":
+      return "Invoice";
     default:
       return messageType;
   }

@@ -35,6 +35,10 @@ export async function PATCH(request: Request) {
         body.lastMinuteOfferLockHours !== undefined
           ? Number(body.lastMinuteOfferLockHours)
           : undefined,
+      bankAccountNumber: body.bankAccountNumber,
+      bankSortCode: body.bankSortCode,
+      bankName: body.bankName,
+      paymentPayeeName: body.paymentPayeeName,
     });
     const settings = await getTrainerSettings(trainerId);
     return Response.json(settings);

@@ -9,7 +9,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <DashboardHeader settings={settings} />
-      <main className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">{children}</main>
+      <main className="mx-auto w-full min-w-0 max-w-6xl space-y-4 overflow-x-hidden p-4 sm:p-6">
+        {children}
+      </main>
     </div>
   );
 }
