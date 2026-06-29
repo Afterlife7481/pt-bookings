@@ -11,6 +11,7 @@ export type DashboardClient = {
   recurringPreferences: {
     dayOfWeek: number;
     startTime: string;
+    locationId: string | null;
   }[];
 };
 

@@ -189,32 +189,28 @@ export function OpenSlotModal({
 }
 
 export function ApplyTemplateModal({
-  templates,
+  hasTemplate,
   onApply,
   onClose,
   applying,
 }: {
-  templates: ScheduleTemplateOption[];
-  onApply: (templateId: string) => void | Promise<boolean | void>;
+  hasTemplate: boolean;
+  onApply: () => void | Promise<boolean | void>;
   onClose: () => void;
   applying: boolean;
 }) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(
-    templates[0]?.id ?? "",
-  );
-
   return (
     <SheetModal
-      title="Apply template"
+      title="Apply weekly template"
       subtitle="Adds any template slots not already on this week."
       onClose={onClose}
       footer={
         <>
-          {templates.length > 0 && (
+          {hasTemplate && (
             <Button
               className="w-full py-3 sm:py-2"
-              disabled={!selectedTemplateId || applying}
-              onClick={() => void onApply(selectedTemplateId)}
+              disabled={applying}
+              onClick={() => void onApply()}
             >
               {applying ? "Applying…" : "Apply to this week"}
             </Button>
@@ -230,26 +226,16 @@ export function ApplyTemplateModal({
         </>
       }
     >
-      {templates.length === 0 ? (
+      {!hasTemplate ? (
         <p className="mt-4 text-sm text-slate-500">
-          Create a weekly template under Templates to populate this week.
+          Create your weekly template under Settings before applying to the
+          schedule.
         </p>
       ) : (
-        <label className="mt-4 flex flex-col gap-1 text-sm">
-          <span className="text-slate-600">Template</span>
-          <select
-            className="rounded-lg border border-slate-300 px-3 py-3 text-base sm:py-2 sm:text-sm"
-            value={selectedTemplateId}
-            onChange={(e) => setSelectedTemplateId(e.target.value)}
-            disabled={applying}
-          >
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <p className="mt-4 text-sm text-slate-600">
+          Open slots from your weekly template will be added for this week.
+          Recurring client sessions are booked automatically where they match.
+        </p>
       )}
     </SheetModal>
   );

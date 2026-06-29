@@ -15,7 +15,6 @@ import {
   OpenSlotModal,
   type ScheduleClientOption,
   type ScheduleLocationOption,
-  type ScheduleTemplateOption,
 } from "@/components/schedule/ScheduleModals";
 import {
   buildScheduleGrid,
@@ -40,7 +39,6 @@ import {
 } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 
-type TemplateOption = ScheduleTemplateOption;
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
 
@@ -278,7 +276,7 @@ function WeekGrid({
 export function WeekScheduleCalendar({
   weekStart,
   entries,
-  templates,
+  hasTemplate,
   onApplyTemplate,
   applyingTemplate,
   scheduleStartTime = "07:00",
@@ -295,8 +293,8 @@ export function WeekScheduleCalendar({
 }: {
   weekStart: string;
   entries: ScheduleEntry[];
-  templates: TemplateOption[];
-  onApplyTemplate?: (templateId: string) => void | Promise<boolean>;
+  hasTemplate: boolean;
+  onApplyTemplate?: () => void | Promise<boolean>;
   applyingTemplate?: boolean;
   scheduleStartTime?: string;
   scheduleEndTime?: string;
@@ -513,10 +511,10 @@ export function WeekScheduleCalendar({
 
       {applyTemplateOpen && onApplyTemplate && (
         <ApplyTemplateModal
-          templates={templates}
+          hasTemplate={hasTemplate}
           applying={applyingTemplate ?? false}
-          onApply={async (templateId) => {
-            const result = await onApplyTemplate(templateId);
+          onApply={async () => {
+            const result = await onApplyTemplate();
             if (result !== false) {
               setApplyTemplateOpen(false);
             }

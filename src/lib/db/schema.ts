@@ -96,14 +96,20 @@ export const clientLocations = sqliteTable(
   }),
 );
 
-export const weeklyTemplates = sqliteTable("weekly_templates", {
-  id: text("id").primaryKey(),
-  trainerId: text("trainer_id")
-    .notNull()
-    .references(() => trainers.id),
-  name: text("name").notNull(),
-  createdAt: text("created_at").notNull(),
-});
+export const weeklyTemplates = sqliteTable(
+  "weekly_templates",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id),
+    name: text("name").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    uniqueTrainer: uniqueIndex("weekly_templates_trainer_idx").on(table.trainerId),
+  }),
+);
 
 export const templateSlots = sqliteTable("template_slots", {
   id: text("id").primaryKey(),
@@ -202,6 +208,9 @@ export const recurringPreferences = sqliteTable(
       .references(() => clients.id),
     dayOfWeek: integer("day_of_week").notNull(),
     startTime: text("start_time").notNull(),
+    locationId: text("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
     createdAt: text("created_at").notNull(),
   },
   (table) => ({

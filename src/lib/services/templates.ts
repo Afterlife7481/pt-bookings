@@ -28,6 +28,8 @@ import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
 import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
 
+const WEEKLY_TEMPLATE_NAME = "Weekly template";
+
 export type ApplyTemplateResult = {
   appliedWeekId: string;
   weekStart: string;
@@ -35,6 +37,154 @@ export type ApplyTemplateResult = {
   recurringBooked: number;
   conflicts: string[];
 };
+
+export type TrainerTemplate = {
+  id: string;
+  trainerId: string;
+  name: string;
+  createdAt: string;
+  slots: {
+    id: string;
+    templateId: string;
+    dayOfWeek: number;
+    startTime: string;
+    locationId: string | null;
+    locationName: string | null;
+  }[];
+};
+
+export type TemplateSlotOverlay = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+  locationName: string;
+};
+
+export type TemplateSlotInput = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+};
+
+async function loadTemplateWithSlots(
+  templateId: string,
+): Promise<TrainerTemplate | null> {
+  const db = getDb();
+  const template = await db.query.weeklyTemplates.findFirst({
+    where: eq(weeklyTemplates.id, templateId),
+  });
+  if (!template) return null;
+
+  const tSlots = await db
+    .select({
+      slot: templateSlots,
+      location: locations,
+    })
+    .from(templateSlots)
+    .leftJoin(locations, eq(templateSlots.locationId, locations.id))
+    .where(eq(templateSlots.templateId, templateId));
+
+  return {
+    ...template,
+    slots: tSlots.map(({ slot, location }) => ({
+      ...slot,
+      locationName: location?.name ?? null,
+    })),
+  };
+}
+
+export async function getTrainerTemplate(
+  trainerId: string,
+): Promise<TrainerTemplate | null> {
+  const db = getDb();
+  const template = await db.query.weeklyTemplates.findFirst({
+    where: eq(weeklyTemplates.trainerId, trainerId),
+  });
+  if (!template) return null;
+  return loadTemplateWithSlots(template.id);
+}
+
+/** @deprecated use getTrainerTemplate */
+export const getDefaultTemplate = getTrainerTemplate;
+
+export async function getTrainerTemplateOverlay(
+  trainerId: string,
+): Promise<TemplateSlotOverlay[]> {
+  const template = await getTrainerTemplate(trainerId);
+  if (!template) return [];
+
+  return template.slots
+    .filter((slot): slot is typeof slot & { locationId: string } =>
+      Boolean(slot.locationId),
+    )
+    .map((slot) => ({
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      locationId: slot.locationId,
+      locationName: slot.locationName ?? "Unknown location",
+    }));
+}
+
+/** @deprecated use getTrainerTemplateOverlay */
+export const getDefaultTemplateOverlay = getTrainerTemplateOverlay;
+
+async function insertTemplateSlots(
+  trainerId: string,
+  templateId: string,
+  slotDefs: TemplateSlotInput[],
+) {
+  const db = getDb();
+  const unique = new Map<string, TemplateSlotInput>();
+  for (const slot of slotDefs) {
+    await assertTrainerLocation(trainerId, slot.locationId);
+    unique.set(`${slot.dayOfWeek}-${slot.startTime}`, slot);
+  }
+
+  const normalized = [...unique.values()];
+  if (normalized.length === 0) {
+    throw new Error("Add at least one slot to the template");
+  }
+
+  for (const s of normalized) {
+    await db.insert(templateSlots).values({
+      id: nanoid(),
+      templateId,
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime,
+      locationId: s.locationId,
+    });
+  }
+
+  return normalized.length;
+}
+
+export async function saveTrainerTemplate(
+  trainerId: string,
+  slotDefs: TemplateSlotInput[],
+) {
+  const db = getDb();
+  const existing = await db.query.weeklyTemplates.findFirst({
+    where: eq(weeklyTemplates.trainerId, trainerId),
+  });
+
+  if (existing) {
+    await db
+      .delete(templateSlots)
+      .where(eq(templateSlots.templateId, existing.id));
+    await insertTemplateSlots(trainerId, existing.id, slotDefs);
+    return existing.id;
+  }
+
+  const id = nanoid();
+  await db.insert(weeklyTemplates).values({
+    id,
+    trainerId,
+    name: WEEKLY_TEMPLATE_NAME,
+    createdAt: nowIso(),
+  });
+  await insertTemplateSlots(trainerId, id, slotDefs);
+  return id;
+}
 
 export async function applyTemplateToWeek(
   templateId: string,
@@ -123,6 +273,11 @@ export async function applyTemplateToWeek(
     });
     if (existingSlot) continue;
 
+    const matchingPref = prefs.find(
+      (p) => p.dayOfWeek === ts.dayOfWeek && p.startTime === ts.startTime,
+    );
+    const locationId = matchingPref?.locationId ?? ts.locationId;
+
     const slotId = nanoid();
     try {
       await db.insert(slots).values({
@@ -131,7 +286,7 @@ export async function applyTemplateToWeek(
         appliedWeekId: appliedWeek.id,
         startAt: startAtStr,
         status: "available",
-        locationId: ts.locationId,
+        locationId,
         createdAt: nowIso(),
       });
       createdSlotIds.push(slotId);
@@ -170,6 +325,17 @@ export async function applyTemplateToWeek(
   return result;
 }
 
+export async function applyTrainerTemplateToWeek(
+  trainerId: string,
+  weekStart: string,
+): Promise<ApplyTemplateResult> {
+  const template = await getTrainerTemplate(trainerId);
+  if (!template) {
+    throw new Error("Create a weekly template before applying to the schedule");
+  }
+  return applyTemplateToWeek(template.id, weekStart, trainerId);
+}
+
 /** @deprecated use applyTemplateToWeek */
 export async function applyTemplateToWeeks(
   templateId: string,
@@ -189,128 +355,6 @@ export function getUpcomingWeekStarts(count = 3): string[] {
   return Array.from({ length: count }, (_, i) =>
     formatDate(addDays(monday, i * 7)),
   );
-}
-
-export async function listTemplates(trainerId: string) {
-  const db = getDb();
-  const templates = await db
-    .select()
-    .from(weeklyTemplates)
-    .where(eq(weeklyTemplates.trainerId, trainerId));
-
-  return Promise.all(
-    templates.map(async (t) => {
-      const tSlots = await db
-        .select({
-          slot: templateSlots,
-          location: locations,
-        })
-        .from(templateSlots)
-        .leftJoin(locations, eq(templateSlots.locationId, locations.id))
-        .where(eq(templateSlots.templateId, t.id));
-      return {
-        ...t,
-        slots: tSlots.map(({ slot, location }) => ({
-          ...slot,
-          locationName: location?.name ?? null,
-        })),
-      };
-    }),
-  );
-}
-
-export type TemplateSlotInput = {
-  dayOfWeek: number;
-  startTime: string;
-  locationId: string;
-};
-
-async function insertTemplateSlots(
-  trainerId: string,
-  templateId: string,
-  slotDefs: TemplateSlotInput[],
-) {
-  const db = getDb();
-  const unique = new Map<string, TemplateSlotInput>();
-  for (const slot of slotDefs) {
-    await assertTrainerLocation(trainerId, slot.locationId);
-    unique.set(`${slot.dayOfWeek}-${slot.startTime}`, slot);
-  }
-
-  const normalized = [...unique.values()];
-  if (normalized.length === 0) {
-    throw new Error("Add at least one slot to the template");
-  }
-
-  for (const s of normalized) {
-    await db.insert(templateSlots).values({
-      id: nanoid(),
-      templateId,
-      dayOfWeek: s.dayOfWeek,
-      startTime: s.startTime,
-      locationId: s.locationId,
-    });
-  }
-
-  return normalized.length;
-}
-
-export async function getTemplateForTrainer(
-  trainerId: string,
-  templateId: string,
-) {
-  const templates = await listTemplates(trainerId);
-  return templates.find((t) => t.id === templateId) ?? null;
-}
-
-export async function createTemplate(
-  name: string,
-  slotDefs: TemplateSlotInput[],
-  trainerId: string,
-) {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Template name is required");
-
-  const db = getDb();
-  const id = nanoid();
-  await db.insert(weeklyTemplates).values({
-    id,
-    trainerId,
-    name: trimmed,
-    createdAt: nowIso(),
-  });
-
-  await insertTemplateSlots(trainerId, id, slotDefs);
-  return id;
-}
-
-export async function updateTemplate(
-  trainerId: string,
-  templateId: string,
-  data: { name: string; slots: TemplateSlotInput[] },
-) {
-  const db = getDb();
-  const template = await db.query.weeklyTemplates.findFirst({
-    where: and(
-      eq(weeklyTemplates.id, templateId),
-      eq(weeklyTemplates.trainerId, trainerId),
-    ),
-  });
-  if (!template) throw new Error("Template not found");
-
-  const trimmed = data.name.trim();
-  if (!trimmed) throw new Error("Template name is required");
-
-  await db
-    .update(weeklyTemplates)
-    .set({ name: trimmed })
-    .where(eq(weeklyTemplates.id, templateId));
-
-  await db
-    .delete(templateSlots)
-    .where(eq(templateSlots.templateId, templateId));
-
-  await insertTemplateSlots(trainerId, templateId, data.slots);
 }
 
 export type AvailableSlotOption = {

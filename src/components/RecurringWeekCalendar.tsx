@@ -19,7 +19,22 @@ export type RecurringSlotAssignment = {
   startTime: string;
   clientId: string;
   clientName: string;
+  locationName: string | null;
   isCurrentClient: boolean;
+};
+
+export type TemplateSlotOverlay = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+  locationName: string;
+};
+
+export type SelectedRecurringSlot = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+  locationName: string;
 };
 
 /** @deprecated Import from `@/lib/schedule-grid` as `recurringSlotKey`. */
@@ -36,38 +51,40 @@ function buildAssignmentMap(assignments: RecurringSlotAssignment[]) {
   return map;
 }
 
+function buildOverlayMap(overlay: TemplateSlotOverlay[]) {
+  const map = new Map<string, TemplateSlotOverlay>();
+  for (const slot of overlay) {
+    map.set(`${slot.dayOfWeek}-${hourFromTime(slot.startTime)}`, slot);
+  }
+  return map;
+}
+
 function SlotCell({
-  dayOfWeek,
-  startTime,
   assignment,
+  templateOverlay,
   selected,
-  onToggle,
+  onOpen,
 }: {
-  dayOfWeek: number;
-  startTime: string;
   assignment: RecurringSlotAssignment | null;
-  selected: boolean;
-  onToggle: (dayOfWeek: number, startTime: string) => void;
+  templateOverlay: TemplateSlotOverlay | null;
+  selected: SelectedRecurringSlot | null;
+  onOpen: () => void;
 }) {
   const bookedByOther = assignment && !assignment.isCurrentClient;
+  const assignmentLocation =
+    assignment?.locationName ?? templateOverlay?.locationName ?? null;
 
   return (
     <button
       type="button"
-      disabled={!!bookedByOther}
-      onClick={() => onToggle(dayOfWeek, startTime)}
-      title={
-        bookedByOther
-          ? `Booked by ${assignment!.clientName}`
-          : startTime
-      }
+      onClick={onOpen}
+      aria-label="View slot details"
       className={cn(
-        "h-10 w-full rounded border px-0.5 py-0.5 text-center transition",
-        bookedByOther &&
-          "cursor-not-allowed border-amber-200 bg-amber-50 opacity-90",
+        "relative h-full min-h-0 w-full rounded border px-0.5 py-0.5 text-center transition hover:ring-2 hover:ring-slate-300 hover:ring-offset-1",
+        bookedByOther && "border-amber-200 bg-amber-50",
         !bookedByOther &&
           selected &&
-          "border-slate-900 bg-slate-900 text-white ring-1 ring-slate-900",
+          "border-slate-900 bg-slate-900 ring-1 ring-slate-900",
         !bookedByOther &&
           !selected &&
           assignment?.isCurrentClient &&
@@ -75,16 +92,47 @@ function SlotCell({
         !bookedByOther &&
           !selected &&
           !assignment &&
+          templateOverlay &&
+          "border-dashed border-slate-300 bg-slate-50/80",
+        !bookedByOther &&
+          !selected &&
+          !assignment &&
+          !templateOverlay &&
           "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50",
       )}
     >
-      <span className="block truncate text-[9px] font-medium leading-tight">
+      <span className="block text-[9px] font-medium leading-tight">
         {bookedByOther ? (
-          <span className="text-amber-800">{assignment!.clientName}</span>
+          <>
+            <span className="block truncate text-amber-800">
+              {assignment!.clientName}
+            </span>
+            {assignmentLocation && (
+              <span className="block truncate text-[8px] font-normal text-amber-700">
+                {assignmentLocation}
+              </span>
+            )}
+          </>
         ) : selected ? (
-          <span className="text-white">✓</span>
+          <>
+            <span className="text-white">✓</span>
+            <span className="block truncate text-[8px] font-normal text-slate-200">
+              {selected.locationName}
+            </span>
+          </>
         ) : assignment?.isCurrentClient ? (
-          <span className="text-green-700">Saved</span>
+          <>
+            <span className="text-green-700">Saved</span>
+            {assignmentLocation && (
+              <span className="block truncate text-[8px] font-normal text-green-600">
+                {assignmentLocation}
+              </span>
+            )}
+          </>
+        ) : templateOverlay ? (
+          <span className="block truncate text-slate-500">
+            {templateOverlay.locationName}
+          </span>
         ) : null}
       </span>
     </button>
@@ -93,18 +141,21 @@ function SlotCell({
 
 export function RecurringWeekCalendar({
   assignments,
-  selectedSlotKeys,
-  onToggle,
+  selectedSlots,
+  templateOverlay = [],
+  onCellClick,
   scheduleStartTime = DEFAULT_SCHEDULE_START,
   scheduleEndTime = DEFAULT_SCHEDULE_END,
 }: {
   assignments: RecurringSlotAssignment[];
-  selectedSlotKeys: Set<string>;
-  onToggle: (dayOfWeek: number, startTime: string) => void;
+  selectedSlots: Map<string, SelectedRecurringSlot>;
+  templateOverlay?: TemplateSlotOverlay[];
+  onCellClick: (dayOfWeek: number, startTime: string) => void;
   scheduleStartTime?: string;
   scheduleEndTime?: string;
 }) {
   const assignmentMap = useMemo(() => buildAssignmentMap(assignments), [assignments]);
+  const overlayMap = useMemo(() => buildOverlayMap(templateOverlay), [templateOverlay]);
   const hours = useMemo(
     () => hoursInScheduleRange(scheduleStartTime, scheduleEndTime),
     [scheduleStartTime, scheduleEndTime],
@@ -115,17 +166,17 @@ export function RecurringWeekCalendar({
       className="mt-4"
       hours={hours}
       variant="compact"
+      compactRowSize="3rem"
       getDayHeader={dayHeaderInitial}
       renderCell={(dayOfWeek, hour) => {
         const startTime = hourToStartTime(hour);
-        const assignment = assignmentMap.get(`${dayOfWeek}-${hour}`) ?? null;
+        const key = recurringSlotKey(dayOfWeek, startTime);
         return (
           <SlotCell
-            dayOfWeek={dayOfWeek}
-            startTime={startTime}
-            assignment={assignment}
-            selected={selectedSlotKeys.has(recurringSlotKey(dayOfWeek, startTime))}
-            onToggle={onToggle}
+            assignment={assignmentMap.get(`${dayOfWeek}-${hour}`) ?? null}
+            templateOverlay={overlayMap.get(`${dayOfWeek}-${hour}`) ?? null}
+            selected={selectedSlots.get(key) ?? null}
+            onOpen={() => onCellClick(dayOfWeek, startTime)}
           />
         );
       }}

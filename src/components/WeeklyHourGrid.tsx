@@ -22,6 +22,8 @@ type WeeklyHourGridProps = {
   className?: string;
   /** When true with full variant, enables wide min-width + scroll container. */
   wide?: boolean;
+  /** Override compact row height (default 2.5rem). */
+  compactRowSize?: string;
 };
 
 export function WeeklyHourGrid({
@@ -32,10 +34,15 @@ export function WeeklyHourGrid({
   renderCell,
   className,
   wide = false,
+  compactRowSize,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
-  const rowHeight = compact ? "h-10" : "h-11";
-  const rowSize = compact ? "2.5rem" : "2.75rem";
+  const rowHeight = compact
+    ? compactRowSize
+      ? "h-12"
+      : "h-10"
+    : "h-11";
+  const rowSize = compact ? (compactRowSize ?? "2.5rem") : "2.75rem";
   const timeCol = compact ? "1.75rem" : "3.25rem";
   const dayCol = compact ? "minmax(0, 1fr)" : "minmax(4.5rem, 1fr)";
 

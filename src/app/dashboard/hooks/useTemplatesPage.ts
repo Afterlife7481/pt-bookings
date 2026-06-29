@@ -7,18 +7,18 @@ import type {
 } from "../types";
 
 export function useTemplatesPage() {
-  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
+  const [template, setTemplate] = useState<DashboardTemplate | null>(null);
   const [locations, setLocations] = useState<TrainerLocation[]>([]);
   const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const [t, locs, sett] = await Promise.all([
-      fetchJson<{ templates: DashboardTemplate[] }>("/api/templates"),
+      fetchJson<{ template: DashboardTemplate | null }>("/api/templates"),
       fetchJson<TrainerLocation[]>("/api/locations"),
       fetchJson<TrainerSettings>("/api/settings"),
     ]);
-    setTemplates(t.templates);
+    setTemplate(t.template);
     setLocations(Array.isArray(locs) ? locs : []);
     setSettings(sett);
     setLoading(false);
@@ -28,5 +28,5 @@ export function useTemplatesPage() {
     refresh().catch(() => setLoading(false));
   }, [refresh]);
 
-  return { templates, locations, settings, loading, refresh };
+  return { template, locations, settings, loading, refresh };
 }

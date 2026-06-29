@@ -33,7 +33,7 @@ function sortDraftSlots(slots: DraftSlot[]) {
   });
 }
 
-function templateLocationSummary(slots: TemplateSlotView[]) {
+function templateLocationSummary(slots: TemplateSlotView[] | DraftSlot[]) {
   const names = [
     ...new Set(slots.map((s) => s.locationName).filter(Boolean)),
   ] as string[];
@@ -63,7 +63,6 @@ function draftToPayload(slots: DraftSlot[]) {
 }
 
 export function TemplateEditorForm({
-  initialName = "",
   initialSlots = [],
   locations,
   scheduleStartTime = "07:00",
@@ -72,16 +71,14 @@ export function TemplateEditorForm({
   onSubmit,
   onCancel,
 }: {
-  initialName?: string;
   initialSlots?: DraftSlot[];
   locations: LocationOption[];
   scheduleStartTime?: string;
   scheduleEndTime?: string;
   submitLabel: string;
-  onSubmit: (name: string, slots: DraftSlot[]) => Promise<void>;
+  onSubmit: (slots: DraftSlot[]) => Promise<void>;
   onCancel?: () => void;
 }) {
-  const [name, setName] = useState(initialName);
   const [draftSlots, setDraftSlots] = useState<DraftSlot[]>(initialSlots);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +97,7 @@ export function TemplateEditorForm({
     setSaving(true);
     setError(null);
     try {
-      await onSubmit(name.trim(), draftSlots);
+      await onSubmit(draftSlots);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save template");
     } finally {
@@ -110,18 +107,6 @@ export function TemplateEditorForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-slate-600">Template name</span>
-        <input
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          placeholder="Template name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          disabled={saving}
-        />
-      </label>
-
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-medium text-slate-900">
@@ -165,55 +150,60 @@ export function TemplateEditorForm({
   );
 }
 
-export function TemplateCard({
+export function WeeklyTemplatePanel({
   template,
   locations,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
-  onUpdated,
+  onSaved,
 }: {
-  template: TemplateView;
+  template: TemplateView | null;
   locations: LocationOption[];
   scheduleStartTime?: string;
   scheduleEndTime?: string;
-  onUpdated: () => void;
+  onSaved: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const locationSummary = templateLocationSummary(template.slots);
+  const [editing, setEditing] = useState(!template);
   const viewSlots = useMemo(
-    () => slotsToDraft(template.slots, locations),
-    [template.slots, locations],
+    () => (template ? slotsToDraft(template.slots, locations) : []),
+    [template, locations],
   );
+  const locationSummary = template
+    ? templateLocationSummary(template.slots)
+    : "No locations set";
 
-  async function saveTemplate(name: string, slots: DraftSlot[]) {
-    const res = await fetch(`/api/templates/${template.id}`, {
+  async function saveTemplate(slots: DraftSlot[]) {
+    const res = await fetch("/api/templates", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, slots: draftToPayload(slots) }),
+      body: JSON.stringify({ slots: draftToPayload(slots) }),
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error ?? "Failed to update template");
+      throw new Error(data.error ?? "Failed to save template");
     }
     setEditing(false);
-    onUpdated();
+    onSaved();
   }
 
-  if (editing) {
+  if (editing || !template) {
     return (
       <Card>
-        <h3 className="font-semibold">Edit template</h3>
+        <h2 className="font-semibold">Weekly template</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Your default weekly slot pattern. Apply it from the Schedule tab to
+          populate open weeks.
+        </p>
         <div className="mt-4">
           <TemplateEditorForm
-            key={template.id}
-            initialName={template.name}
+            key={template?.id ?? "new"}
             initialSlots={viewSlots}
             locations={locations}
             scheduleStartTime={scheduleStartTime}
             scheduleEndTime={scheduleEndTime}
-            submitLabel="Save changes"
+            submitLabel={template ? "Save changes" : "Save template"}
             onSubmit={saveTemplate}
-            onCancel={() => setEditing(false)}
+            onCancel={template ? () => setEditing(false) : undefined}
           />
         </div>
       </Card>
@@ -224,7 +214,7 @@ export function TemplateCard({
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-medium">{template.name}</p>
+          <h2 className="font-semibold">Weekly template</h2>
           <p className="mt-1 text-sm text-slate-500">
             {template.slots.length} slot{template.slots.length === 1 ? "" : "s"} ·{" "}
             {locationSummary}
@@ -252,50 +242,6 @@ export function TemplateCard({
       <p className="mt-3 text-xs text-slate-400">
         Apply this template from the Schedule tab, one week at a time.
       </p>
-    </Card>
-  );
-}
-
-export function CreateTemplateCard({
-  locations,
-  scheduleStartTime = "07:00",
-  scheduleEndTime = "21:00",
-  onCreated,
-}: {
-  locations: LocationOption[];
-  scheduleStartTime?: string;
-  scheduleEndTime?: string;
-  onCreated: () => void;
-}) {
-  const [formKey, setFormKey] = useState(0);
-
-  async function createTemplate(name: string, slots: DraftSlot[]) {
-    const res = await fetch("/api/templates", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, slots: draftToPayload(slots) }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "Failed to create template");
-    }
-    setFormKey((key) => key + 1);
-    onCreated();
-  }
-
-  return (
-    <Card>
-      <h2 className="font-semibold">Create weekly template</h2>
-      <div className="mt-4">
-        <TemplateEditorForm
-          key={formKey}
-          locations={locations}
-          scheduleStartTime={scheduleStartTime}
-          scheduleEndTime={scheduleEndTime}
-          submitLabel="Save template"
-          onSubmit={createTemplate}
-        />
-      </div>
     </Card>
   );
 }

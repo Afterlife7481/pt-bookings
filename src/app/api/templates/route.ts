@@ -1,9 +1,9 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
-  listTemplates,
-  createTemplate,
-  applyTemplateToWeek,
+  getTrainerTemplate,
+  saveTrainerTemplate,
+  applyTrainerTemplateToWeek,
 } from "@/lib/services/templates";
 
 export async function GET() {
@@ -11,8 +11,28 @@ export async function GET() {
   const trainerId = await getTrainerIdFromRequest();
   if (!trainerId) return unauthorizedResponse();
 
-  const templates = await listTemplates(trainerId);
-  return Response.json({ templates });
+  const template = await getTrainerTemplate(trainerId);
+  return Response.json({ template });
+}
+
+export async function PATCH(request: Request) {
+  await ensureDb();
+  const trainerId = await getTrainerIdFromRequest();
+  if (!trainerId) return unauthorizedResponse();
+
+  const body = await request.json();
+
+  try {
+    await saveTrainerTemplate(
+      trainerId,
+      Array.isArray(body.slots) ? body.slots : [],
+    );
+    const template = await getTrainerTemplate(trainerId);
+    return Response.json({ template });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save template";
+    return Response.json({ error: message }, { status: 400 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -24,10 +44,9 @@ export async function POST(request: Request) {
 
   if (body.action === "apply") {
     try {
-      const result = await applyTemplateToWeek(
-        body.templateId,
-        body.weekStart,
+      const result = await applyTrainerTemplateToWeek(
         trainerId,
+        body.weekStart,
       );
       return Response.json(result);
     } catch (e) {
@@ -36,11 +55,5 @@ export async function POST(request: Request) {
     }
   }
 
-  try {
-    const id = await createTemplate(body.name, body.slots ?? [], trainerId);
-    return Response.json({ id }, { status: 201 });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create template";
-    return Response.json({ error: message }, { status: 400 });
-  }
+  return Response.json({ error: "Unsupported action" }, { status: 400 });
 }

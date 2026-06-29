@@ -6,17 +6,24 @@ import {
   recurringPreferences,
   bookings,
   slots,
+  locations,
 } from "@/lib/db/schema";
 import { nowIso } from "@/lib/constants";
-import { getClientLocationOptions } from "@/lib/services/locations";
+import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
+import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 
-export type RecurringSlotRef = { dayOfWeek: number; startTime: string };
+export type RecurringSlotRef = {
+  dayOfWeek: number;
+  startTime: string;
+  locationId: string;
+};
 
 export type RecurringSlotAssignment = {
   dayOfWeek: number;
   startTime: string;
   clientId: string;
   clientName: string;
+  locationName: string | null;
   isCurrentClient: boolean;
 };
 
@@ -25,22 +32,35 @@ export async function getRecurringSlotAssignments(
   clientId: string,
 ): Promise<RecurringSlotAssignment[]> {
   const db = getDb();
+  const templateOverlay = await getTrainerTemplateOverlay(trainerId);
+  const overlayByKey = new Map(
+    templateOverlay.map((slot) => [
+      `${slot.dayOfWeek}-${slot.startTime}`,
+      slot.locationName,
+    ]),
+  );
 
   const prefs = await db
     .select({
       pref: recurringPreferences,
       client: clients,
+      location: locations,
     })
     .from(recurringPreferences)
     .innerJoin(clients, eq(recurringPreferences.clientId, clients.id))
+    .leftJoin(locations, eq(recurringPreferences.locationId, locations.id))
     .where(eq(recurringPreferences.trainerId, trainerId));
 
   return prefs
-    .map(({ pref, client }) => ({
+    .map(({ pref, client, location }) => ({
       dayOfWeek: pref.dayOfWeek,
       startTime: pref.startTime,
       clientId: client.id,
       clientName: client.name,
+      locationName:
+        location?.name ??
+        overlayByKey.get(`${pref.dayOfWeek}-${pref.startTime}`) ??
+        null,
       isCurrentClient: client.id === clientId,
     }))
     .sort((a, b) => {
@@ -67,6 +87,7 @@ export async function listClients(trainerId: string) {
         recurringPreferences: prefs.map((p) => ({
           dayOfWeek: p.dayOfWeek,
           startTime: p.startTime,
+          locationId: p.locationId,
         })),
       };
     }),
@@ -142,6 +163,7 @@ export async function getClientDetail(trainerId: string, clientId: string) {
     recurringPreferences: prefs.map((p) => ({
       dayOfWeek: p.dayOfWeek,
       startTime: p.startTime,
+      locationId: p.locationId,
     })),
     locations: await getClientLocationOptions(trainerId, clientId),
     bookings: clientBookings.map(({ booking, slot }) => ({
@@ -235,6 +257,30 @@ export async function setRecurringPreferences(
 ) {
   const db = getDb();
 
+  if (slots.length > 0) {
+    const template = await getTrainerTemplate(trainerId);
+    if (!template) {
+      throw new Error(
+        "Create a weekly template before assigning recurring slots",
+      );
+    }
+
+    const enabledLocationIds = await getEnabledClientLocationIds(clientId);
+    if (enabledLocationIds.length === 0) {
+      throw new Error(
+        "Select at least one available location for this client before adding recurring slots",
+      );
+    }
+
+    for (const slot of slots) {
+      if (!slot.locationId || !enabledLocationIds.includes(slot.locationId)) {
+        throw new Error(
+          "Each recurring slot must use a location enabled for this client",
+        );
+      }
+    }
+  }
+
   const uniqueSlots = new Map<string, RecurringSlotRef>();
   for (const slot of slots) {
     uniqueSlots.set(`${slot.dayOfWeek}-${slot.startTime}`, slot);
@@ -275,6 +321,7 @@ export async function setRecurringPreferences(
       clientId,
       dayOfWeek: slot.dayOfWeek,
       startTime: slot.startTime,
+      locationId: slot.locationId,
       createdAt: ts,
     })),
   );

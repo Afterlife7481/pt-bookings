@@ -4,7 +4,6 @@ import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import type {
   DashboardClient,
-  DashboardTemplate,
   TrainerLocation,
   TrainerSettings,
 } from "../types";
@@ -15,7 +14,7 @@ export function useSchedulePage() {
   const [scheduleRange, setScheduleRange] = useState({ weekStart: "", weekEnd: "" });
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [clients, setClients] = useState<DashboardClient[]>([]);
-  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
+  const [hasTemplate, setHasTemplate] = useState(false);
   const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -24,7 +23,7 @@ export function useSchedulePage() {
     const activeWeek = weekStart || defaultWeekStart();
     const [c, t, sched, sett, locs] = await Promise.all([
       fetchJson<DashboardClient[]>("/api/clients"),
-      fetchJson<{ templates: DashboardTemplate[] }>("/api/templates"),
+      fetchJson<{ template: unknown | null }>("/api/templates"),
       fetchJson<{
         entries: ScheduleEntry[];
         weekStart: string;
@@ -34,7 +33,7 @@ export function useSchedulePage() {
       fetchJson<TrainerLocation[]>("/api/locations"),
     ]);
     setClients(c);
-    setTemplates(t.templates);
+    setHasTemplate(t.template !== null);
     setScheduleEntries(sched.entries);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
     setSettings(sett);
@@ -63,7 +62,7 @@ export function useSchedulePage() {
     }
   }
 
-  async function applyTemplateToCurrentWeek(templateId: string) {
+  async function applyTemplateToCurrentWeek() {
     setApplyingTemplate(true);
     setScheduleError(null);
     try {
@@ -72,7 +71,6 @@ export function useSchedulePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "apply",
-          templateId,
           weekStart: scheduleRange.weekStart || weekStart,
         }),
       });
@@ -141,7 +139,7 @@ export function useSchedulePage() {
     scheduleRange,
     applyingTemplate,
     clients,
-    templates,
+    hasTemplate,
     settings,
     trainerLocations,
     scheduleError,

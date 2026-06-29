@@ -208,13 +208,14 @@ export function SettingsTab({
       </Card>
 
       <Card>
-        <h3 className="text-sm font-medium text-slate-900">Weekly templates</h3>
+        <h3 className="text-sm font-medium text-slate-900">Weekly template</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Define reusable weekly slot patterns and apply them to your schedule.
+          Define your weekly slot pattern and apply it to the schedule. Also used
+          as the reference for recurring slot locations on client profiles.
         </p>
         <Link href="/dashboard/settings/templates">
           <Button type="button" variant="secondary" className="mt-4">
-            Manage templates →
+            Edit weekly template →
           </Button>
         </Link>
       </Card>

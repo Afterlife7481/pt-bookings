@@ -145,6 +145,9 @@ export function runMigrations() {
   upgradeClientSessionPriceSchema(sqlite);
   upgradeLastMinuteFlowSchema(sqlite);
   upgradeLocationAddressSchema(sqlite);
+  upgradeRecurringPreferenceLocationSchema(sqlite);
+  upgradeDefaultTemplateSchema(sqlite);
+  upgradeSingleWeeklyTemplatePerTrainer(sqlite);
   sqlite.close();
 }
 
@@ -549,6 +552,102 @@ function upgradeRecurringPreferencesSchema(sqlite: Database.Database) {
     sqlite.exec(`
       CREATE UNIQUE INDEX IF NOT EXISTS recurring_preferences_slot_idx ON recurring_preferences(trainer_id, day_of_week, start_time);
     `);
+  }
+}
+
+function upgradeSingleWeeklyTemplatePerTrainer(sqlite: Database.Database) {
+  const trainersWithMultiple = sqlite
+    .prepare(
+      `SELECT trainer_id FROM weekly_templates
+       GROUP BY trainer_id HAVING COUNT(*) > 1`,
+    )
+    .all() as { trainer_id: string }[];
+
+  const trainerColumns = sqlite
+    .prepare("PRAGMA table_info(trainers)")
+    .all() as { name: string }[];
+  const hasDefaultTemplateColumn = trainerColumns.some(
+    (c) => c.name === "default_template_id",
+  );
+
+  const getDefaultTemplateId = hasDefaultTemplateColumn
+    ? sqlite.prepare("SELECT default_template_id FROM trainers WHERE id = ?")
+    : null;
+  const getOldestTemplateId = sqlite.prepare(
+    `SELECT id FROM weekly_templates
+     WHERE trainer_id = ? ORDER BY created_at ASC LIMIT 1`,
+  );
+  const deleteExtraTemplates = sqlite.prepare(
+    "DELETE FROM weekly_templates WHERE trainer_id = ? AND id != ?",
+  );
+
+  for (const { trainer_id } of trainersWithMultiple) {
+    let keepId: string | null = null;
+    if (getDefaultTemplateId) {
+      const trainer = getDefaultTemplateId.get(trainer_id) as
+        | { default_template_id: string | null }
+        | undefined;
+      keepId = trainer?.default_template_id ?? null;
+    }
+    if (!keepId) {
+      const oldest = getOldestTemplateId.get(trainer_id) as
+        | { id: string }
+        | undefined;
+      keepId = oldest?.id ?? null;
+    }
+    if (!keepId) continue;
+
+    deleteExtraTemplates.run(trainer_id, keepId);
+  }
+
+  sqlite.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS weekly_templates_trainer_idx
+    ON weekly_templates(trainer_id);
+  `);
+}
+
+function upgradeRecurringPreferenceLocationSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(recurring_preferences)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "location_id")) {
+    sqlite.exec(
+      "ALTER TABLE recurring_preferences ADD COLUMN location_id TEXT REFERENCES locations(id) ON DELETE SET NULL",
+    );
+  }
+}
+
+function upgradeDefaultTemplateSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(trainers)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "default_template_id")) {
+    sqlite.exec(
+      "ALTER TABLE trainers ADD COLUMN default_template_id TEXT REFERENCES weekly_templates(id) ON DELETE SET NULL",
+    );
+  }
+
+  const trainersWithoutDefault = sqlite
+    .prepare(
+      "SELECT id FROM trainers WHERE default_template_id IS NULL OR default_template_id = ''",
+    )
+    .all() as { id: string }[];
+
+  const firstTemplate = sqlite.prepare(
+    "SELECT id FROM weekly_templates WHERE trainer_id = ? ORDER BY created_at ASC LIMIT 1",
+  );
+
+  const setDefault = sqlite.prepare(
+    "UPDATE trainers SET default_template_id = ? WHERE id = ?",
+  );
+
+  for (const trainer of trainersWithoutDefault) {
+    const template = firstTemplate.get(trainer.id) as { id: string } | undefined;
+    if (template) {
+      setDefault.run(template.id, trainer.id);
+    }
   }
 }
 

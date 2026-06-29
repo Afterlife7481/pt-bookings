@@ -3,14 +3,14 @@
 import { Button, Card, InlineNotice } from "@/components/ui";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
 import type { ScheduleEntry } from "@/lib/services/schedule";
-import type { DashboardClient, DashboardTemplate, TrainerLocation, TrainerSettings } from "../types";
+import type { DashboardClient, TrainerLocation, TrainerSettings } from "../types";
 
 export function ScheduleTab({
   settings,
   weekStart,
   scheduleRange,
   scheduleEntries,
-  templates,
+  hasTemplate,
   clients,
   trainerLocations,
   applyingTemplate,
@@ -29,7 +29,7 @@ export function ScheduleTab({
   weekStart: string;
   scheduleRange: { weekStart: string; weekEnd: string };
   scheduleEntries: ScheduleEntry[];
-  templates: DashboardTemplate[];
+  hasTemplate: boolean;
   clients: DashboardClient[];
   trainerLocations: TrainerLocation[];
   applyingTemplate: boolean;
@@ -37,7 +37,7 @@ export function ScheduleTab({
   onDismissError: () => void;
   onChangeWeek: (delta: number) => void;
   onGoToThisWeek: () => void;
-  onApplyTemplate: (templateId: string) => Promise<boolean>;
+  onApplyTemplate: () => Promise<boolean>;
   onAddSlot: (dayOfWeek: number, startTime: string, locationId: string) => Promise<void>;
   onRemoveSlot: (slotId: string) => Promise<void>;
   onAllocateSlot: (slotId: string, clientId: string) => Promise<void>;
@@ -91,7 +91,7 @@ export function ScheduleTab({
         <WeekScheduleCalendar
           weekStart={scheduleRange.weekStart || weekStart}
           entries={scheduleEntries}
-          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          hasTemplate={hasTemplate}
           onApplyTemplate={onApplyTemplate}
           applyingTemplate={applyingTemplate}
           scheduleStartTime={settings.scheduleStartTime}
