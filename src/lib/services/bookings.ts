@@ -5,6 +5,7 @@ import { bookings, clients, slots, changeRequests, locations } from "@/lib/db/sc
 import {
   isWithinBookingDeadline,
   isInactiveBookingStatus,
+  isWithinClientBookingWindow,
   nowIso,
   parseLocalDateTime,
   type SessionPaymentType,
@@ -311,8 +312,14 @@ export async function bookSlotByClientToken(clientToken: string, slotId: string)
   const db = getDb();
   const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
   if (!slot) throw new Error("Slot not found");
+  if (slot.trainerId !== client.trainerId) throw new Error("Slot not found");
 
   await assertClientCanUseSlotLocation(client.id, slot.locationId);
+
+  const { clientBookingWindowWeeks } = await getTrainerSettings(client.trainerId);
+  if (!isWithinClientBookingWindow(slot.startAt, clientBookingWindowWeeks)) {
+    throw new Error("This slot is outside your booking window");
+  }
 
   return createBookingForSlot({
     slotId,

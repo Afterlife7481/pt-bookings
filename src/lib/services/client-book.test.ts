@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { slots, whatsappMessages } from "@/lib/db/schema";
@@ -6,6 +6,7 @@ import { bookSlotByClientToken } from "@/lib/services/bookings";
 import { createLocation, setClientLocations } from "@/lib/services/locations";
 import { addScheduleSlot } from "@/lib/services/schedule";
 import { getAvailableSlotsForChange } from "@/lib/services/templates";
+import { updateTrainerSettings } from "@/lib/services/settings";
 import { seedTestFixtures } from "@tests/helpers/db";
 import {
   DEFAULT_TRAINER_ID,
@@ -65,6 +66,32 @@ describe("bookSlotByClientToken", () => {
     await expect(
       bookSlotByClientToken(fixtures.clientToken, slotId),
     ).rejects.toThrow();
+  });
+
+  it("rejects when the slot is outside the calendar booking window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-30T12:00:00"));
+
+    try {
+      const fixtures = await seedTestFixtures();
+      await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+        clientBookingWindowWeeks: 1,
+      });
+
+      const { slotId } = await addScheduleSlot(
+        DEFAULT_TRAINER_ID,
+        "2026-07-06",
+        2,
+        "11:00",
+        fixtures.locationId,
+      );
+
+      await expect(
+        bookSlotByClientToken(fixtures.clientToken, slotId),
+      ).rejects.toThrow("This slot is outside your booking window");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

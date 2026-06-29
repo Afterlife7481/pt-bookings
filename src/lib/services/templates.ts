@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, gte, lt, lte, ne, asc, inArray } from "drizzle-orm";
+import { eq, and, gte, lt, ne, asc, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   appliedWeeks,
@@ -14,7 +14,7 @@ import {
 import {
   addDays,
   assertValidScheduleSlotTimes,
-  clientBookingWindowDays,
+  clientBookingWindowEndExclusive,
   defaultSlotEndTime,
   formatDate,
   nowIso,
@@ -440,9 +440,7 @@ export async function getAvailableSlotsForChange(
   const db = getDb();
   const now = nowIso();
   const { clientBookingWindowWeeks } = await getTrainerSettings(trainerId);
-  const max = toLocalDateTimeString(
-    addDays(new Date(), clientBookingWindowDays(clientBookingWindowWeeks)),
-  );
+  const max = clientBookingWindowEndExclusive(clientBookingWindowWeeks);
 
   let allowedLocationIds: string[] | null = null;
   if (clientId) {
@@ -464,7 +462,7 @@ export async function getAvailableSlotsForChange(
         eq(slots.trainerId, trainerId),
         eq(slots.status, "available"),
         gte(slots.startAt, now),
-        lte(slots.startAt, max),
+        lt(slots.startAt, max),
         excludeSlotId ? ne(slots.id, excludeSlotId) : undefined,
         allowedLocationIds
           ? inArray(slots.locationId, allowedLocationIds)

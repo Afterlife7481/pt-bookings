@@ -7,6 +7,7 @@ import {
   addMinutes,
   isInactiveBookingStatus,
   isWithinBookingDeadline,
+  isWithinClientBookingWindow,
   nowIso,
 } from "@/lib/constants";
 import { assertSlotNotHeldByActiveBookingSync } from "./bookings";
@@ -234,6 +235,11 @@ export async function confirmChange(
   if (!toSlot) throw new Error("Selected slot is no longer available");
 
   await assertClientCanUseSlotLocation(booking.clientId, toSlot.locationId);
+
+  const { clientBookingWindowWeeks } = await getTrainerSettings(booking.trainerId);
+  if (!isWithinClientBookingWindow(toSlot.startAt, clientBookingWindowWeeks)) {
+    throw new Error("Selected slot is outside your booking window");
+  }
 
   return db.transaction((tx) => {
     const reqRow = tx

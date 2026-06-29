@@ -11,12 +11,32 @@ export const MIN_CLIENT_BOOKING_WINDOW_WEEKS = 1;
 export const MAX_CLIENT_BOOKING_WINDOW_WEEKS = 52;
 
 export function formatBookingWindowWeeks(weeks: number): string {
-  if (weeks === 1) return "the next week";
-  return `the next ${weeks} weeks`;
+  if (weeks === 1) return "this week";
+  if (weeks === 2) return "this week and next week";
+  return `this week and the next ${weeks - 1} weeks`;
 }
 
-export function clientBookingWindowDays(weeks: number): number {
-  return weeks * 7;
+/** Exclusive upper bound: Monday 00:00 after the last bookable calendar week. */
+export function clientBookingWindowEndExclusive(
+  weeks: number,
+  from: Date = new Date(),
+): string {
+  const currentWeekStart = startOfWeekMonday(from);
+  const endExclusive = addDays(currentWeekStart, weeks * 7);
+  return toLocalDateTimeString(parseTimeOnDate(formatDate(endExclusive), "00:00"));
+}
+
+export function isWithinClientBookingWindow(
+  slotStartAt: string,
+  weeks: number,
+  now: Date = new Date(),
+): boolean {
+  const slotTime = parseLocalDateTime(slotStartAt);
+  if (slotTime.getTime() < now.getTime()) return false;
+  const endExclusive = parseLocalDateTime(
+    clientBookingWindowEndExclusive(weeks, now),
+  );
+  return slotTime.getTime() < endExclusive.getTime();
 }
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;

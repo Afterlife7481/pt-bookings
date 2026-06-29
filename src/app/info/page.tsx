@@ -165,13 +165,13 @@ export default async function InfoPage() {
                 /s/token
               </code>
               . Clients can view sessions, book/change within your booking
-              window (default 2 weeks), opt in to last-minute slots (green →
-              blue, auto-saved), and cancel/change a session.
+              window (default: this week and next week), opt in to last-minute
+              slots (green → blue, auto-saved), and cancel/change a session.
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
-                Book/change: open slots at enabled locations within the booking
-                window only.
+                Book/change: open slots at enabled locations in allowed calendar
+                weeks only (this week counts as one).
               </li>
               <li>
                 Cancel/change blocked inside the deadline (default 36 h before
@@ -201,7 +201,8 @@ export default async function InfoPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>Time zone, schedule hours, default day/week view</li>
               <li>
-                Client booking window: 1, 2, 3, or custom weeks (default 2)
+                Client booking window: 1, 2, 3, or custom calendar weeks
+                (default 2 = this week and next week)
               </li>
               <li>Cancel/change deadline (default 36 h), last-minute lock (default 1 h)</li>
               <li>

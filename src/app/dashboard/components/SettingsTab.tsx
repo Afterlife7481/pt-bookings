@@ -173,8 +173,9 @@ export function SettingsTab({
               Client booking window
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              How far ahead clients can book a new session or pick a different
-              time when changing.
+              Which calendar weeks clients can book or change into. This week
+              always counts as one — e.g. 2 weeks means this week and next week
+              (not a rolling 14-day limit).
             </p>
             <div className="mt-3 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
               {(["1", "2", "3"] as const).map((weeks) => (
