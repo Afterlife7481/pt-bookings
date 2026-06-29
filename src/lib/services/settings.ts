@@ -7,6 +7,7 @@ import {
   DEFAULT_CANCEL_DEADLINE_HOURS,
   DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS,
   DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS,
+  DEFAULT_SCHEDULE_DEFAULT_VIEW,
   MIN_CLIENT_BOOKING_WINDOW_WEEKS,
   MAX_CLIENT_BOOKING_WINDOW_WEEKS,
   isValidIanaTimezone,
@@ -75,7 +76,7 @@ export async function getTrainerSettings(
     scheduleStartTime: trainer.scheduleStartTime ?? DEFAULT_SCHEDULE_START,
     scheduleEndTime: trainer.scheduleEndTime ?? DEFAULT_SCHEDULE_END,
     scheduleDefaultView:
-      trainer.scheduleDefaultView === "week" ? "week" : "day",
+      trainer.scheduleDefaultView === "day" ? "day" : DEFAULT_SCHEDULE_DEFAULT_VIEW,
     cancelDeadlineHours:
       trainer.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS,
     lastMinuteOfferLockHours:

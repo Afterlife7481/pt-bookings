@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, asc, inArray, or } from "drizzle-orm";
+import { eq, and, gte, lt, asc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import {
@@ -392,62 +392,4 @@ export async function removeScheduleSlot(
     .delete(lastMinuteInterests)
     .where(eq(lastMinuteInterests.slotId, slotId));
   await db.delete(slots).where(eq(slots.id, slotId));
-}
-
-/** Dev-only: wipe all slots (and related bookings) for a week. */
-export async function clearWeekScheduleSlotsDev(
-  trainerId: string,
-  weekStart: string,
-): Promise<{ removed: number }> {
-  const db = getDb();
-  const start = parseDateOnly(weekStart);
-  const end = addDays(start, 7);
-  const startAtMin = `${formatDate(start)}T00:00:00`;
-  const startAtMax = `${formatDate(end)}T00:00:00`;
-
-  const weekSlots = await db
-    .select({ id: slots.id })
-    .from(slots)
-    .where(
-      and(
-        eq(slots.trainerId, trainerId),
-        gte(slots.startAt, startAtMin),
-        lt(slots.startAt, startAtMax),
-      ),
-    );
-
-  const slotIds = weekSlots.map((row) => row.id);
-  if (slotIds.length === 0) {
-    return { removed: 0 };
-  }
-
-  const weekBookings = await db
-    .select({ id: bookings.id })
-    .from(bookings)
-    .where(inArray(bookings.slotId, slotIds));
-  const bookingIds = weekBookings.map((row) => row.id);
-
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(lastMinuteInterests)
-      .where(inArray(lastMinuteInterests.slotId, slotIds));
-
-    if (bookingIds.length > 0) {
-      await tx
-        .delete(changeRequests)
-        .where(inArray(changeRequests.bookingId, bookingIds));
-    }
-
-    await tx.delete(changeRequests).where(
-      or(
-        inArray(changeRequests.fromSlotId, slotIds),
-        inArray(changeRequests.toSlotId, slotIds),
-      ),
-    );
-
-    await tx.delete(bookings).where(inArray(bookings.slotId, slotIds));
-    await tx.delete(slots).where(inArray(slots.id, slotIds));
-  });
-
-  return { removed: slotIds.length };
 }

@@ -16,7 +16,7 @@ export const trainers = pgTable("trainers", {
   scheduleEndTime: text("schedule_end_time").notNull().default("21:00"),
   scheduleDefaultView: text("schedule_default_view", { enum: ["day", "week"] })
     .notNull()
-    .default("day"),
+    .default("week"),
   cancelDeadlineHours: integer("cancel_deadline_hours").notNull().default(36),
   lastMinuteOfferLockHours: integer("last_minute_offer_lock_hours")
     .notNull()

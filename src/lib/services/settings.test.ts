@@ -13,6 +13,12 @@ describe("updateTrainerSettings", () => {
     expect(settings.clientBookingWindowWeeks).toBe(2);
   });
 
+  it("defaults schedule view to week", async () => {
+    await seedTestFixtures();
+    const settings = await getTrainerSettings(DEFAULT_TRAINER_ID);
+    expect(settings.scheduleDefaultView).toBe("week");
+  });
+
   it("accepts valid client booking window weeks", async () => {
     await seedTestFixtures();
     await updateTrainerSettings(DEFAULT_TRAINER_ID, {

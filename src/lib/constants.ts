@@ -246,6 +246,7 @@ export function interestClaimUrl(slotId: string, clientId: string): string {
 
 export const DEFAULT_SCHEDULE_START = "07:00";
 export const DEFAULT_SCHEDULE_END = "21:00";
+export const DEFAULT_SCHEDULE_DEFAULT_VIEW = "week" as const;
 
 export function parseTimeToHour(time: string): number {
   return parseInt(time.split(":")[0] ?? "0", 10);

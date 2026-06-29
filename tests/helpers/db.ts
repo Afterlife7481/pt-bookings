@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { wipeDatabase, seedFresh } from "@/lib/db/seed";
+import { wipeTestDatabase, seedTestDatabase } from "./seed";
 import { closeDb } from "@/lib/db/index";
 import { resetEnsureDb } from "@/lib/db/init";
 import { runMigrations } from "@/lib/db/migrate";
@@ -38,11 +38,11 @@ async function prepareDatabase() {
   await closeDb();
   resetEnsureDb();
   await runMigrations();
-  await wipeDatabase();
+  await wipeTestDatabase();
 }
 
 async function seedWithSlot(daysAhead: number): Promise<TestFixtures> {
-  const seeded = await seedFresh();
+  const seeded = await seedTestDatabase();
   const db = getDb();
 
   const firstClient = await db.query.clients.findFirst({
@@ -112,7 +112,7 @@ export async function seedE2eFixtures(): Promise<TestFixtures> {
     target.setHours(10, 0, 0, 0);
   }
 
-  const seeded = await seedFresh();
+  const seeded = await seedTestDatabase();
   const db = getDb();
 
   const firstClient = await db.query.clients.findFirst({

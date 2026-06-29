@@ -135,28 +135,6 @@ export function useSchedulePage() {
     });
   }
 
-  async function clearWeekSlotsDev() {
-    if (process.env.NODE_ENV !== "development") return;
-
-    const activeWeek = weekStart || defaultWeekStart();
-    const confirmed = window.confirm(
-      `Dev tool: delete ALL slots for the week starting ${activeWeek}? Bookings on those slots will also be removed.`,
-    );
-    if (!confirmed) return;
-
-    setScheduleError(null);
-    try {
-      await fetchJson("/api/schedule/dev/clear-week", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weekStart: activeWeek }),
-      });
-      await refresh();
-    } catch (e) {
-      setScheduleError(e instanceof ApiError ? e.message : "Failed to clear week");
-    }
-  }
-
   return {
     weekStart,
     scheduleEntries,
@@ -176,6 +154,5 @@ export function useSchedulePage() {
     updateScheduleSlotLocation,
     removeScheduleSlot,
     allocateScheduleSlot,
-    clearWeekSlotsDev,
   };
 }

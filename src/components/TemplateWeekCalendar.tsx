@@ -19,9 +19,8 @@ import {
   slotGridRowSpan,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
-import { LocationSelect } from "@/components/LocationSelect";
 import { SheetModal } from "@/components/SheetModal";
-import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
+import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 import { Button } from "@/components/ui";
 
 export type TemplateDraftSlot = {
@@ -114,9 +113,6 @@ function TemplateSlotModal({
               Remove slot
             </Button>
           )}
-          <Button variant="secondary" className="w-full py-3 sm:py-2" onClick={onClose}>
-            Cancel
-          </Button>
         </>
       }
     >
@@ -155,12 +151,41 @@ function TemplateSlotModal({
           Times must be in 30-minute steps (for example 09:00, 09:30, 10:00).
         </p>
 
-        <LocationSelect
-          locations={locations}
-          value={locationId}
-          onChange={setLocationId}
-          emptyMessage="Add a location under Settings before adding template slots."
-        />
+        <div className="space-y-2">
+          <p className="text-sm text-slate-600">Location</p>
+          {locations.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Add a location under Settings before adding template slots.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {locations.map((loc) => {
+                const selected = locationId === loc.id;
+                return (
+                  <li key={loc.id}>
+                    <button
+                      type="button"
+                      onClick={() => setLocationId(loc.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition",
+                        selected
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{loc.name}</span>
+                      {selected && (
+                        <span className="shrink-0" aria-hidden>
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
@@ -202,20 +227,23 @@ export function TemplateWeekCalendar({
 
   if (!readOnly && locations.length === 0) {
     return (
-      <div className="space-y-3">
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-          Add at least one training location under Settings to enable the +
-          buttons on this calendar.
+      <>
+        <div className="px-4 sm:px-5">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+            Add at least one training location under Settings to enable the +
+            buttons on this calendar.
+          </div>
         </div>
         <WeeklyHourGrid
           timeRows={timeRows}
           variant="compact"
+          className={WEEK_GRID_EDGE_CLASS}
           getDayHeader={dayHeaderShort}
           renderCell={() => (
             <div className="h-full rounded border border-transparent bg-slate-50/40" />
           )}
         />
-      </div>
+      </>
     );
   }
 
@@ -283,6 +311,7 @@ export function TemplateWeekCalendar({
       <WeeklyHourGrid
         timeRows={timeRows}
         variant="compact"
+        className={WEEK_GRID_EDGE_CLASS}
         getDayHeader={dayHeaderShort}
         renderCell={(dayOfWeek, rowTime) => {
           const covering = slotAtRow(dayOfWeek, rowTime);
@@ -305,12 +334,12 @@ export function TemplateWeekCalendar({
                   onClick={() => openCell(dayOfWeek, rowTime, slot)}
                   title={`${dayOfWeekLabel(dayOfWeek)} ${formatTimeRange(slot.startTime, slot.endTime)} · ${slot.locationName}`}
                   className={cn(
-                    "flex h-full min-h-0 w-full flex-col items-center justify-center rounded border border-green-200 bg-green-50 px-1 py-1 text-center transition",
+                    "flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded border border-green-200 bg-green-50 px-1 py-1 text-center transition",
                     canInteract && "hover:border-green-300 hover:bg-green-100",
                     !canInteract && "cursor-default",
                   )}
                 >
-                  <span className="block truncate px-0.5 text-[9px] font-medium leading-tight text-green-800">
+                  <span className="w-full min-w-0 truncate px-0.5 text-[9px] font-medium leading-tight text-green-800">
                     {slot.locationName}
                   </span>
                 </button>

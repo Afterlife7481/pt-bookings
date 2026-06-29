@@ -24,7 +24,6 @@ export function ScheduleTab({
   onAllocateSlot,
   onUpdateSlotLocation,
   onRefresh,
-  onClearWeekDev,
 }: {
   settings: TrainerSettings | null;
   weekStart: string;
@@ -49,14 +48,12 @@ export function ScheduleTab({
   onAllocateSlot: (slotId: string, clientId: string) => Promise<void>;
   onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
   onRefresh: () => void;
-  onClearWeekDev?: () => void | Promise<void>;
 }) {
-  const isDev = process.env.NODE_ENV === "development";
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="mb-4 flex flex-col gap-3">
+    <Card className="overflow-hidden !p-0">
+      <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
         <h2 className="font-semibold">Weekly schedule</h2>
-        <p className="text-sm text-slate-600">
+        <p className="hidden text-sm text-slate-600 sm:block">
           Open slots show last-minute matches. Click to send offers or allocate directly.
         </p>
         {scheduleError && (
@@ -94,24 +91,6 @@ export function ScheduleTab({
             Next →
           </Button>
         </div>
-        {isDev && onClearWeekDev && (
-          <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/80 px-3 py-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
-              Dev tool
-            </p>
-            <p className="mt-1 text-xs text-amber-900">
-              Temporary helper while testing templates. Removes every slot for
-              the currently viewed week, including bookings on those slots.
-            </p>
-            <Button
-              variant="danger"
-              className="mt-2 text-xs"
-              onClick={() => void onClearWeekDev()}
-            >
-              Clear all slots this week
-            </Button>
-          </div>
-        )}
       </div>
       {settings ? (
         <WeekScheduleCalendar
@@ -133,7 +112,9 @@ export function ScheduleTab({
           onRefresh={onRefresh}
         />
       ) : (
-        <p className="text-sm text-slate-500">Loading schedule…</p>
+        <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
+          Loading schedule…
+        </p>
       )}
     </Card>
   );

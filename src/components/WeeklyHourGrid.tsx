@@ -15,6 +15,10 @@ export type DayHeaderContent = {
 
 export type WeeklyHourGridVariant = "compact" | "full";
 
+/** Flush week grid against a zero-padding card; pair with padded controls above/below. */
+export const WEEK_GRID_EDGE_CLASS =
+  "!w-full !rounded-none !border-x-0 !border-b-0 border-t border-slate-200 max-sm:!border-0";
+
 export type WeeklyHourGridCell =
   | ReactNode
   | {
@@ -91,7 +95,7 @@ export function WeeklyHourGrid({
   const rowHeight = compact ? (compactRowSize ? "h-12" : "h-10") : "h-11";
   const timeCol = compact
     ? durationGrid
-      ? "2.25rem"
+      ? "2rem"
       : "1.75rem"
     : denseDuration
       ? "2.5rem"
@@ -101,6 +105,7 @@ export function WeeklyHourGrid({
     : `minmax(${dayColMin ?? "4.5rem"}, 1fr)`;
   const headerRowCount = splitDayHeaderRows && columns.length > 0 ? 2 : 1;
   const bodyRowOffset = headerRowCount + 1;
+  const timeLabelColor = splitDayHeaderRows ? "text-slate-700" : "text-slate-500";
 
   return (
     <div
@@ -190,6 +195,7 @@ export function WeeklyHourGrid({
 
         {rows.map((rowTime, rowIndex) => {
           const gridRow = rowIndex + bodyRowOffset;
+          const isHalfHour = durationGrid && rowTime.endsWith(":30");
 
           return (
             <Fragment key={rowTime}>
@@ -197,7 +203,10 @@ export function WeeklyHourGrid({
                 style={{ gridColumn: 1, gridRow }}
                 className={cn(
                   durationGrid ? "min-h-0" : rowHeight,
-                  "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-0.5 text-center tabular-nums text-slate-400",
+                  "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-0.5 text-center tabular-nums",
+                  isHalfHour
+                    ? "text-slate-400"
+                    : cn("font-semibold", timeLabelColor),
                   compactTimeLabels
                     ? "text-[9px]"
                     : "sticky left-0 z-10 text-[10px]",
@@ -230,13 +239,13 @@ export function WeeklyHourGrid({
                           : gridRow,
                     }}
                     className={cn(
-                      "min-h-0 border-slate-100",
+                      "min-h-0 min-w-0 overflow-hidden border-slate-100",
                       denseDuration ? "p-0" : "p-0.5",
                       rowIndex > 0 && "border-t",
                       cell.rowSpan > 1 && "relative z-10",
                     )}
                   >
-                    <div className="h-full min-h-0">{cell.content}</div>
+                    <div className="h-full min-h-0 min-w-0">{cell.content}</div>
                   </div>
                 );
               })}

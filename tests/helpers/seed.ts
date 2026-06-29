@@ -1,11 +1,9 @@
 import { sql } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { closeDb, getDb } from "./index";
-import { trainers, clients } from "./schema";
+import { getDb } from "@/lib/db";
+import { trainers, clients } from "@/lib/db/schema";
 import { DEFAULT_TRAINER_ID, nowIso } from "@/lib/constants";
 import { createClient } from "@/lib/services/clients";
-import { runMigrations } from "./migrate";
-import { resetEnsureDb } from "./init";
 
 const SEED_CLIENTS = [
   { name: "Casey Morgan", phone: "+447700901101", lastMinuteOptIn: true },
@@ -20,7 +18,8 @@ const SEED_CLIENTS = [
   { name: "Harper Singh", phone: "+447700901110", lastMinuteOptIn: false },
 ];
 
-export async function wipeDatabase() {
+/** Test-only: never call against DATABASE_URL (dev). */
+export async function wipeTestDatabase() {
   const db = getDb();
   await db.execute(sql`
     TRUNCATE TABLE
@@ -44,7 +43,8 @@ export async function wipeDatabase() {
   `);
 }
 
-export async function seedFresh() {
+/** Test-only fixture seed after wipeTestDatabase. */
+export async function seedTestDatabase() {
   const db = getDb();
   const ts = nowIso();
 
@@ -82,37 +82,4 @@ export async function seedFresh() {
   }
 
   return { trainerEmail: "alex@example.com", clients: createdClients };
-}
-
-/** @deprecated Use seedFresh after wipeDatabase for a clean slate. */
-export async function seed() {
-  return seedFresh();
-}
-
-async function resetAndSeed() {
-  await closeDb();
-  resetEnsureDb();
-  await runMigrations();
-  await wipeDatabase();
-  const result = await seedFresh();
-
-  console.log("Database reset complete.\n");
-  console.log(`Trainer: Alex (${result.trainerEmail})`);
-  console.log("Log in with a magic link sent to that address.\n");
-  console.log(`Created ${result.clients.length} clients:\n`);
-  for (const client of result.clients) {
-    console.log(
-      `- ${client.name} | ${client.phone} | last-minute: ${client.lastMinuteOptIn ? "yes" : "no"}`,
-    );
-    console.log(`  http://localhost:3000/c/${client.token}`);
-  }
-  await closeDb();
-}
-
-if (require.main === module) {
-  resetAndSeed().catch(async (err) => {
-    console.error(err);
-    await closeDb();
-    process.exit(1);
-  });
 }

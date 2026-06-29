@@ -20,7 +20,7 @@ export function SettingsTab({
 }) {
   const [scheduleStartTime, setScheduleStartTime] = useState("07:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("21:00");
-  const [scheduleDefaultView, setScheduleDefaultView] = useState<"day" | "week">("day");
+  const [scheduleDefaultView, setScheduleDefaultView] = useState<"day" | "week">("week");
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [cancelDeadlineHours, setCancelDeadlineHours] = useState("36");
   const [lastMinuteOfferLockHours, setLastMinuteOfferLockHours] = useState("1");
@@ -29,6 +29,18 @@ export function SettingsTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [accountInfo, setAccountInfo] = useState<{
+    id: string;
+    email: string;
+    dbHost?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setAccountInfo)
+      .catch(() => setAccountInfo(null));
+  }, []);
 
   useEffect(() => {
     if (settings) {
@@ -81,6 +93,21 @@ export function SettingsTab({
 
   return (
     <div className="space-y-6">
+      <LocationsSection onChanged={onLocationsChanged} />
+
+      <Card>
+        <h3 className="text-sm font-medium text-slate-900">Weekly template</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Define your weekly slot pattern and apply it to the schedule. Each slot
+          has its own start and end time — set durations in the template editor.
+        </p>
+        <Link href="/dashboard/settings/templates">
+          <Button type="button" variant="secondary" className="mt-4">
+            Edit weekly template →
+          </Button>
+        </Link>
+      </Card>
+
       <Card>
         <h2 className="font-semibold">Settings</h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -276,20 +303,12 @@ export function SettingsTab({
 
       <PaymentDetailsSection settings={settings} onSaved={onSaved} />
 
-      <Card>
-        <h3 className="text-sm font-medium text-slate-900">Weekly template</h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Define your weekly slot pattern and apply it to the schedule. Each slot
-          has its own start and end time — set durations in the template editor.
+      {accountInfo?.dbHost && (
+        <p className="text-xs text-slate-400">
+          Signed in as {accountInfo.email} · account {accountInfo.id} · database{" "}
+          {accountInfo.dbHost}
         </p>
-        <Link href="/dashboard/settings/templates">
-          <Button type="button" variant="secondary" className="mt-4">
-            Edit weekly template →
-          </Button>
-        </Link>
-      </Card>
-
-      <LocationsSection onChanged={onLocationsChanged} />
+      )}
     </div>
   );
 }

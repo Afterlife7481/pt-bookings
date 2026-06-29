@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { TemplateWeekCalendar } from "@/components/TemplateWeekCalendar";
 import { defaultSlotEndTime, slotDurationMinutes } from "@/lib/constants";
@@ -36,11 +36,13 @@ function sortDraftSlots(slots: DraftSlot[]) {
   });
 }
 
-function templateLocationSummary(slots: TemplateSlotView[] | DraftSlot[]) {
+function templateLocationSummary(
+  slots: TemplateSlotView[] | DraftSlot[],
+): string | null {
   const names = [
     ...new Set(slots.map((s) => s.locationName).filter(Boolean)),
   ] as string[];
-  return names.length > 0 ? names.join(", ") : "No locations set";
+  return names.length > 0 ? names.join(", ") : null;
 }
 
 function slotsToDraft(slots: TemplateSlotView[], locations: LocationOption[]): DraftSlot[] {
@@ -65,6 +67,17 @@ function draftToPayload(slots: DraftSlot[]) {
     endTime,
     locationId,
   }));
+}
+
+function slotsSignature(slots: DraftSlot[]) {
+  return JSON.stringify(
+    sortDraftSlots(slots).map(({ dayOfWeek, startTime, endTime, locationId }) => ({
+      dayOfWeek,
+      startTime,
+      endTime,
+      locationId,
+    })),
+  );
 }
 
 function averageDurationLabel(slots: DraftSlot[] | TemplateSlotView[]) {
@@ -106,6 +119,42 @@ export function TemplateEditorForm({
     () => averageDurationLabel(draftSlots),
     [draftSlots],
   );
+  const savedSignature = useMemo(() => slotsSignature(initialSlots), [initialSlots]);
+  const isDirty = slotsSignature(draftSlots) !== savedSignature;
+
+  useEffect(() => {
+    if (!isDirty || saving) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty, saving]);
+
+  useEffect(() => {
+    if (!isDirty || saving) return;
+
+    function handleNavigateAway(e: MouseEvent) {
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor || anchor.target === "_blank") return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:")) return;
+
+      const message =
+        "You have unsaved template changes. Leave without saving?";
+      if (!window.confirm(message)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
+    document.addEventListener("click", handleNavigateAway, true);
+    return () => document.removeEventListener("click", handleNavigateAway, true);
+  }, [isDirty, saving]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,52 +173,85 @@ export function TemplateEditorForm({
     }
   }
 
+  function handleCancel() {
+    if (!onCancel) return;
+    if (
+      isDirty &&
+      !window.confirm("You have unsaved template changes. Discard them?")
+    ) {
+      return;
+    }
+    onCancel();
+  }
+
+  const actionButtons = (
+    <div className="flex flex-wrap gap-2">
+      <Button type="submit" disabled={saving}>
+        {saving ? "Saving…" : submitLabel}
+      </Button>
+      {onCancel && (
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={saving}
+          onClick={handleCancel}
+        >
+          Cancel
+        </Button>
+      )}
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium text-slate-900">
+    <form onSubmit={handleSubmit} className="space-y-0">
+      <div className="space-y-4 px-4 sm:px-5">
+        {actionButtons}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="min-w-0 text-sm font-medium text-slate-900">
             {draftSlots.length} slot{draftSlots.length === 1 ? "" : "s"}
             {durationSummary ? ` · ${durationSummary}` : ""}
           </p>
-          <p className="text-sm text-slate-500">{locationSummary}</p>
+          {locationSummary && (
+            <p className="min-w-0 max-w-[min(100%,12rem)] truncate text-right text-sm text-slate-500 sm:max-w-xs">
+              {locationSummary}
+            </p>
+          )}
         </div>
         <p className="mb-3 text-sm text-slate-500">
           Click <span className="font-medium text-slate-700">+</span> to add a
-          slot, then set its start time, end time, and location. Times must use
-          30-minute steps (09:00, 09:30, 10:00, …).
+          slot.
         </p>
         {locations.length === 0 && (
-          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Add at least one location under Settings before you can add template
             slots. The calendar will stay blank until then.
           </p>
         )}
-        <TemplateWeekCalendar
-          slots={draftSlots}
-          locations={locations}
-          scheduleStartTime={scheduleStartTime}
-          scheduleEndTime={scheduleEndTime}
-          onSlotsChange={setDraftSlots}
-          disabled={saving}
-        />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <TemplateWeekCalendar
+        slots={draftSlots}
+        locations={locations}
+        scheduleStartTime={scheduleStartTime}
+        scheduleEndTime={scheduleEndTime}
+        onSlotsChange={setDraftSlots}
+        disabled={saving}
+      />
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : submitLabel}
-        </Button>
-        {onCancel && (
-          <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>
-            Cancel
-          </Button>
+      <div className="space-y-4 px-4 pt-4 sm:px-5 sm:pb-5">
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {isDirty && !saving && (
+          <p className="text-sm text-amber-800">Unsaved changes — save before leaving.</p>
         )}
+
+        {actionButtons}
       </div>
     </form>
   );
 }
+
+const TEMPLATE_APPLY_HINT =
+  "Apply this template from the Schedule tab, one week at a time.";
 
 export function WeeklyTemplatePanel({
   template,
@@ -191,7 +273,7 @@ export function WeeklyTemplatePanel({
   );
   const locationSummary = template
     ? templateLocationSummary(template.slots)
-    : "No locations set";
+    : null;
   const durationSummary = template ? averageDurationLabel(template.slots) : null;
 
   async function saveTemplate(slots: DraftSlot[]) {
@@ -210,36 +292,35 @@ export function WeeklyTemplatePanel({
 
   if (editing || !template) {
     return (
-      <Card>
-        <h2 className="font-semibold">Weekly template</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Plan your typical week — each slot has its own start and end time, plus
-          a location. Apply it from the Schedule tab to populate open weeks.
-        </p>
-        <div className="mt-4">
-          <TemplateEditorForm
-            key={template?.id ?? "new"}
-            initialSlots={viewSlots}
-            locations={locations}
-            scheduleStartTime={scheduleStartTime}
-            scheduleEndTime={scheduleEndTime}
-            submitLabel={template ? "Save changes" : "Save template"}
-            onSubmit={saveTemplate}
-            onCancel={template ? () => setEditing(false) : undefined}
-          />
+      <Card className="overflow-hidden !p-0">
+        <div className="p-4 sm:p-5 sm:pb-4">
+          <h2 className="font-semibold">Weekly template</h2>
+          <p className="mt-1 text-sm text-slate-500">{TEMPLATE_APPLY_HINT}</p>
         </div>
+        <TemplateEditorForm
+          key={template?.id ?? "new"}
+          initialSlots={viewSlots}
+          locations={locations}
+          scheduleStartTime={scheduleStartTime}
+          scheduleEndTime={scheduleEndTime}
+          submitLabel={template ? "Save changes" : "Save template"}
+          onSubmit={saveTemplate}
+          onCancel={template ? () => setEditing(false) : undefined}
+        />
       </Card>
     );
   }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <Card className="overflow-hidden !p-0">
+      <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5 sm:pb-4">
         <div>
           <h2 className="font-semibold">Weekly template</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">{TEMPLATE_APPLY_HINT}</p>
+          <p className="mt-2 text-sm text-slate-500">
             {template.slots.length} slot{template.slots.length === 1 ? "" : "s"}
-            {durationSummary ? ` · ${durationSummary}` : ""} · {locationSummary}
+            {durationSummary ? ` · ${durationSummary}` : ""}
+            {locationSummary ? ` · ${locationSummary}` : ""}
           </p>
         </div>
         <Button variant="secondary" onClick={() => setEditing(true)}>
@@ -248,22 +329,18 @@ export function WeeklyTemplatePanel({
       </div>
 
       {template.slots.length > 0 ? (
-        <div className="mt-4">
-          <TemplateWeekCalendar
-            slots={viewSlots}
-            locations={locations}
-            scheduleStartTime={scheduleStartTime}
-            scheduleEndTime={scheduleEndTime}
-            readOnly
-          />
-        </div>
+        <TemplateWeekCalendar
+          slots={viewSlots}
+          locations={locations}
+          scheduleStartTime={scheduleStartTime}
+          scheduleEndTime={scheduleEndTime}
+          readOnly
+        />
       ) : (
-        <p className="mt-4 text-sm text-slate-500">No slots in this template.</p>
+        <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
+          No slots in this template.
+        </p>
       )}
-
-      <p className="mt-3 text-xs text-slate-400">
-        Apply this template from the Schedule tab, one week at a time.
-      </p>
     </Card>
   );
 }

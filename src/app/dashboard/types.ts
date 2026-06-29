@@ -45,7 +45,6 @@ export const NAV_ITEMS = [
   { label: "Clients", href: "/dashboard/clients" },
   { label: "Sessions", href: "/dashboard/sessions" },
   { label: "WhatsApp", href: "/dashboard/whatsapp" },
-  { label: "Settings", href: "/dashboard/settings" },
 ] as const;
 
 export type TrainerSettings = {

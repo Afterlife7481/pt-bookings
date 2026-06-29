@@ -14,7 +14,7 @@ import {
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
-import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
+import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 
 export type RecurringSlotAssignment = {
   dayOfWeek: number;
@@ -215,10 +215,10 @@ export function RecurringWeekCalendar({
   );
 
   return (
-      <WeeklyHourGrid
-        timeRows={timeRows}
-        variant="compact"
-        className="mt-4"
+    <WeeklyHourGrid
+      timeRows={timeRows}
+      variant="compact"
+      className={WEEK_GRID_EDGE_CLASS}
       getDayHeader={dayHeaderInitial}
       renderCell={(dayOfWeek, rowTime) => {
         const layer = layerAtRow(

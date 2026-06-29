@@ -6,7 +6,7 @@ import {
   ScheduleViewToggle,
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
-import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
+import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 import { ScheduleCell } from "@/components/schedule/ScheduleCell";
 import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
 import {
@@ -223,6 +223,8 @@ function WeekGrid({
       timeRows={timeRows}
       variant={compact ? "compact" : "full"}
       wide={!compact}
+      compactRowSize={compact ? "1.75rem" : undefined}
+      className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
@@ -287,7 +289,7 @@ export function WeekScheduleCalendar({
   applyingTemplate,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
-  defaultView = "day",
+  defaultView = "week",
   lockHours = 1,
   clients = [],
   locations = [],
@@ -434,7 +436,7 @@ export function WeekScheduleCalendar({
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-3 sm:mb-3">
+      <div className="mb-4 flex flex-col gap-3 px-4 sm:mb-3 sm:px-5">
         <div className="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <span className="font-medium text-slate-900">
             {formatDate(parseDateOnly(weekStart))} —{" "}
@@ -461,7 +463,7 @@ export function WeekScheduleCalendar({
       </div>
 
       {viewMode === "day" ? (
-        <div>
+        <div className="px-4 sm:px-5">
           <div className="mb-4">
             <DayPicker
               weekStart={weekStart}
@@ -487,19 +489,19 @@ export function WeekScheduleCalendar({
         </div>
       ) : (
         <WeekGrid
-          weekStart={weekStart}
-          timeRows={timeRows}
-          entries={entries}
-          editable={editable}
-          busyKey={busyKey}
-          selectedOpenSlot={selectedOpenSlot}
-          onRequestAdd={onAddSlot ? requestAdd : undefined}
-          onOpenSlot={openSlotActions}
+            weekStart={weekStart}
+            timeRows={timeRows}
+            entries={entries}
+            editable={editable}
+            busyKey={busyKey}
+            selectedOpenSlot={selectedOpenSlot}
+            onRequestAdd={onAddSlot ? requestAdd : undefined}
+            onOpenSlot={openSlotActions}
           compact={useCompactWeekGrid}
         />
       )}
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
+      <div className="mt-4 border-t border-slate-100 px-4 pt-4 sm:px-5">
         {editable && (
           <p className="mb-2 text-xs text-slate-500">
             {viewMode === "day"

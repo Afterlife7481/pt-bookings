@@ -515,36 +515,40 @@ export default function ClientDetailPage() {
         )}
       </Card>
 
-      <Card>
-        <h2 className="font-semibold">Recurring slots</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Assign recurring sessions from your weekly template. Each slot uses
-          the template&apos;s location — enable that location for the client
-          above, then click a template slot and save from the modal.
-        </p>
-
-        {!hasTemplate && (
-          <p className="mt-4 text-sm text-red-700">
-            Create a weekly template before assigning recurring slots.{" "}
-            <Link href="/dashboard/settings/templates" className="underline">
-              Create template →
-            </Link>
+      <Card className="overflow-hidden !p-0">
+        <div className="p-4 sm:p-5 sm:pb-4">
+          <h2 className="font-semibold">Recurring slots</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Assign recurring sessions from your weekly template. Each slot uses
+            the template&apos;s location — enable that location for the client
+            above, then click a template slot and save from the modal.
           </p>
-        )}
 
-        {hasTemplate && enabledLocations.length === 0 && (
-          <p className="mt-4 text-sm text-red-700">
-            Select at least one available location for this client above before
-            adding recurring slots.
-          </p>
-        )}
+          {!hasTemplate && (
+            <p className="mt-4 text-sm text-red-700">
+              Create a weekly template before assigning recurring slots.{" "}
+              <Link href="/dashboard/settings/templates" className="underline">
+                Create template →
+              </Link>
+            </p>
+          )}
 
-        {recurringError && !detailSlot && (
-          <p className="mt-3 text-sm text-red-600">{recurringError}</p>
-        )}
-        {loadingOptions ? (
-          <p className="mt-4 text-sm text-slate-500">Loading schedule…</p>
-        ) : (
+          {hasTemplate && enabledLocations.length === 0 && (
+            <p className="mt-4 text-sm text-red-700">
+              Select at least one available location for this client above before
+              adding recurring slots.
+            </p>
+          )}
+
+          {recurringError && !detailSlot && (
+            <p className="mt-3 text-sm text-red-600">{recurringError}</p>
+          )}
+          {loadingOptions && (
+            <p className="mt-4 text-sm text-slate-500">Loading schedule…</p>
+          )}
+        </div>
+
+        {!loadingOptions && (
           <RecurringWeekCalendar
             assignments={recurringAssignments}
             selectedSlots={selectedSlots}
@@ -554,8 +558,9 @@ export default function ClientDetailPage() {
             scheduleEndTime={scheduleEndTime}
           />
         )}
+
         {(client.recurringPreferences.length > 0) && (
-          <div className="mt-4">
+          <div className="px-4 pb-4 sm:px-5 sm:pb-5">
             <Button
               variant="secondary"
               disabled={savingRecurring}
