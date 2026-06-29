@@ -3,21 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import type {
+  ScheduleEligibleClient,
   ScheduleLastMinuteInfo,
   ScheduleLastMinuteOffer,
-} from "@/lib/services/schedule";
+} from "@/lib/services/schedule-types";
 
-type EligibleClient = {
-  id: string;
-  name: string;
-  phone: string;
-  isHeld: boolean;
-  latestOffer: {
-    status: string;
-    expiresAt: string | null;
-    createdAt: string;
-  } | null;
-};
+type EligibleClient = ScheduleEligibleClient;
 
 function formatHoldExpiry(iso: string | null) {
   if (!iso) return null;
@@ -40,7 +31,10 @@ export function OpenSlotLastMinuteSection({
   lockHours: number;
   onOfferSent: () => void | Promise<void>;
 }) {
-  const [clients, setClients] = useState<EligibleClient[]>([]);
+  const prefetchedClients = lastMinute.eligibleClients;
+  const [clients, setClients] = useState<EligibleClient[]>(
+    prefetchedClients ?? [],
+  );
   const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(
     lastMinute.holdExpiresAt,
   );
@@ -50,7 +44,7 @@ export function OpenSlotLastMinuteSection({
   const [heldClientName, setHeldClientName] = useState<string | null>(
     lastMinute.heldClientName,
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(prefetchedClients == null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +52,10 @@ export function OpenSlotLastMinuteSection({
     setHoldExpiresAt(lastMinute.holdExpiresAt);
     setOffers(lastMinute.offers);
     setHeldClientName(lastMinute.heldClientName);
+    if (lastMinute.eligibleClients != null) {
+      setClients(lastMinute.eligibleClients);
+      setLoading(false);
+    }
   }, [lastMinute]);
 
   const loadEligible = useCallback(async () => {
@@ -75,8 +73,9 @@ export function OpenSlotLastMinuteSection({
   }, [slotId]);
 
   useEffect(() => {
+    if (prefetchedClients != null) return;
     loadEligible();
-  }, [loadEligible]);
+  }, [loadEligible, prefetchedClients]);
 
   async function sendOffer(clientId: string) {
     setBusyKey(clientId);

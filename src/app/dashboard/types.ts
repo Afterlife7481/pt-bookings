@@ -54,6 +54,7 @@ export type TrainerSettings = {
   scheduleDefaultView: "day" | "week";
   cancelDeadlineHours: number;
   lastMinuteOfferLockHours: number;
+  clientBookingWindowWeeks: number;
   timezone: string;
   name: string;
   email: string;

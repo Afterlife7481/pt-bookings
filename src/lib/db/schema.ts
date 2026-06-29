@@ -19,6 +19,10 @@ export const trainers = sqliteTable("trainers", {
   lastMinuteOfferLockHours: integer("last_minute_offer_lock_hours")
     .notNull()
     .default(1),
+  /** How far ahead clients can book or move sessions (in weeks). */
+  clientBookingWindowWeeks: integer("client_booking_window_weeks")
+    .notNull()
+    .default(2),
   bankAccountNumber: text("bank_account_number"),
   bankSortCode: text("bank_sort_code"),
   bankName: text("bank_name"),

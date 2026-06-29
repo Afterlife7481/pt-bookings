@@ -14,8 +14,8 @@ import {
   SCHEDULE_TIME_INPUT_STEP_SECONDS,
   slotDurationMinutes,
 } from "@/lib/constants";
-import type { ScheduleEntry } from "@/lib/services/schedule";
-import { hasActiveLastMinuteOffer } from "@/lib/services/schedule";
+import type { ScheduleEntry } from "@/lib/services/schedule-types";
+import { hasActiveLastMinuteOffer } from "@/lib/services/schedule-types";
 import { dateForWeekDay } from "./schedule-utils";
 
 export type ScheduleClientOption = { id: string; name: string };

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, InlineNotice } from "@/components/ui";
-import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE } from "@/lib/constants";
+import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE, MAX_CLIENT_BOOKING_WINDOW_WEEKS, MIN_CLIENT_BOOKING_WINDOW_WEEKS } from "@/lib/constants";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { LocationsSection } from "./LocationsSection";
 import { PaymentDetailsSection } from "./PaymentDetailsSection";
@@ -24,6 +24,8 @@ export function SettingsTab({
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [cancelDeadlineHours, setCancelDeadlineHours] = useState("36");
   const [lastMinuteOfferLockHours, setLastMinuteOfferLockHours] = useState("1");
+  const [bookingWindowPreset, setBookingWindowPreset] = useState<"1" | "2" | "3" | "custom">("2");
+  const [customBookingWindowWeeks, setCustomBookingWindowWeeks] = useState("4");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -36,6 +38,13 @@ export function SettingsTab({
       setTimezone(settings.timezone);
       setCancelDeadlineHours(String(settings.cancelDeadlineHours));
       setLastMinuteOfferLockHours(String(settings.lastMinuteOfferLockHours));
+      const weeks = settings.clientBookingWindowWeeks;
+      if (weeks === 1 || weeks === 2 || weeks === 3) {
+        setBookingWindowPreset(String(weeks) as "1" | "2" | "3");
+      } else {
+        setBookingWindowPreset("custom");
+        setCustomBookingWindowWeeks(String(weeks));
+      }
     }
   }, [settings]);
 
@@ -55,6 +64,10 @@ export function SettingsTab({
           timezone,
           cancelDeadlineHours: Number(cancelDeadlineHours),
           lastMinuteOfferLockHours: Number(lastMinuteOfferLockHours),
+          clientBookingWindowWeeks:
+            bookingWindowPreset === "custom"
+              ? Number(customBookingWindowWeeks)
+              : Number(bookingWindowPreset),
         }),
       });
       setSaved(true);
@@ -153,6 +166,58 @@ export function SettingsTab({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">
+              Client booking window
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              How far ahead clients can book a new session or pick a different
+              time when changing.
+            </p>
+            <div className="mt-3 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {(["1", "2", "3"] as const).map((weeks) => (
+                <button
+                  key={weeks}
+                  type="button"
+                  onClick={() => setBookingWindowPreset(weeks)}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                    bookingWindowPreset === weeks
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {weeks} {weeks === "1" ? "week" : "weeks"}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setBookingWindowPreset("custom")}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                  bookingWindowPreset === "custom"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {bookingWindowPreset === "custom" && (
+              <label className="mt-3 flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Weeks</span>
+                <input
+                  type="number"
+                  min={MIN_CLIENT_BOOKING_WINDOW_WEEKS}
+                  max={MAX_CLIENT_BOOKING_WINDOW_WEEKS}
+                  step={1}
+                  className="w-32 rounded-lg border border-slate-300 px-3 py-2"
+                  value={customBookingWindowWeeks}
+                  onChange={(e) => setCustomBookingWindowWeeks(e.target.value)}
+                  required
+                />
+              </label>
+            )}
           </div>
 
           <div>

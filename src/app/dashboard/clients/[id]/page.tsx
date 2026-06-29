@@ -250,14 +250,14 @@ export default function ClientDetailPage() {
   }
 
   async function saveSlotFromDetail() {
-    if (!detailSlot || !client) return false;
+    if (!detailSlot || !client) return;
 
     const overlay = templateOverlay.find(
       (slot) =>
         slot.dayOfWeek === detailSlot.dayOfWeek &&
         slot.startTime === detailSlot.startTime,
     );
-    if (!overlay || !enabledLocationIds.has(overlay.locationId)) return false;
+    if (!overlay || !enabledLocationIds.has(overlay.locationId)) return;
 
     const key = slotKey(detailSlot.dayOfWeek, detailSlot.startTime);
     const next = new Map(selectedSlots);
@@ -270,11 +270,10 @@ export default function ClientDetailPage() {
 
     const ok = await saveRecurringSlots([...next.values()]);
     if (ok) setDetailSlot(null);
-    return ok;
   }
 
   async function removeSlotFromDetail() {
-    if (!detailSlot) return false;
+    if (!detailSlot) return;
 
     const key = slotKey(detailSlot.dayOfWeek, detailSlot.startTime);
     const next = new Map(selectedSlots);
@@ -282,7 +281,6 @@ export default function ClientDetailPage() {
 
     const ok = await saveRecurringSlots([...next.values()]);
     if (ok) setDetailSlot(null);
-    return ok;
   }
 
   async function saveRecurringSlots(

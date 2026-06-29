@@ -12,9 +12,9 @@ import {
   weeklyTemplates,
 } from "@/lib/db/schema";
 import {
-  BOOKING_WINDOW_DAYS,
   addDays,
   assertValidScheduleSlotTimes,
+  clientBookingWindowDays,
   defaultSlotEndTime,
   formatDate,
   nowIso,
@@ -32,6 +32,7 @@ import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
 import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
+import { getTrainerSettings } from "./settings";
 
 const WEEKLY_TEMPLATE_NAME = "Weekly template";
 
@@ -438,7 +439,10 @@ export async function getAvailableSlotsForChange(
 ): Promise<AvailableSlotOption[]> {
   const db = getDb();
   const now = nowIso();
-  const max = toLocalDateTimeString(addDays(new Date(), BOOKING_WINDOW_DAYS));
+  const { clientBookingWindowWeeks } = await getTrainerSettings(trainerId);
+  const max = toLocalDateTimeString(
+    addDays(new Date(), clientBookingWindowDays(clientBookingWindowWeeks)),
+  );
 
   let allowedLocationIds: string[] | null = null;
   if (clientId) {

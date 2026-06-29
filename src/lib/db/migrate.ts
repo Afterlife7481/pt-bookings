@@ -155,6 +155,7 @@ export function runMigrations() {
   upgradeTrainerPaymentPayeeSchema(sqlite);
   upgradeWhatsAppInvoiceMessageType(sqlite);
   upgradeBookingVoidedStatusSchema(sqlite);
+  upgradeClientBookingWindowSchema(sqlite);
   sqlite.close();
 }
 
@@ -859,6 +860,18 @@ function upgradeBookingVoidedStatusSchema(sqlite: Database.Database) {
   }
 
   createBookingsActiveSlotIndex(sqlite);
+}
+
+function upgradeClientBookingWindowSchema(sqlite: Database.Database) {
+  const columns = sqlite
+    .prepare("PRAGMA table_info(trainers)")
+    .all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === "client_booking_window_weeks")) {
+    sqlite.exec(
+      "ALTER TABLE trainers ADD COLUMN client_booking_window_weeks INTEGER NOT NULL DEFAULT 2",
+    );
+  }
 }
 
 if (require.main === module) {

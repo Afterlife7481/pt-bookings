@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card } from "@/components/ui";
+import { formatBookingWindowWeeks } from "@/lib/constants";
 import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
 type Slot = {
@@ -16,9 +17,11 @@ type Slot = {
 export function BookSessionFlow({
   clientToken,
   slots,
+  bookingWindowWeeks,
 }: {
   clientToken: string;
   slots: Slot[];
+  bookingWindowWeeks: number;
 }) {
   const router = useRouter();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function BookSessionFlow({
     <Card>
       <h2 className="text-lg font-semibold">Book a session</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Pick an open slot within the next 2 weeks.
+        Pick an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
       </p>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <div className="mt-4 space-y-4">

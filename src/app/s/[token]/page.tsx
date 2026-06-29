@@ -102,6 +102,7 @@ export default async function SessionPage({
           bookingToken={token}
           clientHomeToken={client.token}
           currentSlotLabel={formatSlot(sessionStartAt)}
+          bookingWindowWeeks={trainerSettings.clientBookingWindowWeeks}
         />
       )}
 

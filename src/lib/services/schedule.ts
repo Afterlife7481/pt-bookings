@@ -28,41 +28,17 @@ import { createBookingForSlot } from "./bookings";
 import { assertTrainerLocation } from "./locations";
 import {
   buildEligibleCountIndex,
+  buildEligibleClientsBySlotId,
   clearExpiredSlotHolds,
 } from "./last-minute";
 import { getTrainerSettings } from "./settings";
-
-export type ScheduleLastMinuteOffer = {
-  id: string;
-  clientId: string;
-  clientName: string;
-  status: string;
-  expiresAt: string | null;
-};
-
-export type ScheduleLastMinuteInfo = {
-  eligibleCount: number;
-  heldForClientId: string | null;
-  heldClientName: string | null;
-  holdExpiresAt: string | null;
-  offers: ScheduleLastMinuteOffer[];
-};
-
-export type ScheduleEntry = {
-  slotId: string;
-  startAt: string;
-  endAt: string;
-  status: "available" | "booked" | "pending_change";
-  location: { id: string; name: string } | null;
-  booking: {
-    id: string;
-    token: string;
-    status: string;
-    isRecurring: boolean;
-    clientName: string;
-  } | null;
-  lastMinute: ScheduleLastMinuteInfo | null;
-};
+import type { ScheduleEntry, ScheduleLastMinuteOffer } from "./schedule-types";
+export type {
+  ScheduleEntry,
+  ScheduleLastMinuteInfo,
+  ScheduleLastMinuteOffer,
+} from "./schedule-types";
+export { hasActiveLastMinuteOffer } from "./schedule-types";
 
 async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   const db = getDb();
@@ -169,6 +145,17 @@ export async function getWeekSchedule(
     }
   }
 
+  const openSlotsForEligible = openRows.map((row) => ({
+    id: row.slot.id,
+    startAt: row.slot.startAt,
+    heldForClientId: row.slot.heldForClientId,
+  }));
+  const eligibleClientsBySlot = await buildEligibleClientsBySlotId(
+    trainerId,
+    openSlotsForEligible,
+    prefIndex,
+  );
+
   const entries: ScheduleEntry[] = filteredRows.map((row) => {
     const booking =
       row.booking && row.client && !isInactiveBookingStatus(row.booking.status)
@@ -182,6 +169,10 @@ export async function getWeekSchedule(
         : null;
 
     const isOpen = !booking && row.slot.status === "available";
+    const eligibleCount =
+      prefIndex.get(
+        `${slotDayOfWeek(row.slot.startAt)}-${slotTimeLabel(row.slot.startAt)}`,
+      ) ?? 0;
 
     return {
       slotId: row.slot.id,
@@ -194,16 +185,19 @@ export async function getWeekSchedule(
       booking,
       lastMinute: isOpen
         ? {
-            eligibleCount:
-              prefIndex.get(
-                `${slotDayOfWeek(row.slot.startAt)}-${slotTimeLabel(row.slot.startAt)}`,
-              ) ?? 0,
+            eligibleCount,
             heldForClientId: row.slot.heldForClientId,
             heldClientName: row.slot.heldForClientId
               ? (heldNameById.get(row.slot.heldForClientId) ?? null)
               : null,
             holdExpiresAt: row.slot.holdExpiresAt,
             offers: offersBySlot.get(row.slot.id) ?? [],
+            ...(eligibleCount > 0
+              ? {
+                  eligibleClients:
+                    eligibleClientsBySlot.get(row.slot.id) ?? [],
+                }
+              : {}),
           }
         : null,
     };
@@ -348,14 +342,6 @@ export async function updateScheduleSlotLocation(
     .update(slots)
     .set({ locationId })
     .where(eq(slots.id, slotId));
-}
-
-export function hasActiveLastMinuteOffer(
-  lastMinute: ScheduleLastMinuteInfo | null,
-): boolean {
-  if (!lastMinute) return false;
-  if (lastMinute.heldForClientId) return true;
-  return lastMinute.offers.some((offer) => offer.status === "offered");
 }
 
 export async function removeScheduleSlot(

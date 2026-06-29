@@ -6,7 +6,18 @@ export const SCHEDULE_TIME_STEP_MINUTES = 30;
 /** HTML time input step attribute (seconds). */
 export const SCHEDULE_TIME_INPUT_STEP_SECONDS =
   SCHEDULE_TIME_STEP_MINUTES * 60;
-export const BOOKING_WINDOW_DAYS = 14;
+export const DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS = 2;
+export const MIN_CLIENT_BOOKING_WINDOW_WEEKS = 1;
+export const MAX_CLIENT_BOOKING_WINDOW_WEEKS = 52;
+
+export function formatBookingWindowWeeks(weeks: number): string {
+  if (weeks === 1) return "the next week";
+  return `the next ${weeks} weeks`;
+}
+
+export function clientBookingWindowDays(weeks: number): number {
+  return weeks * 7;
+}
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;
 export const DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS = 1;

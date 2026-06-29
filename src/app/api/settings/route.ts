@@ -35,6 +35,10 @@ export async function PATCH(request: Request) {
         body.lastMinuteOfferLockHours !== undefined
           ? Number(body.lastMinuteOfferLockHours)
           : undefined,
+      clientBookingWindowWeeks:
+        body.clientBookingWindowWeeks !== undefined
+          ? Number(body.clientBookingWindowWeeks)
+          : undefined,
       bankAccountNumber: body.bankAccountNumber,
       bankSortCode: body.bankSortCode,
       bankName: body.bankName,

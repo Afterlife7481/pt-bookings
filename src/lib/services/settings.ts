@@ -6,6 +6,9 @@ import {
   DEFAULT_SCHEDULE_START,
   DEFAULT_CANCEL_DEADLINE_HOURS,
   DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS,
+  DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS,
+  MIN_CLIENT_BOOKING_WINDOW_WEEKS,
+  MAX_CLIENT_BOOKING_WINDOW_WEEKS,
   isValidIanaTimezone,
   parseTimeToHour,
 } from "@/lib/constants";
@@ -21,6 +24,7 @@ export type TrainerSettings = {
   scheduleDefaultView: ScheduleDefaultView;
   cancelDeadlineHours: number;
   lastMinuteOfferLockHours: number;
+  clientBookingWindowWeeks: number;
   bankAccountNumber: string | null;
   bankSortCode: string | null;
   bankName: string | null;
@@ -76,6 +80,8 @@ export async function getTrainerSettings(
       trainer.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS,
     lastMinuteOfferLockHours:
       trainer.lastMinuteOfferLockHours ?? DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS,
+    clientBookingWindowWeeks:
+      trainer.clientBookingWindowWeeks ?? DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS,
     bankAccountNumber: trainer.bankAccountNumber ?? null,
     bankSortCode: trainer.bankSortCode ?? null,
     bankName: trainer.bankName ?? null,
@@ -94,6 +100,7 @@ export async function updateTrainerSettings(
       | "timezone"
       | "cancelDeadlineHours"
       | "lastMinuteOfferLockHours"
+      | "clientBookingWindowWeeks"
       | "bankAccountNumber"
       | "bankSortCode"
       | "bankName"
@@ -120,6 +127,19 @@ export async function updateTrainerSettings(
     const hours = updates.lastMinuteOfferLockHours;
     if (!Number.isInteger(hours) || hours < 1 || hours > 72) {
       throw new Error("Last-minute offer lock must be between 1 and 72 hours");
+    }
+  }
+
+  if (updates.clientBookingWindowWeeks !== undefined) {
+    const weeks = updates.clientBookingWindowWeeks;
+    if (
+      !Number.isInteger(weeks) ||
+      weeks < MIN_CLIENT_BOOKING_WINDOW_WEEKS ||
+      weeks > MAX_CLIENT_BOOKING_WINDOW_WEEKS
+    ) {
+      throw new Error(
+        `Client booking window must be between ${MIN_CLIENT_BOOKING_WINDOW_WEEKS} and ${MAX_CLIENT_BOOKING_WINDOW_WEEKS} weeks`,
+      );
     }
   }
 
@@ -177,6 +197,9 @@ export async function updateTrainerSettings(
       }),
       ...(updates.lastMinuteOfferLockHours !== undefined && {
         lastMinuteOfferLockHours: updates.lastMinuteOfferLockHours,
+      }),
+      ...(updates.clientBookingWindowWeeks !== undefined && {
+        clientBookingWindowWeeks: updates.clientBookingWindowWeeks,
       }),
       ...(updates.bankAccountNumber !== undefined && {
         bankAccountNumber: updates.bankAccountNumber,

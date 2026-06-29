@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, asc, gte, lt } from "drizzle-orm";
+import { eq, and, asc, gte, lt, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
@@ -217,6 +217,124 @@ export async function buildEligibleCountIndex(trainerId: string) {
   return prefIndex;
 }
 
+export type EligibleClientSummary = {
+  id: string;
+  name: string;
+  phone: string;
+  isHeld: boolean;
+  latestOffer: {
+    status: LastMinuteOfferStatus;
+    expiresAt: string | null;
+    createdAt: string;
+  } | null;
+};
+
+type OpenSlotForEligibility = {
+  id: string;
+  startAt: string;
+  heldForClientId: string | null;
+};
+
+function slotPreferenceKey(startAt: string): string {
+  return `${slotDayOfWeek(startAt)}-${slotTimeLabel(startAt)}`;
+}
+
+/** Batch-load eligible clients for open slots (avoids per-client queries in the modal). */
+export async function buildEligibleClientsBySlotId(
+  trainerId: string,
+  openSlots: OpenSlotForEligibility[],
+  prefIndex: Map<string, number>,
+): Promise<Map<string, EligibleClientSummary[]>> {
+  const slotsNeedingClients = openSlots.filter(
+    (slot) => (prefIndex.get(slotPreferenceKey(slot.startAt)) ?? 0) > 0,
+  );
+  if (slotsNeedingClients.length === 0) return new Map();
+
+  const db = getDb();
+  const clientPrefRows = await db
+    .select({
+      clientId: clients.id,
+      name: clients.name,
+      phone: clients.phone,
+      dayOfWeek: clientLastMinutePreferences.dayOfWeek,
+      startTime: clientLastMinutePreferences.startTime,
+    })
+    .from(clientLastMinutePreferences)
+    .innerJoin(clients, eq(clientLastMinutePreferences.clientId, clients.id))
+    .where(
+      and(eq(clients.trainerId, trainerId), eq(clients.lastMinuteOptIn, true)),
+    );
+
+  type ClientRecord = {
+    id: string;
+    name: string;
+    phone: string;
+    prefs: LastMinuteSlotRef[];
+  };
+  const clientMap = new Map<string, ClientRecord>();
+  for (const row of clientPrefRows) {
+    let client = clientMap.get(row.clientId);
+    if (!client) {
+      client = {
+        id: row.clientId,
+        name: row.name,
+        phone: row.phone,
+        prefs: [],
+      };
+      clientMap.set(row.clientId, client);
+    }
+    client.prefs.push({
+      dayOfWeek: row.dayOfWeek,
+      startTime: row.startTime,
+    });
+  }
+
+  const slotIds = slotsNeedingClients.map((slot) => slot.id);
+  const offerRows = await db
+    .select()
+    .from(lastMinuteInterests)
+    .where(inArray(lastMinuteInterests.slotId, slotIds))
+    .orderBy(asc(lastMinuteInterests.createdAt));
+
+  const latestOfferBySlotClient = new Map<
+    string,
+    (typeof offerRows)[number]
+  >();
+  for (const offer of offerRows) {
+    latestOfferBySlotClient.set(`${offer.slotId}:${offer.clientId}`, offer);
+  }
+
+  const result = new Map<string, EligibleClientSummary[]>();
+  for (const slot of slotsNeedingClients) {
+    const eligible: EligibleClientSummary[] = [];
+    for (const client of clientMap.values()) {
+      if (!client.prefs.some((pref) => slotMatchesPreference(slot.startAt, pref))) {
+        continue;
+      }
+      const latest = latestOfferBySlotClient.get(`${slot.id}:${client.id}`);
+      eligible.push({
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        isHeld: slot.heldForClientId === client.id,
+        latestOffer: latest
+          ? {
+              status: latest.status as LastMinuteOfferStatus,
+              expiresAt: latest.expiresAt,
+              createdAt: latest.createdAt,
+            }
+          : null,
+      });
+    }
+    result.set(
+      slot.id,
+      eligible.sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  }
+
+  return result;
+}
+
 function eligibleCountFor(
   prefIndex: Map<string, number>,
   startAt: string,
@@ -381,54 +499,24 @@ export async function getEligibleClientsForSlot(
     throw new Error("Slot is not available");
   }
 
-  const optedInClients = await db
-    .select()
-    .from(clients)
-    .where(
-      and(eq(clients.trainerId, trainerId), eq(clients.lastMinuteOptIn, true)),
-    );
-
-  const eligible = [];
-  for (const client of optedInClients) {
-    const prefs = await getClientLastMinutePreferences(client.id);
-    const matches = prefs.some((pref) =>
-      slotMatchesPreference(slot.startAt, pref),
-    );
-    if (!matches) continue;
-
-    const latestOffers = await db
-      .select()
-      .from(lastMinuteInterests)
-      .where(
-        and(
-          eq(lastMinuteInterests.slotId, slotId),
-          eq(lastMinuteInterests.clientId, client.id),
-        ),
-      )
-      .orderBy(asc(lastMinuteInterests.createdAt));
-
-    const latestOffer = latestOffers.at(-1) ?? null;
-
-    eligible.push({
-      id: client.id,
-      name: client.name,
-      phone: client.phone,
-      latestOffer: latestOffer
-        ? {
-            status: latestOffer.status as LastMinuteOfferStatus,
-            expiresAt: latestOffer.expiresAt,
-            createdAt: latestOffer.createdAt,
-          }
-        : null,
-      isHeld: slot.heldForClientId === client.id,
-    });
-  }
+  const prefIndex = await buildEligibleCountIndex(trainerId);
+  const bySlot = await buildEligibleClientsBySlotId(
+    trainerId,
+    [
+      {
+        id: slot.id,
+        startAt: slot.startAt,
+        heldForClientId: slot.heldForClientId,
+      },
+    ],
+    prefIndex,
+  );
 
   return {
     slot,
     heldClientId: slot.heldForClientId,
     holdExpiresAt: slot.holdExpiresAt,
-    clients: eligible.sort((a, b) => a.name.localeCompare(b.name)),
+    clients: bySlot.get(slot.id) ?? [],
   };
 }
 

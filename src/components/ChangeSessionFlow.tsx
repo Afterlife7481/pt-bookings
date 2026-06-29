@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
+import { formatBookingWindowWeeks } from "@/lib/constants";
 import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
 type Slot = {
@@ -17,10 +18,12 @@ export function ChangeSessionFlow({
   bookingToken,
   clientHomeToken,
   currentSlotLabel,
+  bookingWindowWeeks,
 }: {
   bookingToken: string;
   clientHomeToken: string;
   currentSlotLabel: string;
+  bookingWindowWeeks: number;
 }) {
   const router = useRouter();
   const [changeRequestId, setChangeRequestId] = useState<string | null>(null);
@@ -159,8 +162,9 @@ export function ChangeSessionFlow({
           Current session: {currentSlotLabel}
         </p>
         <p className="mt-3 text-sm text-slate-600">
-          There are no open slots at your locations in the next 2 weeks. Keep
-          your current time or cancel this session.
+          There are no open slots at your locations in{" "}
+          {formatBookingWindowWeeks(bookingWindowWeeks)}. Keep your current time
+          or cancel this session.
         </p>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
