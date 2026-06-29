@@ -79,10 +79,10 @@ export function InlineNotice({
         "rounded-lg border px-3 py-2 text-sm",
         tone === "error" && "border-red-200 bg-red-50 text-red-800",
         tone === "success" && "border-green-200 bg-green-50 text-green-800",
-        tone === "warning" && "border-amber-200 bg-amber-50 text-amber-900",
+        tone === "warning" && "border-red-200 bg-red-50 text-red-800",
         className,
       )}
-      role={tone === "error" ? "alert" : "status"}
+      role={tone === "error" || tone === "warning" ? "alert" : "status"}
     >
       {children}
     </div>

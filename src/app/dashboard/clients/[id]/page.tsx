@@ -524,7 +524,7 @@ export default function ClientDetailPage() {
         </p>
 
         {!hasTemplate && (
-          <p className="mt-4 text-sm text-amber-800">
+          <p className="mt-4 text-sm text-red-700">
             Create a weekly template before assigning recurring slots.{" "}
             <Link href="/dashboard/settings/templates" className="underline">
               Create template →
@@ -533,7 +533,7 @@ export default function ClientDetailPage() {
         )}
 
         {hasTemplate && enabledLocations.length === 0 && (
-          <p className="mt-4 text-sm text-amber-800">
+          <p className="mt-4 text-sm text-red-700">
             Select at least one available location for this client above before
             adding recurring slots.
           </p>

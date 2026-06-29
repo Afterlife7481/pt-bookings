@@ -82,26 +82,25 @@ export function RecurringSlotDetailModal({
         if (!saving) onClose();
       }}
       footer={
-        <>
-          {canSave && (
-            <Button type="button" disabled={saving} onClick={() => void onSave()}>
-              {saving ? "Saving…" : "Save recurring slot"}
-            </Button>
-          )}
-          {canRemove && (
-            <Button
-              type="button"
-              variant="danger"
-              disabled={saving}
-              onClick={() => void onRemove()}
-            >
-              {saving ? "Saving…" : "Remove recurring slot"}
-            </Button>
-          )}
-          <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>
-            Close
-          </Button>
-        </>
+        canSave || canRemove ? (
+          <>
+            {canSave && (
+              <Button type="button" disabled={saving} onClick={() => void onSave()}>
+                {saving ? "Saving…" : "Save recurring slot"}
+              </Button>
+            )}
+            {canRemove && (
+              <Button
+                type="button"
+                variant="danger"
+                disabled={saving}
+                onClick={() => void onRemove()}
+              >
+                {saving ? "Saving…" : "Remove recurring slot"}
+              </Button>
+            )}
+          </>
+        ) : undefined
       }
     >
       <div className="mt-4 space-y-4">
@@ -170,11 +169,15 @@ export function RecurringSlotDetailModal({
         )}
 
         {canSave && templateSlot && (
-          <InlineNotice tone="warning">
+          <p className="text-sm text-slate-600">
             This will save a recurring slot for{" "}
-            <strong>{currentClientName}</strong> at{" "}
-            <strong>{templateSlot.locationName}</strong>.
-          </InlineNotice>
+            <strong className="font-medium text-slate-900">{currentClientName}</strong>{" "}
+            at{" "}
+            <strong className="font-medium text-slate-900">
+              {templateSlot.locationName}
+            </strong>
+            .
+          </p>
         )}
       </div>
     </SheetModal>

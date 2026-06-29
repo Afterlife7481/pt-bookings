@@ -220,9 +220,10 @@ export default async function InfoPage() {
                 <p className="mt-1">
                   Table of all clients with contact details, session price, and
                   last-minute opt-in status. Open a client to edit their profile,
-                  set recurring weekly slots (location must match your template),
-                  choose allowed locations, copy their portal link, and view
-                  upcoming bookings and{" "}
+                  set recurring weekly slots (location must match your template —
+                  enable that location for the client first), choose allowed
+                  locations, copy their portal link, and view upcoming bookings
+                  and{" "}
                   <strong className="font-medium text-slate-800">History</strong>{" "}
                   (past sessions, including{" "}
                   <strong className="font-medium text-slate-800">canceled</strong>{" "}
@@ -234,6 +235,24 @@ export default async function InfoPage() {
                   <strong className="font-medium text-slate-800">Client link</strong>{" "}
                   opens the shareable client URL.
                 </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>
+                    On the recurring grid,{" "}
+                    <strong className="font-medium text-slate-800">amber</strong>{" "}
+                    cells are assigned to another client — click to view who
+                    (read-only; close with{" "}
+                    <strong className="font-medium text-slate-800">×</strong>).
+                    Available template slots can be saved for this client from
+                    the modal.
+                  </li>
+                  <li>
+                    If a location is not enabled for the client, or there is no
+                    template slot at that time, the modal shows a{" "}
+                    <strong className="font-medium text-slate-800">red</strong>{" "}
+                    notice explaining what to fix (for example, enable the
+                    template location for this client).
+                  </li>
+                </ul>
               </div>
 
               <div>
@@ -359,7 +378,10 @@ export default async function InfoPage() {
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li>See upcoming sessions and session history</li>
-              <li>Book a new session from available slots</li>
+              <li>
+                Book a new session from open slots within your configured booking
+                window (see Settings)
+              </li>
               <li>
                 Opt in to last-minute openings — green slots turn blue when
                 selected (saved automatically)
@@ -368,6 +390,20 @@ export default async function InfoPage() {
                 Open a session page to view details, cancel, or change the time
               </li>
             </ul>
+
+            <div className="mt-2">
+              <h3 className="font-medium text-slate-800">Booking a session</h3>
+              <p className="mt-1">
+                From their portal, clients can book any open slot at an enabled
+                location that falls within your{" "}
+                <strong className="font-medium text-slate-800">
+                  client booking window
+                </strong>{" "}
+                (default 2 weeks; configurable in Settings as 1, 2, 3, or a
+                custom number of weeks). Slots outside that range are not
+                shown.
+              </p>
+            </div>
 
             <div className="mt-2">
               <h3 className="font-medium text-slate-800">Last-minute opt-in</h3>
@@ -388,7 +424,8 @@ export default async function InfoPage() {
               <h3 className="font-medium text-slate-800">Changing a session</h3>
               <p className="mt-1">
                 From a session page, the client can start a change flow and pick a
-                new slot. Changes are blocked inside the cancellation deadline
+                new open slot within the same booking window as self-booking.
+                Changes are blocked inside the cancellation deadline
                 (configurable in Settings, default 36 hours before the session).
                 To change within that window, the client must contact you
                 directly.
@@ -549,6 +586,11 @@ export default async function InfoPage() {
             <p>Configure the app from the Settings tab:</p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
+                <strong className="font-medium text-slate-800">Time zone</strong>{" "}
+                — Used for WhatsApp message timestamps and other times in your
+                dashboard.
+              </li>
+              <li>
                 <strong className="font-medium text-slate-800">
                   Schedule hours
                 </strong>{" "}
@@ -561,6 +603,14 @@ export default async function InfoPage() {
                   Default schedule view
                 </strong>{" "}
                 — Day or week view when opening the Schedule tab.
+              </li>
+              <li>
+                <strong className="font-medium text-slate-800">
+                  Client booking window
+                </strong>{" "}
+                — How far ahead clients can book a new session or pick a
+                different time when changing: 1 week, 2 weeks, 3 weeks, or a
+                custom value (1–52 weeks). Default is 2 weeks.
               </li>
               <li>
                 <strong className="font-medium text-slate-800">
