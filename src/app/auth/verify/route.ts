@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/lib/db/init";
+import { appUrl } from "@/lib/constants";
 import {
   createTrainerSession,
   SESSION_COOKIE,
@@ -14,13 +15,13 @@ export async function GET(request: Request) {
   const token = searchParams.get("token");
 
   if (!token) {
-    return NextResponse.redirect(new URL("/login?error=missing", request.url));
+    return NextResponse.redirect(appUrl("/login?error=missing"));
   }
 
   try {
     const trainerId = await verifyMagicLink(token);
     const session = await createTrainerSession(trainerId);
-    const response = NextResponse.redirect(new URL("/dashboard/schedule", request.url));
+    const response = NextResponse.redirect(appUrl("/dashboard/schedule"));
     response.cookies.set(SESSION_COOKIE, session.token, {
       httpOnly: true,
       sameSite: "lax",
@@ -29,6 +30,6 @@ export async function GET(request: Request) {
     });
     return response;
   } catch {
-    return NextResponse.redirect(new URL("/login?error=invalid", request.url));
+    return NextResponse.redirect(appUrl("/login?error=invalid"));
   }
 }

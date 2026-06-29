@@ -206,8 +206,26 @@ export function isInactiveBookingStatus(status: string): boolean {
   return status === "canceled" || status === "voided";
 }
 
+export function normalizeAppBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (!trimmed) return "http://localhost:3000";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  if (trimmed.includes("localhost") || trimmed.startsWith("127.0.0.1")) {
+    return `http://${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
 export function appBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return normalizeAppBaseUrl(raw);
+}
+
+/** Absolute app URL for redirects (use instead of request.url behind Railway/proxies). */
+export function appUrl(path: string): URL {
+  return new URL(path, appBaseUrl());
 }
 
 export function clientHomeUrl(token: string): string {

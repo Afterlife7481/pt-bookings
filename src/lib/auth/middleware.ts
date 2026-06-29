@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/lib/constants";
+import { SESSION_COOKIE, appBaseUrl } from "@/lib/constants";
 
 export const PUBLIC_API_PREFIXES = [
   "/api/health",
@@ -30,7 +30,7 @@ export async function hasValidTrainerSession(
   if (!cookie?.includes(`${SESSION_COOKIE}=`)) return false;
 
   try {
-    const url = new URL("/api/auth/me", request.url);
+    const url = new URL("/api/auth/me", appBaseUrl());
     const res = await fetch(url, {
       headers: { cookie },
       cache: "no-store",
