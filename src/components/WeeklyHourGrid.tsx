@@ -61,6 +61,8 @@ type WeeklyHourGridProps = {
   compactRowSize?: string;
   /** Minimum day column width when using the full variant. */
   dayColMin?: string;
+  /** Override compact time-column width for duration-aligned grids. */
+  compactTimeCol?: string;
   /** Render primary and secondary as separate header rows (date above day label). */
   splitDayHeaderRows?: boolean;
 };
@@ -76,6 +78,7 @@ export function WeeklyHourGrid({
   wide = false,
   compactRowSize,
   dayColMin,
+  compactTimeCol,
   splitDayHeaderRows = false,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
@@ -95,7 +98,7 @@ export function WeeklyHourGrid({
   const rowHeight = compact ? (compactRowSize ? "h-12" : "h-10") : "h-11";
   const timeCol = compact
     ? durationGrid
-      ? "2rem"
+      ? (compactTimeCol ?? "1.625rem")
       : "1.75rem"
     : denseDuration
       ? "2.5rem"

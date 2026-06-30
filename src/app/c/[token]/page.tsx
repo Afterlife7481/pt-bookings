@@ -72,7 +72,7 @@ export default async function ClientHomePage({
   const { upcoming, history } = await listClientSessions(client.id);
 
   return (
-    <main className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
+    <main className="mx-auto min-w-0 max-w-6xl space-y-4 p-4 sm:p-6">
       <div>
         <p className="text-sm text-slate-500">Your sessions</p>
         <h1 className="text-2xl font-bold">Hi {client.name}</h1>

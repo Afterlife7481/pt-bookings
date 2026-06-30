@@ -7,6 +7,7 @@ import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGri
 import { formatTimeRange } from "@/lib/constants";
 import {
   dayOfWeekLabel,
+  dayHeaderInitial,
   recurringSlotKey,
   slotCoversGridRow,
   slotGridRowSpan,
@@ -277,7 +278,7 @@ export function LastMinutePreferencesForm({
       : null;
 
   return (
-    <Card className="overflow-hidden !p-0">
+    <Card className="min-w-0 !p-0">
       <div className="space-y-4 p-4 sm:p-5 sm:pb-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -356,13 +357,14 @@ export function LastMinutePreferencesForm({
 
       {optIn && hasAvailableSlots && (
         <>
-          <WeeklyHourGrid
-            timeRows={timeRows}
-            variant="full"
-            compactRowSize="1.375rem"
-            dayColMin="5.5rem"
-            className={WEEK_GRID_EDGE_CLASS}
-            getDayHeader={(day) => ({ primary: day.label })}
+          <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+            <WeeklyHourGrid
+              timeRows={timeRows}
+              variant="compact"
+              compactRowSize="1.375rem"
+              compactTimeCol="1.5rem"
+              className={WEEK_GRID_EDGE_CLASS}
+              getDayHeader={dayHeaderInitial}
             renderCell={(dayOfWeek, rowTime) => {
               const match = templateSlotAtRow(
                 templateSlots,
@@ -398,6 +400,7 @@ export function LastMinutePreferencesForm({
               };
             }}
           />
+          </div>
 
           <div className="space-y-4 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
             <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
