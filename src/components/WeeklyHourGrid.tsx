@@ -55,7 +55,7 @@ type WeeklyHourGridProps = {
   getDayHeader: (day: WeekDayColumn) => DayHeaderContent;
   renderCell: (dayOfWeek: number, rowTime: string) => WeeklyHourGridCell;
   className?: string;
-  /** When true with full variant, enables wide min-width + scroll container. */
+  /** When true with full variant, enables wide min-width layout. */
   wide?: boolean;
   /** Override row height for duration-aligned grids (and compact hourly grids). */
   compactRowSize?: string;
@@ -113,8 +113,7 @@ export function WeeklyHourGrid({
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200",
-        compact ? "w-full" : wide ? "max-h-[36rem] overflow-auto" : undefined,
+        "w-full rounded-lg border border-slate-200",
         className,
       )}
     >
