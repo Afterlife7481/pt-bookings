@@ -5,6 +5,7 @@ import { bookings, clients, slots, whatsappMessages } from "@/lib/db/schema";
 import {
   cancelBookingByToken,
   createBookingForSlot,
+  sendConfirmationForBooking,
   sendInvoiceForBooking,
   voidBookingForTrainer,
 } from "@/lib/services/bookings";
@@ -176,6 +177,39 @@ describe("cancelBookingByToken", () => {
     await expect(cancelBookingByToken(token)).rejects.toThrow(
       /Cancellations are not allowed/,
     );
+  });
+});
+
+describe("sendConfirmationForBooking", () => {
+  it("records confirmationSentAt when booking a slot with confirmation", async () => {
+    const fixtures = await seedTestFixtures();
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: true,
+    });
+
+    const db = getDb();
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, bookingId),
+    });
+    expect(booking?.confirmationSentAt).toBeTruthy();
+  });
+
+  it("records confirmationSentAt when sent manually", async () => {
+    const fixtures = await seedTestFixtures();
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const detail = await sendConfirmationForBooking(bookingId);
+    expect(detail?.booking.confirmationSentAt).toBeTruthy();
   });
 });
 

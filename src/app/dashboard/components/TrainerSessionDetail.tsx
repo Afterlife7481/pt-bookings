@@ -11,6 +11,7 @@ import {
   parseLocalDateTime,
 } from "@/lib/constants";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
+import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
 import {
   cn,
   formatDurationMinutes,
@@ -24,6 +25,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
@@ -73,6 +75,9 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
   ) {
     setBusy(true);
     setError(null);
+    if (action === "send_invoice") {
+      setInvoiceError(null);
+    }
     const res = await fetch(`/api/bookings/${bookingId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,7 +86,12 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setError(data.error ?? "Action failed");
+      const message = data.error ?? "Action failed";
+      if (action === "send_invoice") {
+        setInvoiceError(message);
+      } else {
+        setError(message);
+      }
       return;
     }
     if (action === "cancel") {
@@ -89,8 +99,13 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
       router.refresh();
       return;
     }
-    if (action === "send_invoice" || action === "void") {
+    if (
+      action === "send_invoice" ||
+      action === "void" ||
+      action === "send_confirmation"
+    ) {
       setDetail(data);
+      return;
     }
     setSaved(true);
   }
@@ -340,7 +355,12 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
             )}
             <Button
               variant="secondary"
-              disabled={busy || isInactive || client.sessionPrice == null}
+              disabled={
+                busy ||
+                isInactive ||
+                client.sessionPrice == null ||
+                !detail.paymentDetailsReady
+              }
               className="mt-3 w-full sm:w-auto"
               onClick={() => runAction("send_invoice")}
             >
@@ -358,6 +378,23 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
                 before sending an invoice.
               </p>
             )}
+            {client.sessionPrice != null &&
+              !detail.paymentDetailsReady &&
+              !isInactive && (
+                <p className="mt-2 text-sm text-amber-700">
+                  Add bank account and sort code in{" "}
+                  <Link
+                    href="/dashboard/settings"
+                    className="underline hover:text-amber-900"
+                  >
+                    Settings → Payment details
+                  </Link>{" "}
+                  before sending an invoice.
+                </p>
+              )}
+            {invoiceError && (
+              <p className="mt-2 text-sm text-red-600">{invoiceError}</p>
+            )}
           </div>
         </div>
       </Card>
@@ -365,16 +402,19 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
       {!isInactive && (
         <Card className="min-w-0">
           <h2 className="font-semibold">Manage session</h2>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="mt-4 space-y-4">
+            {!isPast && (
+              <TrainerChangeSessionSection
+                bookingId={bookingId}
+                sessionStartAt={sessionStartAt}
+                sessionEndAt={sessionEndAt}
+                disabled={busy}
+                onChanged={setDetail}
+              />
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {isPast ? (
               <>
-                <Button
-                  variant="secondary"
-                  disabled
-                  className="w-full sm:w-auto"
-                >
-                  Change on schedule
-                </Button>
                 <Button
                   variant="secondary"
                   disabled
@@ -393,19 +433,29 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
               </>
             ) : (
               <>
-                <Link href="/dashboard/schedule" className="w-full sm:w-auto">
-                  <Button variant="secondary" className="w-full sm:w-auto">
-                    Change on schedule
+                <div className="w-full sm:w-auto">
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    className="w-full sm:w-auto"
+                    onClick={() => runAction("send_confirmation")}
+                  >
+                    Send WhatsApp confirmation
                   </Button>
-                </Link>
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                  onClick={() => runAction("send_confirmation")}
-                >
-                  Send WhatsApp confirmation
-                </Button>
+                  {booking.confirmationSentAt && (
+                    <p className="mt-2 text-sm text-slate-500">
+                      Last sent{" "}
+                      {new Date(booking.confirmationSentAt).toLocaleString(
+                        "en-GB",
+                        {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        },
+                      )}
+                      .
+                    </p>
+                  )}
+                </div>
                 <Button
                   variant="danger"
                   disabled={busy}
@@ -416,11 +466,12 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
                 </Button>
               </>
             )}
+            </div>
           </div>
           <p className="mt-3 text-sm text-slate-500">
             {isPast
               ? "This session has already taken place. Use Payment above to record payment or send an invoice. Void only if the session should not count (e.g. booked in error)."
-              : "To move this session, open the schedule, cancel here or free the slot, then book the client into a new time."}
+              : "Pick a new open slot above to move this session. The client is notified by WhatsApp when the time changes."}
           </p>
         </Card>
       )}

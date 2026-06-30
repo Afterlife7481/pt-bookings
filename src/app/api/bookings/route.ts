@@ -46,8 +46,11 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "send_confirmation") {
-    await sendConfirmationForBooking(body.bookingId);
-    return Response.json({ ok: true });
+    const detail = await sendConfirmationForBooking(body.bookingId);
+    if (!detail) {
+      return Response.json({ error: "Session not found" }, { status: 404 });
+    }
+    return Response.json(detail);
   }
 
   return Response.json({ error: "Unknown action" }, { status: 400 });

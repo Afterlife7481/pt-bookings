@@ -197,6 +197,7 @@ export const bookings = pgTable(
       enum: ["cash", "bank_transfer", "card", "other"],
     }),
     invoiceSentAt: text("invoice_sent_at"),
+    confirmationSentAt: text("confirmation_sent_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

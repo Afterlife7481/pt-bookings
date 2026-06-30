@@ -157,6 +157,11 @@ export async function createBookingForSlot(params: {
         slotEndAt,
         clientName: client.name,
       });
+      const ts = nowIso();
+      await db
+        .update(bookings)
+        .set({ confirmationSentAt: ts, updatedAt: ts })
+        .where(eq(bookings.id, bookingId));
     }
   }
 
@@ -402,7 +407,14 @@ export async function sendConfirmationForBooking(bookingId: string) {
       slotEndAt: slot.endAt,
       clientName: client.name,
     });
+    const ts = nowIso();
+    await db
+      .update(bookings)
+      .set({ confirmationSentAt: ts, updatedAt: ts })
+      .where(eq(bookings.id, bookingId));
   }
+
+  return getBookingDetailForTrainer(booking.trainerId, bookingId);
 }
 
 export type TrainerBookingDetail = {
@@ -414,6 +426,7 @@ export type TrainerBookingDetail = {
     sessionPaid: boolean;
     paymentType: SessionPaymentType | null;
     invoiceSentAt: string | null;
+    confirmationSentAt: string | null;
     sessionStartAt: string;
     createdAt: string;
     updatedAt: string;
@@ -432,6 +445,7 @@ export type TrainerBookingDetail = {
     phone: string;
     sessionPrice: number | null;
   };
+  paymentDetailsReady: boolean;
 };
 
 async function getBookingForTrainer(trainerId: string, bookingId: string) {
@@ -466,6 +480,11 @@ export async function getBookingDetailForTrainer(
       })
     : null;
 
+  const settings = await getTrainerSettings(trainerId);
+  const paymentDetailsReady = hasBankTransferDetails(
+    getPaymentDetailsForMessage(settings),
+  );
+
   return {
     booking: {
       id: booking.id,
@@ -475,6 +494,7 @@ export async function getBookingDetailForTrainer(
       sessionPaid: booking.sessionPaid,
       paymentType: booking.paymentType,
       invoiceSentAt: booking.invoiceSentAt ?? null,
+      confirmationSentAt: booking.confirmationSentAt ?? null,
       sessionStartAt: booking.sessionStartAt,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
@@ -495,6 +515,7 @@ export async function getBookingDetailForTrainer(
       phone: client.phone,
       sessionPrice: client.sessionPrice,
     },
+    paymentDetailsReady,
   };
 }
 

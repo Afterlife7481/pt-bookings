@@ -9,6 +9,7 @@ import {
   updateBookingPaymentForTrainer,
   voidBookingForTrainer,
 } from "@/lib/services/bookings";
+import { moveBookingForTrainer } from "@/lib/services/change";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -96,8 +97,11 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (body.action === "send_confirmation") {
-      await sendConfirmationForBooking(id);
-      return Response.json({ ok: true });
+      const detail = await sendConfirmationForBooking(id);
+      if (!detail) {
+        return Response.json({ error: "Session not found" }, { status: 404 });
+      }
+      return Response.json(detail);
     }
 
     if (body.action === "send_invoice") {
@@ -113,6 +117,14 @@ export async function POST(request: Request, context: RouteContext) {
       if (!detail) {
         return Response.json({ error: "Session not found" }, { status: 404 });
       }
+      return Response.json(detail);
+    }
+
+    if (body.action === "change_slot") {
+      if (typeof body.toSlotId !== "string" || !body.toSlotId) {
+        return Response.json({ error: "toSlotId is required" }, { status: 400 });
+      }
+      const detail = await moveBookingForTrainer(trainerId, id, body.toSlotId);
       return Response.json(detail);
     }
 

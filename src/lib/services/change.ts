@@ -9,8 +9,9 @@ import {
   isWithinBookingDeadline,
   isWithinClientBookingWindow,
   nowIso,
+  parseLocalDateTime,
 } from "@/lib/constants";
-import { assertSlotNotHeldByActiveBookingTx } from "./bookings";
+import { assertSlotNotHeldByActiveBookingTx, getBookingDetailForTrainer } from "./bookings";
 import { getAvailableSlotsForChange } from "./templates";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
@@ -352,4 +353,155 @@ export async function getChangeRequestForBooking(bookingToken: string) {
       eq(changeRequests.status, "browsing"),
     ),
   });
+}
+
+export async function listAvailableSlotsForTrainerChange(
+  trainerId: string,
+  bookingId: string,
+) {
+  const db = getDb();
+  const booking = await db.query.bookings.findFirst({
+    where: and(eq(bookings.id, bookingId), eq(bookings.trainerId, trainerId)),
+  });
+  if (!booking) throw new Error("Booking not found");
+  if (isInactiveBookingStatus(booking.status)) {
+    throw new Error("Cannot change an inactive session");
+  }
+  if (!booking.slotId) throw new Error("Booking has no slot");
+
+  const slot = await db.query.slots.findFirst({
+    where: eq(slots.id, booking.slotId),
+  });
+  if (!slot) throw new Error("Slot not found");
+
+  if (parseLocalDateTime(slot.startAt).getTime() < Date.now()) {
+    throw new Error("Cannot change a past session");
+  }
+
+  return getAvailableSlotsForChange(
+    trainerId,
+    booking.slotId,
+    slot.startAt,
+    booking.clientId,
+  );
+}
+
+export async function moveBookingForTrainer(
+  trainerId: string,
+  bookingId: string,
+  toSlotId: string,
+) {
+  const db = getDb();
+  const booking = await db.query.bookings.findFirst({
+    where: and(eq(bookings.id, bookingId), eq(bookings.trainerId, trainerId)),
+  });
+  if (!booking) throw new Error("Booking not found");
+  if (isInactiveBookingStatus(booking.status)) {
+    throw new Error("Cannot change an inactive session");
+  }
+  if (!booking.slotId) throw new Error("Booking has no slot");
+
+  const fromSlot = await db.query.slots.findFirst({
+    where: eq(slots.id, booking.slotId),
+  });
+  if (!fromSlot) throw new Error("Slot not found");
+
+  if (parseLocalDateTime(fromSlot.startAt).getTime() < Date.now()) {
+    throw new Error("Cannot change a past session");
+  }
+
+  if (booking.slotId === toSlotId) {
+    throw new Error("Session is already at that time");
+  }
+
+  const targetSlot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, toSlotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!targetSlot || targetSlot.status !== "available") {
+    throw new Error("Selected slot is no longer available");
+  }
+
+  await assertClientCanUseSlotLocation(
+    booking.clientId,
+    targetSlot.locationId,
+    "trainer",
+  );
+
+  const { clientBookingWindowWeeks } = await getTrainerSettings(trainerId);
+  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks)) {
+    throw new Error("Selected slot is outside the client booking window");
+  }
+
+  await abortChangeByBookingToken(booking.token);
+
+  const fromSlotId = booking.slotId;
+
+  const result = await db.transaction(async (tx) => {
+    const bookingRow = await tx.query.bookings.findFirst({
+      where: eq(bookings.id, bookingId),
+    });
+    if (!bookingRow || isInactiveBookingStatus(bookingRow.status)) {
+      throw new Error("Booking not found");
+    }
+    if (!bookingRow.slotId) throw new Error("Booking has no slot");
+
+    const toSlotRow = await tx.query.slots.findFirst({
+      where: eq(slots.id, toSlotId),
+    });
+    if (!toSlotRow || toSlotRow.status !== "available") {
+      throw new Error("Selected slot is no longer available");
+    }
+
+    await assertSlotNotHeldByActiveBookingTx(tx, toSlotId, bookingRow.id);
+
+    const ts = nowIso();
+
+    await tx
+      .update(bookings)
+      .set({
+        slotId: toSlotId,
+        sessionStartAt: toSlotRow.startAt,
+        status: "confirmed",
+        updatedAt: ts,
+      })
+      .where(eq(bookings.id, bookingRow.id));
+
+    const claim = await tx
+      .update(slots)
+      .set({ status: "booked" })
+      .where(and(eq(slots.id, toSlotId), eq(slots.status, "available")))
+      .returning({ id: slots.id });
+    if (claim.length === 0) {
+      throw new Error("Selected slot is no longer available");
+    }
+
+    await tx
+      .update(slots)
+      .set({ status: "available" })
+      .where(eq(slots.id, fromSlotId));
+
+    return { fromSlotId, toSlotId };
+  });
+
+  const [client, fromSlotAfter, toSlotAfter] = await Promise.all([
+    db.query.clients.findFirst({ where: eq(clients.id, booking.clientId) }),
+    db.query.slots.findFirst({ where: eq(slots.id, result.fromSlotId) }),
+    db.query.slots.findFirst({ where: eq(slots.id, result.toSlotId) }),
+  ]);
+
+  if (client && fromSlotAfter && toSlotAfter) {
+    await sendWhatsAppSessionChangedToClient({
+      trainerId,
+      clientId: client.id,
+      phone: client.phone,
+      clientName: client.name,
+      bookingToken: booking.token,
+      slotStartAt: toSlotAfter.startAt,
+      slotEndAt: toSlotAfter.endAt,
+    });
+  }
+
+  const detail = await getBookingDetailForTrainer(trainerId, bookingId);
+  if (!detail) throw new Error("Booking not found");
+  return detail;
 }
