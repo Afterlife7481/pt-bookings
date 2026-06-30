@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { lastMinuteInterests, slots, whatsappMessages, clients } from "@/lib/db/schema";
 import {
   acceptLastMinuteOffer,
+  declineLastMinuteOffer,
   sendLastMinuteOffer,
   setClientLastMinutePreferences,
 } from "@/lib/services/last-minute";
@@ -76,6 +77,79 @@ describe("last-minute offer flow", () => {
       where: eq(lastMinuteInterests.id, interest!.id),
     });
     expect(acceptedInterest?.status).toBe("accepted");
+
+    const messagesAfterAccept = await db.query.whatsappMessages.findMany({
+      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+    });
+    expect(
+      messagesAfterAccept.some(
+        (m) =>
+          m.messageType === "last_minute_accepted" && m.recipient === "trainer",
+      ),
+    ).toBe(true);
+  });
+
+  it("declines an offer, releases the slot, and notifies the trainer", async () => {
+    const fixtures = await seedTestFixtures();
+    await prepareClientForLastMinute(fixtures);
+
+    await sendLastMinuteOffer(
+      DEFAULT_TRAINER_ID,
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    const result = await declineLastMinuteOffer(
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    expect(result.client.id).toBe(fixtures.clientId);
+
+    const db = getDb();
+    const slotAfterDecline = await db.query.slots.findFirst({
+      where: eq(slots.id, fixtures.slotId),
+    });
+    expect(slotAfterDecline?.status).toBe("available");
+    expect(slotAfterDecline?.heldForClientId).toBeNull();
+    expect(slotAfterDecline?.holdExpiresAt).toBeNull();
+
+    const interest = await db.query.lastMinuteInterests.findFirst({
+      where: eq(lastMinuteInterests.slotId, fixtures.slotId),
+    });
+    expect(interest?.status).toBe("declined");
+
+    const messages = await db.query.whatsappMessages.findMany({
+      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+    });
+    expect(
+      messages.some(
+        (m) =>
+          m.messageType === "last_minute_declined" && m.recipient === "trainer",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects sending offers for past slots", async () => {
+    const fixtures = await seedTestFixtures();
+    await prepareClientForLastMinute(fixtures);
+
+    const db = getDb();
+    await db
+      .update(slots)
+      .set({
+        startAt: "2020-01-01T10:00:00",
+        endAt: "2020-01-01T11:00:00",
+      })
+      .where(eq(slots.id, fixtures.slotId));
+
+    await expect(
+      sendLastMinuteOffer(
+        DEFAULT_TRAINER_ID,
+        fixtures.slotId,
+        fixtures.clientId,
+      ),
+    ).rejects.toThrow("Cannot send offers for past slots");
   });
 
   it("rejects sending when the client is not opted in", async () => {

@@ -7,6 +7,7 @@ import {
   lastMinuteInterests,
   locations,
   slots,
+  trainers,
 } from "@/lib/db/schema";
 import {
   addHours,
@@ -14,10 +15,15 @@ import {
   formatDate,
   nowIso,
   parseDateOnly,
+  parseLocalDateTime,
   slotDayOfWeek,
   slotTimeLabel,
 } from "@/lib/constants";
-import { sendWhatsAppLastMinute } from "@/lib/whatsapp";
+import {
+  sendWhatsAppLastMinute,
+  sendWhatsAppLastMinuteAcceptedToTrainer,
+  sendWhatsAppLastMinuteDeclinedToTrainer,
+} from "@/lib/whatsapp";
 import { createBookingForSlot } from "./bookings";
 import { getTrainerSettings } from "./settings";
 import { getTrainerTemplateOverlay } from "./templates";
@@ -534,6 +540,9 @@ export async function sendLastMinuteOffer(
   if (!slot || slot.status !== "available") {
     throw new Error("Slot is not available");
   }
+  if (parseLocalDateTime(slot.startAt).getTime() < Date.now()) {
+    throw new Error("Cannot send offers for past slots");
+  }
 
   const client = await db.query.clients.findFirst({
     where: and(eq(clients.id, clientId), eq(clients.trainerId, trainerId)),
@@ -760,7 +769,86 @@ export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
     .set({ heldForClientId: null, holdExpiresAt: null })
     .where(eq(slots.id, slotId));
 
+  const trainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, slot.trainerId),
+  });
+  if (trainer) {
+    await sendWhatsAppLastMinuteAcceptedToTrainer({
+      trainerId: slot.trainerId,
+      clientId: client.id,
+      clientName: client.name,
+      trainerEmail: trainer.email,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+    });
+  }
+
   return { alreadyRegistered: false, booking, client, slot };
+}
+
+export async function declineLastMinuteOffer(slotId: string, clientId: string) {
+  const db = getDb();
+  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  if (!slot || slot.status !== "available") {
+    throw new Error("This slot is no longer available");
+  }
+
+  await clearExpiredSlotHolds(slot.trainerId);
+  slot =
+    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
+
+  const client = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+  });
+  if (!client) throw new Error("Client not found");
+
+  const now = nowIso();
+  if (
+    slot.heldForClientId !== clientId ||
+    !slot.holdExpiresAt ||
+    slot.holdExpiresAt < now
+  ) {
+    throw new Error(
+      "This offer is no longer active. Please contact your trainer.",
+    );
+  }
+
+  const offer = await db.query.lastMinuteInterests.findFirst({
+    where: and(
+      eq(lastMinuteInterests.slotId, slotId),
+      eq(lastMinuteInterests.clientId, clientId),
+      eq(lastMinuteInterests.status, "offered"),
+    ),
+  });
+  if (!offer) {
+    throw new Error("No active offer found for this slot");
+  }
+
+  await db
+    .update(lastMinuteInterests)
+    .set({ status: "declined" })
+    .where(eq(lastMinuteInterests.id, offer.id));
+
+  await db
+    .update(slots)
+    .set({ heldForClientId: null, holdExpiresAt: null })
+    .where(eq(slots.id, slotId));
+
+  const trainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, slot.trainerId),
+  });
+  if (trainer) {
+    await sendWhatsAppLastMinuteDeclinedToTrainer({
+      trainerId: slot.trainerId,
+      clientId: client.id,
+      clientName: client.name,
+      trainerEmail: trainer.email,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+    });
+  }
+
+  return { client, slot };
 }
 
 /** @deprecated use acceptLastMinuteOffer */

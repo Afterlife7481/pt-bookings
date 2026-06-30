@@ -305,8 +305,18 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   clientId: text("client_id").references(() => clients.id),
   phone: text("phone").notNull(),
   messageType: text("message_type", {
-    enum: ["confirmation", "last_minute", "interest_ack", "invoice"],
+    enum: [
+      "confirmation",
+      "last_minute",
+      "interest_ack",
+      "invoice",
+      "last_minute_accepted",
+      "last_minute_declined",
+    ],
   }).notNull(),
+  recipient: text("recipient", { enum: ["client", "trainer"] })
+    .notNull()
+    .default("client"),
   body: text("body").notNull(),
   status: text("status", {
     enum: ["pending", "sent", "failed"],

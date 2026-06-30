@@ -14,11 +14,20 @@ import {
   type PaymentDetailsForMessage,
 } from "@/lib/payments";
 
+type WhatsAppMessageType =
+  | "confirmation"
+  | "last_minute"
+  | "interest_ack"
+  | "invoice"
+  | "last_minute_accepted"
+  | "last_minute_declined";
+
 async function logWhatsAppMessage(params: {
   trainerId: string;
   clientId?: string;
   phone: string;
-  messageType: "confirmation" | "last_minute" | "interest_ack" | "invoice";
+  messageType: WhatsAppMessageType;
+  recipient?: "client" | "trainer";
   body: string;
 }) {
   const db = getDb();
@@ -28,6 +37,7 @@ async function logWhatsAppMessage(params: {
     clientId: params.clientId ?? null,
     phone: params.phone,
     messageType: params.messageType,
+    recipient: params.recipient ?? "client",
     body: params.body,
     status: "sent",
     createdAt: nowIso(),
@@ -68,7 +78,7 @@ export async function sendWhatsAppLastMinute(params: {
   lockHours: number;
 }) {
   const link = interestClaimUrl(params.slotId, params.clientId);
-  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept. View and accept: ${link}`;
+  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
@@ -77,6 +87,50 @@ export async function sendWhatsAppLastMinute(params: {
     clientId: params.clientId,
     phone: params.phone,
     messageType: "last_minute",
+    body,
+  });
+}
+
+export async function sendWhatsAppLastMinuteAcceptedToTrainer(params: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  trainerEmail: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+}) {
+  const body = `${params.clientName} accepted your last-minute offer for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is now booked.`;
+
+  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.trainerEmail,
+    messageType: "last_minute_accepted",
+    recipient: "trainer",
+    body,
+  });
+}
+
+export async function sendWhatsAppLastMinuteDeclinedToTrainer(params: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  trainerEmail: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+}) {
+  const body = `${params.clientName} declined your last-minute offer for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is open again — you can send another offer.`;
+
+  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.trainerEmail,
+    messageType: "last_minute_declined",
+    recipient: "trainer",
     body,
   });
 }

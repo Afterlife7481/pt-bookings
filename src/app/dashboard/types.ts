@@ -36,6 +36,7 @@ export type WhatsAppRow = {
   id: string;
   phone: string;
   messageType: string;
+  recipient: "client" | "trainer";
   body: string;
   createdAt: string;
 };

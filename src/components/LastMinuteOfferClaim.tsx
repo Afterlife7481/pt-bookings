@@ -29,7 +29,9 @@ export function LastMinuteOfferClaim({
   preview: LastMinuteOfferPreview;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"accept" | "decline" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const durationMinutes = Math.round(
@@ -39,7 +41,7 @@ export function LastMinuteOfferClaim({
   );
 
   async function acceptOffer() {
-    setBusy(true);
+    setBusyAction("accept");
     setError(null);
     try {
       const res = await fetch("/api/client/last-minute/accept", {
@@ -56,9 +58,33 @@ export function LastMinuteOfferClaim({
     } catch {
       setError("Failed to accept offer");
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
+
+  async function declineOffer() {
+    setBusyAction("decline");
+    setError(null);
+    try {
+      const res = await fetch("/api/client/last-minute/decline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slotId, clientId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to decline offer");
+        return;
+      }
+      router.push(`/c/${data.clientToken ?? preview.clientToken}`);
+    } catch {
+      setError("Failed to decline offer");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const busy = busyAction != null;
 
   return (
     <main className="mx-auto max-w-lg space-y-4 p-6">
@@ -77,7 +103,8 @@ export function LastMinuteOfferClaim({
       <Card>
         <p className="text-sm text-slate-600">
           Hi {preview.clientName}, your trainer has offered you this last-minute
-          slot. Review the details below and accept to book it.
+          slot. Accept to book it, or decline to release it back to your
+          trainer.
         </p>
 
         <dl className="mt-4 space-y-3 text-sm">
@@ -99,7 +126,7 @@ export function LastMinuteOfferClaim({
           )}
           {preview.expiresAt && (
             <div>
-              <dt className="text-slate-500">Accept before</dt>
+              <dt className="text-slate-500">Respond before</dt>
               <dd>{formatOfferExpiry(preview.expiresAt)}</dd>
             </div>
           )}
@@ -112,7 +139,15 @@ export function LastMinuteOfferClaim({
               disabled={busy}
               onClick={() => void acceptOffer()}
             >
-              {busy ? "Booking…" : "Accept session"}
+              {busyAction === "accept" ? "Booking…" : "Accept session"}
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full py-3"
+              disabled={busy}
+              onClick={() => void declineOffer()}
+            >
+              {busyAction === "decline" ? "Declining…" : "Decline offer"}
             </Button>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>

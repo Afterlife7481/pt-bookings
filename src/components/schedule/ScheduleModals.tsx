@@ -198,6 +198,7 @@ export function OpenSlotModal({
       {entry.lastMinute && (
         <OpenSlotLastMinuteSection
           slotId={entry.slotId}
+          slotStartAt={entry.startAt}
           lastMinute={entry.lastMinute}
           lockHours={lockHours}
           onOfferSent={onOfferSent}

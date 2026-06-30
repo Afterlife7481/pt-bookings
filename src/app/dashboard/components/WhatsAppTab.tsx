@@ -2,7 +2,7 @@
 
 import { Badge, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
-import { formatDateTimeInTimezone } from "@/lib/utils";
+import { cn, formatDateTimeInTimezone } from "@/lib/utils";
 import type { WhatsAppRow } from "../types";
 
 function whatsAppTypeLabel(messageType: string): string {
@@ -11,6 +11,10 @@ function whatsAppTypeLabel(messageType: string): string {
       return "Booking confirmation";
     case "last_minute":
       return "Last-minute offer";
+    case "last_minute_accepted":
+      return "Offer accepted";
+    case "last_minute_declined":
+      return "Offer declined";
     case "interest_ack":
       return "Interest acknowledgement";
     case "invoice":
@@ -18,6 +22,11 @@ function whatsAppTypeLabel(messageType: string): string {
     default:
       return messageType;
   }
+}
+
+function recipientLabel(message: WhatsAppRow): string {
+  if (message.recipient === "trainer") return "To you (trainer)";
+  return message.phone;
 }
 
 export function WhatsAppTab({
@@ -37,20 +46,43 @@ export function WhatsAppTab({
           </p>
         </Card>
       )}
-      {messages.map((m) => (
-        <Card key={m.id}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge>{whatsAppTypeLabel(m.messageType)}</Badge>
-              <span className="text-sm text-slate-500">{m.phone}</span>
+      {messages.map((m) => {
+        const toTrainer = (m.recipient ?? "client") === "trainer";
+        return (
+          <Card
+            key={m.id}
+            className={cn(
+              toTrainer && "border-purple-200 bg-purple-50",
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={toTrainer ? "warning" : "default"}>
+                  {whatsAppTypeLabel(m.messageType)}
+                </Badge>
+                <span
+                  className={cn(
+                    "text-sm",
+                    toTrainer ? "font-medium text-purple-800" : "text-slate-500",
+                  )}
+                >
+                  {recipientLabel(m)}
+                </span>
+              </div>
+              <time dateTime={m.createdAt} className="text-xs text-slate-400">
+                {formatDateTimeInTimezone(m.createdAt, timezone)}
+              </time>
             </div>
-            <time dateTime={m.createdAt} className="text-xs text-slate-400">
-              {formatDateTimeInTimezone(m.createdAt, timezone)}
-            </time>
-          </div>
-          <LinkifiedText text={m.body} className="mt-2 text-sm" />
-        </Card>
-      ))}
+            <LinkifiedText
+              text={m.body}
+              className={cn(
+                "mt-2 text-sm",
+                toTrainer && "text-purple-950",
+              )}
+            />
+          </Card>
+        );
+      })}
     </div>
   );
 }

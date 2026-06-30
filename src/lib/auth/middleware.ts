@@ -10,6 +10,7 @@ export const PUBLIC_API_PREFIXES = [
   "/api/client-book",
   "/api/client/sessions/cancel",
   "/api/client/last-minute/accept",
+  "/api/client/last-minute/decline",
   "/api/opt-in",
 ] as const;
 

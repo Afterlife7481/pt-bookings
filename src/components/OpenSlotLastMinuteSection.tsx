@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
+import { parseLocalDateTime } from "@/lib/constants";
 import type {
   ScheduleEligibleClient,
   ScheduleLastMinuteInfo,
@@ -22,11 +23,13 @@ function formatHoldExpiry(iso: string | null) {
 
 export function OpenSlotLastMinuteSection({
   slotId,
+  slotStartAt,
   lastMinute,
   lockHours,
   onOfferSent,
 }: {
   slotId: string;
+  slotStartAt: string;
   lastMinute: ScheduleLastMinuteInfo;
   lockHours: number;
   onOfferSent: () => void | Promise<void>;
@@ -47,6 +50,7 @@ export function OpenSlotLastMinuteSection({
   const [loading, setLoading] = useState(prefetchedClients == null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const slotInPast = parseLocalDateTime(slotStartAt).getTime() < Date.now();
 
   useEffect(() => {
     setHoldExpiresAt(lastMinute.holdExpiresAt);
@@ -103,6 +107,12 @@ export function OpenSlotLastMinuteSection({
         the slot for {lockHours} hour{lockHours === 1 ? "" : "s"}.
       </p>
 
+      {slotInPast && (
+        <p className="mt-2 text-sm text-slate-500">
+          Last-minute offers cannot be sent for past slots.
+        </p>
+      )}
+
       {heldClientName && holdExpiresAt && (
         <p className="mt-2 text-sm text-purple-700">
           Held for {heldClientName} until {formatHoldExpiry(holdExpiresAt)}
@@ -155,15 +165,19 @@ export function OpenSlotLastMinuteSection({
                     </p>
                   </div>
                   <Button
-                    disabled={hasActiveOffer || busyKey === client.id}
+                    disabled={
+                      slotInPast || hasActiveOffer || busyKey === client.id
+                    }
                     className="px-3 py-1.5 text-xs"
                     onClick={() => sendOffer(client.id)}
                   >
                     {busyKey === client.id
                       ? "Sending…"
-                      : hasActiveOffer
-                        ? "Held"
-                        : "Send offer"}
+                      : slotInPast
+                        ? "Past slot"
+                        : hasActiveOffer
+                          ? "Held"
+                          : "Send offer"}
                   </Button>
                 </li>
               );
