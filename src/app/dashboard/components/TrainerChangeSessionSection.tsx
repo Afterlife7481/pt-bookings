@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
-import { formatBookingWindowWeeks, formatSlotLabel } from "@/lib/constants";
+import { formatBookingWindowWeeks } from "@/lib/constants";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
@@ -15,16 +15,14 @@ type SlotOption = {
 
 export function TrainerChangeSessionSection({
   bookingId,
-  sessionStartAt,
-  sessionEndAt,
   disabled,
   onChanged,
+  onClose,
 }: {
   bookingId: string;
-  sessionStartAt: string;
-  sessionEndAt: string | null;
   disabled?: boolean;
   onChanged: (detail: TrainerBookingDetail) => void;
+  onClose: () => void;
 }) {
   const [slots, setSlots] = useState<SlotOption[]>([]);
   const [bookingWindowWeeks, setBookingWindowWeeks] = useState(3);
@@ -72,15 +70,22 @@ export function TrainerChangeSessionSection({
       return;
     }
     onChanged(data);
-    await loadSlots();
+    onClose();
   }
 
-  const currentLabel = formatSlotLabel(sessionStartAt, sessionEndAt);
-
   return (
-    <div className="border-b border-slate-100 pb-4">
-      <p className="text-sm font-medium text-slate-900">Change session time</p>
-      <p className="mt-1 text-sm text-slate-500">Current: {currentLabel}</p>
+    <div className="rounded-lg border border-slate-200 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-slate-900">Pick a new time</p>
+        <button
+          type="button"
+          className="text-sm text-slate-500 hover:text-slate-900"
+          disabled={busy}
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
 
       {loading ? (
         <p className="mt-3 text-sm text-slate-500">Loading available slots…</p>

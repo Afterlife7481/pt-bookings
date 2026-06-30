@@ -27,6 +27,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [showChangeSlots, setShowChangeSlots] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/bookings/${bookingId}`);
@@ -403,15 +404,6 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
         <Card className="min-w-0">
           <h2 className="font-semibold">Manage session</h2>
           <div className="mt-4 space-y-4">
-            {!isPast && (
-              <TrainerChangeSessionSection
-                bookingId={bookingId}
-                sessionStartAt={sessionStartAt}
-                sessionEndAt={sessionEndAt}
-                disabled={busy}
-                onChanged={setDetail}
-              />
-            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {isPast ? (
               <>
@@ -433,29 +425,22 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
               </>
             ) : (
               <>
-                <div className="w-full sm:w-auto">
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    className="w-full sm:w-auto"
-                    onClick={() => runAction("send_confirmation")}
-                  >
-                    Send WhatsApp confirmation
-                  </Button>
-                  {booking.confirmationSentAt && (
-                    <p className="mt-2 text-sm text-slate-500">
-                      Last sent{" "}
-                      {new Date(booking.confirmationSentAt).toLocaleString(
-                        "en-GB",
-                        {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        },
-                      )}
-                      .
-                    </p>
-                  )}
-                </div>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={() => setShowChangeSlots((open) => !open)}
+                >
+                  Change slot
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={() => runAction("send_confirmation")}
+                >
+                  Send WhatsApp confirmation
+                </Button>
                 <Button
                   variant="danger"
                   disabled={busy}
@@ -467,11 +452,29 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
               </>
             )}
             </div>
+            {!isPast && booking.confirmationSentAt && (
+              <p className="text-sm text-slate-500">
+                Last sent{" "}
+                {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+                .
+              </p>
+            )}
+            {!isPast && showChangeSlots && (
+              <TrainerChangeSessionSection
+                bookingId={bookingId}
+                disabled={busy}
+                onChanged={setDetail}
+                onClose={() => setShowChangeSlots(false)}
+              />
+            )}
           </div>
           <p className="mt-3 text-sm text-slate-500">
             {isPast
               ? "This session has already taken place. Use Payment above to record payment or send an invoice. Void only if the session should not count (e.g. booked in error)."
-              : "Pick a new open slot above to move this session. The client is notified by WhatsApp when the time changes."}
+              : "Use Change slot to move this session. The client is notified by WhatsApp when the time changes."}
           </p>
         </Card>
       )}
