@@ -46,20 +46,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (process.env.E2E_TEST === "1") {
-      return NextResponse.next();
-    }
-
-    const valid = await hasValidTrainerSession(request);
-    if (!valid) {
-      const response = NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
-      response.cookies.set(SESSION_COOKIE, "", { maxAge: 0, path: "/" });
-      return response;
-    }
-
+    // Route handlers validate the session token against the database.
+    // Avoid an extra HTTP round-trip here — especially slow in local dev.
     return NextResponse.next();
   }
 

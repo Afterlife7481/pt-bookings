@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { eq, and, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, changeRequests, slots } from "@/lib/db/schema";
+import { bookings, changeRequests, slots, clients } from "@/lib/db/schema";
 import {
   CHANGE_TIMEOUT_MINUTES,
   addMinutes,
@@ -14,6 +14,10 @@ import { assertSlotNotHeldByActiveBookingTx } from "./bookings";
 import { getAvailableSlotsForChange } from "./templates";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
+import { getTrainerById } from "./trainers";
+import {
+  sendWhatsAppSessionChangedToTrainer,
+} from "@/lib/whatsapp";
 
 export async function expireStaleChangeRequests() {
   const db = getDb();
@@ -241,7 +245,7 @@ export async function confirmChange(
     throw new Error("Selected slot is outside your booking window");
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const reqRow = await tx.query.changeRequests.findFirst({
       where: eq(changeRequests.id, changeRequestId),
     });
@@ -301,6 +305,28 @@ export async function confirmChange(
 
     return { bookingId: bookingRow.id, fromSlotId, toSlotId };
   });
+
+  const [client, trainer, fromSlot, toSlot] = await Promise.all([
+    db.query.clients.findFirst({ where: eq(clients.id, booking.clientId) }),
+    getTrainerById(booking.trainerId),
+    db.query.slots.findFirst({ where: eq(slots.id, result.fromSlotId) }),
+    db.query.slots.findFirst({ where: eq(slots.id, result.toSlotId) }),
+  ]);
+
+  if (client && trainer && fromSlot && toSlot) {
+    await sendWhatsAppSessionChangedToTrainer({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      clientName: client.name,
+      trainerEmail: trainer.email,
+      fromSlotStartAt: fromSlot.startAt,
+      fromSlotEndAt: fromSlot.endAt,
+      toSlotStartAt: toSlot.startAt,
+      toSlotEndAt: toSlot.endAt,
+    });
+  }
+
+  return result;
 }
 
 export async function getChangeRequestForBooking(bookingToken: string) {

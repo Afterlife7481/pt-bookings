@@ -10,8 +10,9 @@ import {
   parseLocalDateTime,
   type SessionPaymentType,
 } from "@/lib/constants";
-import { sendWhatsAppConfirmation, sendWhatsAppInvoice } from "@/lib/whatsapp";
+import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
 import { getTrainerSettings } from "./settings";
+import { getTrainerById } from "./trainers";
 import {
   getPaymentDetailsForMessage,
   hasBankTransferDetails,
@@ -55,6 +56,7 @@ export async function createBookingForSlot(params: {
   trainerId: string;
   isRecurring?: boolean;
   sendConfirmation?: boolean;
+  locationValidation?: "client" | "trainer";
 }) {
   const db = getDb();
   const {
@@ -63,7 +65,21 @@ export async function createBookingForSlot(params: {
     trainerId,
     isRecurring = false,
     sendConfirmation = true,
+    locationValidation = "client",
   } = params;
+
+  const slot = await db.query.slots.findFirst({
+    where: eq(slots.id, slotId),
+  });
+  if (!slot || slot.status !== "available") {
+    throw new Error("Slot is not available");
+  }
+
+  await assertClientCanUseSlotLocation(
+    clientId,
+    slot.locationId,
+    locationValidation,
+  );
 
   const { bookingId, token, slotStartAt, slotEndAt } = await db.transaction(
     async (tx) => {
@@ -242,9 +258,22 @@ export async function cancelBookingByToken(bookingToken: string) {
   }
 
   await cancelBooking(booking.id);
+
   const client = await db.query.clients.findFirst({
     where: eq(clients.id, booking.clientId),
   });
+  const trainer = await getTrainerById(booking.trainerId);
+  if (client && trainer) {
+    await sendWhatsAppSessionCanceledToTrainer({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      clientName: client.name,
+      trainerEmail: trainer.email,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+    });
+  }
+
   return { clientHomeToken: client?.token ?? null };
 }
 
@@ -313,8 +342,6 @@ export async function bookSlotByClientToken(clientToken: string, slotId: string)
   const slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
   if (!slot) throw new Error("Slot not found");
   if (slot.trainerId !== client.trainerId) throw new Error("Slot not found");
-
-  await assertClientCanUseSlotLocation(client.id, slot.locationId);
 
   const { clientBookingWindowWeeks } = await getTrainerSettings(client.trainerId);
   if (!isWithinClientBookingWindow(slot.startAt, clientBookingWindowWeeks)) {

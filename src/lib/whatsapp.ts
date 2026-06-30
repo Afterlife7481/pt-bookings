@@ -20,7 +20,9 @@ type WhatsAppMessageType =
   | "interest_ack"
   | "invoice"
   | "last_minute_accepted"
-  | "last_minute_declined";
+  | "last_minute_declined"
+  | "session_canceled"
+  | "session_changed";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -130,6 +132,52 @@ export async function sendWhatsAppLastMinuteDeclinedToTrainer(params: {
     clientId: params.clientId,
     phone: params.trainerEmail,
     messageType: "last_minute_declined",
+    recipient: "trainer",
+    body,
+  });
+}
+
+export async function sendWhatsAppSessionCanceledToTrainer(params: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  trainerEmail: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+}) {
+  const body = `${params.clientName} canceled their PT session on ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is open again.`;
+
+  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.trainerEmail,
+    messageType: "session_canceled",
+    recipient: "trainer",
+    body,
+  });
+}
+
+export async function sendWhatsAppSessionChangedToTrainer(params: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  trainerEmail: string;
+  fromSlotStartAt: string;
+  fromSlotEndAt?: string | null;
+  toSlotStartAt: string;
+  toSlotEndAt?: string | null;
+}) {
+  const body = `${params.clientName} changed their session from ${formatSlotLabel(params.fromSlotStartAt, params.fromSlotEndAt)} to ${formatSlotLabel(params.toSlotStartAt, params.toSlotEndAt)}.`;
+
+  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.trainerEmail,
+    messageType: "session_changed",
     recipient: "trainer",
     body,
   });

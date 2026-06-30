@@ -100,7 +100,11 @@ export function ScheduleTab({
           scheduleEndTime={settings.scheduleEndTime}
           defaultView={settings.scheduleDefaultView}
           lockHours={settings.lastMinuteOfferLockHours}
-          clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+          clients={clients.map((c) => ({
+            id: c.id,
+            name: c.name,
+            enabledLocationIds: c.enabledLocationIds ?? [],
+          }))}
           locations={trainerLocations}
           onAddSlot={onAddSlot}
           onRemoveSlot={onRemoveSlot}

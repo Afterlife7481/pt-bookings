@@ -119,15 +119,29 @@ export async function getEnabledClientLocationIds(
 export async function assertClientCanUseSlotLocation(
   clientId: string,
   slotLocationId: string | null,
+  audience: "client" | "trainer" = "client",
 ) {
   const enabled = await getEnabledClientLocationIds(clientId);
   if (enabled.length === 0) {
     throw new Error(
-      "No training locations are set up for your account. Please contact your trainer.",
+      audience === "trainer"
+        ? "This client has no locations enabled. Enable locations on their client profile first."
+        : "No training locations are set up for your account. Please contact your trainer.",
     );
   }
-  if (!slotLocationId || !enabled.includes(slotLocationId)) {
-    throw new Error("This slot is not available at your locations.");
+  if (!slotLocationId) {
+    throw new Error(
+      audience === "trainer"
+        ? "Assign a location to this slot before allocating a client."
+        : "This slot is not available at your locations.",
+    );
+  }
+  if (!enabled.includes(slotLocationId)) {
+    throw new Error(
+      audience === "trainer"
+        ? "This slot's location is not enabled for this client."
+        : "This slot is not available at your locations.",
+    );
   }
 }
 

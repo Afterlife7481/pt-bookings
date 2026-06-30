@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, slots } from "@/lib/db/schema";
+import { bookings, slots, whatsappMessages } from "@/lib/db/schema";
 import { createBookingForSlot } from "@/lib/services/bookings";
 import { confirmChange, startChangeRequest } from "@/lib/services/change";
 import { addScheduleSlot } from "@/lib/services/schedule";
+import { setClientLocations } from "@/lib/services/locations";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID } from "@/lib/constants";
 
@@ -50,6 +51,15 @@ describe("confirmChange", () => {
     });
     expect(fromSlot?.status).toBe("available");
     expect(toSlot?.status).toBe("booked");
+
+    const messages = await db.query.whatsappMessages.findMany({
+      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+    });
+    expect(
+      messages.some(
+        (m) => m.messageType === "session_changed" && m.recipient === "trainer",
+      ),
+    ).toBe(true);
   });
 
   it("rejects confirming onto an already booked slot", async () => {
@@ -60,6 +70,10 @@ describe("confirmChange", () => {
     if (!secondClient) {
       throw new Error("Expected a second seeded client");
     }
+
+    await setClientLocations(DEFAULT_TRAINER_ID, secondClient.id, [
+      fixtures.locationId,
+    ]);
 
     const { slotId: bookedTargetId } = await addScheduleSlot(
       DEFAULT_TRAINER_ID,

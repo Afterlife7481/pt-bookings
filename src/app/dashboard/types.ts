@@ -8,6 +8,7 @@ export type DashboardClient = {
   phone: string;
   lastMinuteOptIn: boolean;
   sessionPrice: number | null;
+  enabledLocationIds: string[];
   recurringPreferences: {
     dayOfWeek: number;
     startTime: string;

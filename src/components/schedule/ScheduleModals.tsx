@@ -18,7 +18,11 @@ import type { ScheduleEntry } from "@/lib/services/schedule-types";
 import { hasActiveLastMinuteOffer } from "@/lib/services/schedule-types";
 import { dateForWeekDay } from "./schedule-utils";
 
-export type ScheduleClientOption = { id: string; name: string };
+export type ScheduleClientOption = {
+  id: string;
+  name: string;
+  enabledLocationIds: string[];
+};
 export type ScheduleLocationOption = { id: string; name: string };
 export type ScheduleTemplateOption = { id: string; name: string };
 
@@ -163,6 +167,21 @@ export function OpenSlotModal({
 
   const offerActive = hasActiveLastMinuteOffer(entry.lastMinute);
 
+  function clientCanUseSlotLocation(client: ScheduleClientOption): boolean {
+    if (!locationId) return false;
+    return client.enabledLocationIds.includes(locationId);
+  }
+
+  const eligibleClients = clients.filter(clientCanUseSlotLocation);
+
+  useEffect(() => {
+    if (!clientId || !locationId) return;
+    const selected = clients.find((client) => client.id === clientId);
+    if (selected && !selected.enabledLocationIds.includes(locationId)) {
+      setClientId("");
+    }
+  }, [clientId, clients, locationId]);
+
   return (
     <SheetModal
       title="Open slot"
@@ -173,7 +192,12 @@ export function OpenSlotModal({
           {clients.length > 0 && (
             <Button
               className="w-full py-3 sm:py-2"
-              disabled={!clientId || !locationId || busy}
+              disabled={
+                !clientId ||
+                !locationId ||
+                busy ||
+                !eligibleClients.some((client) => client.id === clientId)
+              }
               onClick={() => onAllocate(entry.slotId, clientId)}
             >
               {busy ? "Saving…" : "Allocate to client"}
@@ -225,22 +249,38 @@ export function OpenSlotModal({
       </div>
 
       {clients.length > 0 ? (
-        <label className="mt-4 flex flex-col gap-1 text-sm">
-          <span className="text-slate-600">Client</span>
-          <select
-            className="rounded-lg border border-slate-300 px-3 py-3 text-base sm:py-2 sm:text-sm"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            disabled={busy}
-          >
-            <option value="">-- Select client --</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <>
+          {locationId && eligibleClients.length === 0 && (
+            <p className="mt-4 text-sm text-amber-800">
+              No clients have this location enabled. Enable it on a client&apos;s
+              profile before allocating.
+            </p>
+          )}
+          <label className="mt-4 flex flex-col gap-1 text-sm">
+            <span className="text-slate-600">Client</span>
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-3 text-base sm:py-2 sm:text-sm"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              disabled={busy || !locationId}
+            >
+              <option value="">-- Select client --</option>
+              {clients.map((c) => {
+                const eligible = clientCanUseSlotLocation(c);
+                return (
+                  <option key={c.id} value={c.id} disabled={!eligible}>
+                    {c.name}
+                    {!eligible
+                      ? c.enabledLocationIds.length === 0
+                        ? " (no locations enabled)"
+                        : " (location not enabled)"
+                      : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        </>
       ) : (
         <p className="mt-4 text-sm text-slate-500">
           Add a client under the Clients tab before allocating this slot.

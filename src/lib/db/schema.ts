@@ -312,6 +312,8 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
       "invoice",
       "last_minute_accepted",
       "last_minute_declined",
+      "session_canceled",
+      "session_changed",
     ],
   }).notNull(),
   recipient: text("recipient", { enum: ["client", "trainer"] })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, clients, slots } from "@/lib/db/schema";
+import { bookings, clients, slots, whatsappMessages } from "@/lib/db/schema";
 import {
   cancelBookingByToken,
   createBookingForSlot,
@@ -9,6 +9,7 @@ import {
   voidBookingForTrainer,
 } from "@/lib/services/bookings";
 import { updateTrainerSettings } from "@/lib/services/settings";
+import { setClientLocations } from "@/lib/services/locations";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID, toLocalDateTimeString } from "@/lib/constants";
 
@@ -45,6 +46,10 @@ describe("createBookingForSlot", () => {
       throw new Error("Expected a second seeded client");
     }
 
+    await setClientLocations(DEFAULT_TRAINER_ID, secondClient.id, [
+      fixtures.locationId,
+    ]);
+
     await createBookingForSlot({
       slotId: fixtures.slotId,
       clientId: fixtures.clientId,
@@ -71,6 +76,10 @@ describe("createBookingForSlot", () => {
       throw new Error("Expected a second seeded client");
     }
 
+    await setClientLocations(DEFAULT_TRAINER_ID, secondClient.id, [
+      fixtures.locationId,
+    ]);
+
     const attempts = await Promise.allSettled([
       createBookingForSlot({
         slotId: fixtures.slotId,
@@ -90,6 +99,30 @@ describe("createBookingForSlot", () => {
     const rejected = attempts.filter((a) => a.status === "rejected");
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
+  });
+
+  it("rejects booking when the client has no enabled locations", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+    const otherClients = await db.query.clients.findMany({
+      where: eq(clients.trainerId, DEFAULT_TRAINER_ID),
+    });
+    const clientWithoutLocations = otherClients.find(
+      (c) => c.id !== fixtures.clientId,
+    );
+    if (!clientWithoutLocations) {
+      throw new Error("Expected a second seeded client");
+    }
+
+    await expect(
+      createBookingForSlot({
+        slotId: fixtures.slotId,
+        clientId: clientWithoutLocations.id,
+        trainerId: DEFAULT_TRAINER_ID,
+        sendConfirmation: false,
+        locationValidation: "trainer",
+      }),
+    ).rejects.toThrow("no locations enabled");
   });
 });
 
@@ -111,6 +144,15 @@ describe("cancelBookingByToken", () => {
       where: eq(bookings.token, token),
     });
     expect(booking?.status).toBe("canceled");
+
+    const messages = await db.query.whatsappMessages.findMany({
+      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+    });
+    expect(
+      messages.some(
+        (m) => m.messageType === "session_canceled" && m.recipient === "trainer",
+      ),
+    ).toBe(true);
   });
 
   it("blocks cancellation inside the deadline window", async () => {

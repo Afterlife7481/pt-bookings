@@ -1,8 +1,9 @@
 import { nanoid } from "nanoid";
-import { eq, and, ne, desc } from "drizzle-orm";
+import { eq, and, ne, desc, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
+  clientLocations,
   recurringPreferences,
   bookings,
   slots,
@@ -77,6 +78,25 @@ export async function listClients(trainerId: string) {
     .from(clients)
     .where(eq(clients.trainerId, trainerId));
 
+  const clientIds = rows.map((c) => c.id);
+  const enabledRows =
+    clientIds.length > 0
+      ? await db
+          .select({
+            clientId: clientLocations.clientId,
+            locationId: clientLocations.locationId,
+          })
+          .from(clientLocations)
+          .where(inArray(clientLocations.clientId, clientIds))
+      : [];
+
+  const enabledByClient = new Map<string, string[]>();
+  for (const row of enabledRows) {
+    const list = enabledByClient.get(row.clientId) ?? [];
+    list.push(row.locationId);
+    enabledByClient.set(row.clientId, list);
+  }
+
   return Promise.all(
     rows.map(async (c) => {
       const prefs = await db
@@ -85,6 +105,7 @@ export async function listClients(trainerId: string) {
         .where(eq(recurringPreferences.clientId, c.id));
       return {
         ...c,
+        enabledLocationIds: enabledByClient.get(c.id) ?? [],
         recurringPreferences: prefs.map((p) => ({
           dayOfWeek: p.dayOfWeek,
           startTime: p.startTime,

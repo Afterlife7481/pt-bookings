@@ -22,7 +22,6 @@ import {
   parseDateOnly,
   parseTimeToMinutes,
   slotDayOfWeek,
-  slotTimeLabel,
   startOfWeekMonday,
   timeRangesOverlap,
   toLocalDateTimeString,
@@ -313,7 +312,35 @@ export async function applyTemplateToWeek(
   const appliedWeek = await getOrCreateAppliedWeek(template.trainerId, weekStart);
   result.appliedWeekId = appliedWeek.id;
 
-  const createdSlotIds: string[] = [];
+  const existingWeekSlots = await db
+    .select({ startAt: slots.startAt })
+    .from(slots)
+    .where(
+      and(
+        eq(slots.trainerId, template.trainerId),
+        gte(slots.startAt, startAtMin),
+        lt(slots.startAt, startAtMax),
+      ),
+    );
+  const existingStartAt = new Set(existingWeekSlots.map((row) => row.startAt));
+
+  const prefBySlotKey = new Map(
+    prefs.map((pref) => [`${pref.dayOfWeek}-${pref.startTime}`, pref] as const),
+  );
+
+  type SlotInsert = {
+    id: string;
+    trainerId: string;
+    appliedWeekId: string;
+    startAt: string;
+    endAt: string;
+    status: "available";
+    locationId: string | null;
+    createdAt: string;
+  };
+
+  const slotsToInsert: SlotInsert[] = [];
+  const createdSlotByKey = new Map<string, string>();
 
   for (const ts of tSlots) {
     const slotDate = addDays(
@@ -324,65 +351,51 @@ export async function applyTemplateToWeek(
     if (startAt < today) continue;
 
     const startAtStr = toLocalDateTimeString(startAt);
+    if (existingStartAt.has(startAtStr)) continue;
+
     const endAtStr = toLocalDateTimeString(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
-    const existingSlot = await db.query.slots.findFirst({
-      where: and(
-        eq(slots.trainerId, template.trainerId),
-        eq(slots.startAt, startAtStr),
-      ),
-    });
-    if (existingSlot) continue;
-
-    const matchingPref = prefs.find(
-      (p) => p.dayOfWeek === ts.dayOfWeek && p.startTime === ts.startTime,
-    );
+    const slotKey = `${ts.dayOfWeek}-${ts.startTime}`;
+    const matchingPref = prefBySlotKey.get(slotKey);
     const locationId = matchingPref?.locationId ?? ts.locationId;
-
     const slotId = nanoid();
-    try {
-      await db.insert(slots).values({
-        id: slotId,
-        trainerId: template.trainerId,
-        appliedWeekId: appliedWeek.id,
-        startAt: startAtStr,
-        endAt: endAtStr,
-        status: "available",
-        locationId,
-        createdAt: nowIso(),
-      });
-      createdSlotIds.push(slotId);
-      result.slotsCreated++;
-    } catch {
-      continue;
-    }
+
+    slotsToInsert.push({
+      id: slotId,
+      trainerId: template.trainerId,
+      appliedWeekId: appliedWeek.id,
+      startAt: startAtStr,
+      endAt: endAtStr,
+      status: "available",
+      locationId,
+      createdAt: nowIso(),
+    });
+    createdSlotByKey.set(slotKey, slotId);
+  }
+
+  if (slotsToInsert.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const row of slotsToInsert) {
+        await tx.insert(slots).values(row);
+      }
+    });
+    result.slotsCreated = slotsToInsert.length;
   }
 
   for (const pref of prefs) {
-    for (const slotId of createdSlotIds) {
-      const slot = await db.query.slots.findFirst({
-        where: and(eq(slots.id, slotId), eq(slots.status, "available")),
-      });
-      if (!slot) continue;
+    const slotId = createdSlotByKey.get(`${pref.dayOfWeek}-${pref.startTime}`);
+    if (!slotId) continue;
 
-      if (
-        slotDayOfWeek(slot.startAt) !== pref.dayOfWeek ||
-        slotTimeLabel(slot.startAt) !== pref.startTime
-      ) {
-        continue;
-      }
-
-      await createBookingForSlot({
-        slotId: slot.id,
-        clientId: pref.clientId,
-        trainerId: pref.trainerId,
-        isRecurring: true,
-        sendConfirmation: false,
-      });
-      result.recurringBooked++;
-      break;
-    }
+    await createBookingForSlot({
+      slotId,
+      clientId: pref.clientId,
+      trainerId: pref.trainerId,
+      isRecurring: true,
+      sendConfirmation: false,
+      locationValidation: "trainer",
+    });
+    result.recurringBooked++;
   }
 
   return result;

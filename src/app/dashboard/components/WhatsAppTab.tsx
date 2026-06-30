@@ -15,6 +15,10 @@ function whatsAppTypeLabel(messageType: string): string {
       return "Offer accepted";
     case "last_minute_declined":
       return "Offer declined";
+    case "session_canceled":
+      return "Session canceled";
+    case "session_changed":
+      return "Session changed";
     case "interest_ack":
       return "Interest acknowledgement";
     case "invoice":
