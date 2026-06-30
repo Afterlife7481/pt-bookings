@@ -183,6 +183,29 @@ export async function sendWhatsAppSessionChangedToTrainer(params: {
   });
 }
 
+export async function sendWhatsAppSessionChangedToClient(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  bookingToken: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+}) {
+  const link = bookingUrl(params.bookingToken);
+  const body = `Hi ${params.clientName}, your PT session has been changed to ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+
+  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "session_changed",
+    body,
+  });
+}
+
 export async function sendWhatsAppInterestAck(params: {
   trainerId: string;
   clientId: string;

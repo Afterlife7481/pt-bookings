@@ -16,6 +16,7 @@ import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
 import { getTrainerById } from "./trainers";
 import {
+  sendWhatsAppSessionChangedToClient,
   sendWhatsAppSessionChangedToTrainer,
 } from "@/lib/whatsapp";
 
@@ -233,15 +234,15 @@ export async function confirmChange(
   });
   if (!booking) throw new Error("Booking not found");
 
-  const toSlot = await db.query.slots.findFirst({
+  const targetSlot = await db.query.slots.findFirst({
     where: eq(slots.id, toSlotId),
   });
-  if (!toSlot) throw new Error("Selected slot is no longer available");
+  if (!targetSlot) throw new Error("Selected slot is no longer available");
 
-  await assertClientCanUseSlotLocation(booking.clientId, toSlot.locationId);
+  await assertClientCanUseSlotLocation(booking.clientId, targetSlot.locationId);
 
   const { clientBookingWindowWeeks } = await getTrainerSettings(booking.trainerId);
-  if (!isWithinClientBookingWindow(toSlot.startAt, clientBookingWindowWeeks)) {
+  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks)) {
     throw new Error("Selected slot is outside your booking window");
   }
 
@@ -323,6 +324,15 @@ export async function confirmChange(
       fromSlotEndAt: fromSlot.endAt,
       toSlotStartAt: toSlot.startAt,
       toSlotEndAt: toSlot.endAt,
+    });
+    await sendWhatsAppSessionChangedToClient({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      phone: client.phone,
+      clientName: client.name,
+      bookingToken: booking.token,
+      slotStartAt: toSlot.startAt,
+      slotEndAt: toSlot.endAt,
     });
   }
 

@@ -60,6 +60,11 @@ describe("confirmChange", () => {
         (m) => m.messageType === "session_changed" && m.recipient === "trainer",
       ),
     ).toBe(true);
+    expect(
+      messages.some(
+        (m) => m.messageType === "session_changed" && m.recipient === "client",
+      ),
+    ).toBe(true);
   });
 
   it("rejects confirming onto an already booked slot", async () => {
