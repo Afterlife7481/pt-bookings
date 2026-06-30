@@ -56,7 +56,7 @@ export function WhatsAppTab({
           <Card
             key={m.id}
             className={cn(
-              toTrainer && "border-purple-200 bg-purple-50",
+              toTrainer && "!border-purple-200 !bg-purple-50",
             )}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">

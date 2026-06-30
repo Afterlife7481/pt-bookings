@@ -22,21 +22,18 @@ function bookingSourceBadge(isRecurring: boolean) {
 function SessionsTableColGroup() {
   return (
     <colgroup>
-      <col style={{ width: "28%" }} />
-      <col style={{ width: "28%" }} />
-      <col style={{ width: "18%" }} />
-      <col style={{ width: "26%" }} />
+      <col style={{ width: "32%" }} />
+      <col style={{ width: "38%" }} />
+      <col style={{ width: "30%" }} />
     </colgroup>
   );
 }
 
 function SessionsTable({
   rows,
-  past = false,
   showHeader = true,
 }: {
   rows: BookingRow[];
-  past?: boolean;
   showHeader?: boolean;
 }) {
   return (
@@ -48,7 +45,6 @@ function SessionsTable({
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">When</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Payment</th>
             </tr>
           </thead>
         )}
@@ -78,27 +74,20 @@ function SessionsTable({
                 <div className="flex flex-col items-start gap-1.5">
                   {row.booking.status === "voided" ? (
                     <Badge tone="danger">Voided</Badge>
-                  ) : row.booking.status === "pending_change" ? (
-                    <Badge tone="warning">Changing</Badge>
-                  ) : past ? (
-                    <>
-                      <Badge>Past</Badge>
-                      {bookingSourceBadge(row.booking.isRecurring)}
-                    </>
                   ) : (
-                    bookingSourceBadge(row.booking.isRecurring)
+                    <>
+                      {row.booking.status === "pending_change" ? (
+                        <Badge tone="warning">Changing</Badge>
+                      ) : (
+                        bookingSourceBadge(row.booking.isRecurring)
+                      )}
+                      <PaymentStatusBadge
+                        sessionPaid={row.booking.sessionPaid}
+                        invoiceSentAt={row.booking.invoiceSentAt}
+                      />
+                    </>
                   )}
                 </div>
-              </td>
-              <td className="min-w-0 px-4 py-3">
-                {row.booking.status === "voided" ? (
-                  <span className="text-sm text-slate-400">—</span>
-                ) : (
-                  <PaymentStatusBadge
-                    sessionPaid={row.booking.sessionPaid}
-                    invoiceSentAt={row.booking.invoiceSentAt}
-                  />
-                )}
               </td>
             </tr>
           ))}
@@ -148,7 +137,7 @@ export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
             <h2 className="font-semibold">Past sessions</h2>
             <p className="text-sm text-slate-500">{past.length} past</p>
           </div>
-          <SessionsTable rows={past} past showHeader={upcoming.length === 0} />
+          <SessionsTable rows={past} showHeader={upcoming.length === 0} />
         </Card>
       )}
     </div>
