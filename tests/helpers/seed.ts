@@ -52,6 +52,7 @@ export async function seedTestDatabase() {
     id: DEFAULT_TRAINER_ID,
     name: "Alex",
     email: "alex@example.com",
+    phone: "+447700900000",
     timezone: "Europe/London",
     createdAt: ts,
   });

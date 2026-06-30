@@ -56,7 +56,7 @@ export async function sendWhatsAppConfirmation(params: {
   clientName: string;
 }) {
   const link = bookingUrl(params.bookingToken);
-  const body = `Hi ${params.clientName}, your PT session is confirmed for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+  const body = `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 

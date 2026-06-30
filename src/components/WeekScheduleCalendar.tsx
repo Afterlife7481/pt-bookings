@@ -34,7 +34,10 @@ import {
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
-import { useScheduleViewportHeight } from "@/components/schedule/useScheduleViewportHeight";
+import {
+  scheduleGridContentHeight,
+  useScheduleViewportHeight,
+} from "@/components/schedule/useScheduleViewportHeight";
 
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
@@ -64,14 +67,19 @@ function DayScheduleGrid({
 }) {
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
+  const minRowRem = 2.75;
   const rowTemplate = fitViewport
-    ? `repeat(${timeRows.length}, minmax(0, 1fr))`
-    : `repeat(${timeRows.length}, 2.75rem)`;
+    ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
+    : `repeat(${timeRows.length}, ${minRowRem}rem)`;
+  const effectiveHeight =
+    fitViewport && viewportHeight != null
+      ? scheduleGridContentHeight(viewportHeight, timeRows.length, minRowRem)
+      : undefined;
 
   return (
     <div
       className="flex min-h-0 w-full min-w-0 flex-col overflow-visible rounded-lg border border-slate-200"
-      style={fitViewport ? { height: viewportHeight } : undefined}
+      style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
     >
       <div
         className={cn("grid min-h-0 w-full min-w-0", fitViewport && "flex-1")}
@@ -95,7 +103,7 @@ function DayScheduleGrid({
                 rowIndex > 0 && "border-t border-slate-100",
               )}
             >
-              {scheduleGridTimeLabel(rowTime, fitViewport)}
+              {scheduleGridTimeLabel(rowTime, false)}
             </div>
 
             {match && !match.isStart ? null : (
@@ -124,7 +132,6 @@ function DayScheduleGrid({
                     onOpen={editable ? onOpenSlot : undefined}
                     selected={selectedOpenSlot?.slotId === match.entry.slotId}
                     mobile
-                    compact={fitViewport}
                   />
                 ) : canAdd ? (
                   <button
@@ -229,7 +236,7 @@ function WeekGrid({
   compact?: boolean;
   viewportHeight?: number;
 }) {
-  const denseCells = compact || viewportHeight != null;
+  const denseCells = compact;
 
   return (
     <WeeklyHourGrid
@@ -237,7 +244,7 @@ function WeekGrid({
       variant={compact ? "compact" : "full"}
       wide={!compact}
       viewportHeight={viewportHeight}
-      compactRowSize={compact ? "1.75rem" : undefined}
+      compactRowSize={compact ? "2rem" : undefined}
       className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
       getDayHeader={(day) => ({

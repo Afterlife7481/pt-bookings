@@ -65,8 +65,16 @@ export default async function SessionPage({
           {formatSlot(sessionStartAt, sessionEndAt)}
         </h1>
         <div className="mt-2 flex gap-2">
-          <Badge tone={booking.status === "confirmed" ? "success" : "warning"}>
-            {booking.status}
+          <Badge tone={booking.status === "booked" ? "success" : "warning"}>
+            {booking.status === "booked"
+              ? "Booked"
+              : booking.status === "pending_change"
+                ? "Changing"
+                : booking.status === "canceled"
+                  ? "Canceled"
+                  : booking.status === "voided"
+                    ? "Voided"
+                    : booking.status}
           </Badge>
           {booking.isRecurring && <Badge>Recurring</Badge>}
         </div>

@@ -43,3 +43,38 @@ export function formatPaymentOptionsText(details: PaymentDetailsForMessage): str
 export function formatInvoiceAmount(pence: number): string {
   return formatSessionPrice(pence);
 }
+
+export type PaymentStatus = "unpaid" | "requested" | "paid";
+
+export function getPaymentStatus(booking: {
+  sessionPaid: boolean;
+  invoiceSentAt: string | null;
+}): PaymentStatus {
+  if (booking.sessionPaid) return "paid";
+  if (booking.invoiceSentAt) return "requested";
+  return "unpaid";
+}
+
+export function paymentStatusLabel(status: PaymentStatus): string {
+  switch (status) {
+    case "paid":
+      return "Paid";
+    case "requested":
+      return "Requested";
+    case "unpaid":
+      return "Unpaid";
+  }
+}
+
+export function paymentStatusBadgeTone(
+  status: PaymentStatus,
+): "default" | "success" | "warning" {
+  switch (status) {
+    case "paid":
+      return "success";
+    case "requested":
+      return "warning";
+    case "unpaid":
+      return "default";
+  }
+}

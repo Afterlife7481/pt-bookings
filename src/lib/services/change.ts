@@ -56,7 +56,7 @@ async function revertChangeRequest(changeRequestId: string) {
 
   await db
     .update(bookings)
-    .set({ status: "confirmed", updatedAt: nowIso() })
+    .set({ status: "booked", updatedAt: nowIso() })
     .where(eq(bookings.id, req.bookingId));
 
   await db
@@ -92,7 +92,7 @@ export async function abortChangeByBookingToken(bookingToken: string) {
     const ts = nowIso();
     await db
       .update(bookings)
-      .set({ status: "confirmed", updatedAt: ts })
+      .set({ status: "booked", updatedAt: ts })
       .where(eq(bookings.id, booking.id));
     await db
       .update(slots)
@@ -277,7 +277,7 @@ export async function confirmChange(
       .set({
         slotId: toSlotId,
         sessionStartAt: toSlotRow.startAt,
-        status: "confirmed",
+        status: "booked",
         updatedAt: ts,
       })
       .where(eq(bookings.id, bookingRow.id));
@@ -461,7 +461,7 @@ export async function moveBookingForTrainer(
       .set({
         slotId: toSlotId,
         sessionStartAt: toSlotRow.startAt,
-        status: "confirmed",
+        status: "booked",
         updatedAt: ts,
       })
       .where(eq(bookings.id, bookingRow.id));

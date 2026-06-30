@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
+import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import { parseLocalDateTime } from "@/lib/constants";
 import type { BookingRow } from "../types";
@@ -90,20 +91,14 @@ function SessionsTable({
                 </div>
               </td>
               <td className="min-w-0 px-4 py-3">
-                <div className="flex flex-col items-start gap-1.5">
-                  {row.booking.status === "voided" ? (
-                    <span className="text-sm text-slate-400">—</span>
-                  ) : row.booking.sessionPaid ? (
-                    <Badge tone="success">Paid</Badge>
-                  ) : (
-                    <Badge>Unpaid</Badge>
-                  )}
-                  {row.booking.invoiceSentAt ? (
-                    <Badge tone="success">Invoice sent</Badge>
-                  ) : (
-                    <Badge>Invoice not sent</Badge>
-                  )}
-                </div>
+                {row.booking.status === "voided" ? (
+                  <span className="text-sm text-slate-400">—</span>
+                ) : (
+                  <PaymentStatusBadge
+                    sessionPaid={row.booking.sessionPaid}
+                    invoiceSentAt={row.booking.invoiceSentAt}
+                  />
+                )}
               </td>
             </tr>
           ))}

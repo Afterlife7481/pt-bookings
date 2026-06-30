@@ -41,7 +41,7 @@ describe("confirmChange", () => {
       where: eq(bookings.token, token),
     });
     expect(booking?.slotId).toBe(toSlotId);
-    expect(booking?.status).toBe("confirmed");
+    expect(booking?.status).toBe("booked");
 
     const fromSlot = await db.query.slots.findFirst({
       where: eq(slots.id, fixtures.slotId),

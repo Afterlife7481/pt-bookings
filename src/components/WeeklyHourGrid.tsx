@@ -7,6 +7,7 @@ import {
   scheduleGridTimeLabel,
   type WeekDayColumn,
 } from "@/lib/schedule-grid";
+import { scheduleGridContentHeight } from "@/components/schedule/useScheduleViewportHeight";
 
 export type DayHeaderContent = {
   primary: string;
@@ -88,13 +89,16 @@ export function WeeklyHourGrid({
   const durationGrid = !!timeRows;
   const fitViewport = viewportHeight != null;
 
-  const defaultDurationRowSize = compact ? "1.625rem" : "2.75rem";
+  const defaultDurationRowSize = compact ? "2rem" : "2.75rem";
   const rowSize = durationGrid
     ? (compactRowSize ?? defaultDurationRowSize)
     : compact
       ? (compactRowSize ?? "2.5rem")
       : "2.75rem";
-  const denseDuration = durationGrid && (fitViewport || parseFloat(String(rowSize)) < 2);
+  const minRowRem = compact ? 2 : 2.75;
+  const minRowCss = `${minRowRem}rem`;
+  const denseDuration =
+    durationGrid && parseFloat(String(compactRowSize ?? defaultDurationRowSize)) < 1.875;
   const compactTimeLabels = compact || denseDuration;
 
   const rowHeight = compact ? (compactRowSize ? "h-12" : "h-10") : "h-11";
@@ -113,12 +117,21 @@ export function WeeklyHourGrid({
   const timeLabelColor = splitDayHeaderRows ? "text-slate-700" : "text-slate-500";
 
   const bodyRowTemplate = fitViewport
-    ? `repeat(${rows.length}, minmax(0, 1fr))`
+    ? `repeat(${rows.length}, minmax(${minRowCss}, 1fr))`
     : `repeat(${rows.length}, ${rowSize})`;
   const gridRowTemplate =
     headerRowCount === 2
       ? `auto auto ${bodyRowTemplate}`
       : `auto ${bodyRowTemplate}`;
+  const effectiveHeight =
+    fitViewport && viewportHeight != null
+      ? scheduleGridContentHeight(
+          viewportHeight,
+          rows.length,
+          minRowRem,
+          splitDayHeaderRows ? 56 : 40,
+        )
+      : undefined;
 
   return (
     <div
@@ -127,7 +140,7 @@ export function WeeklyHourGrid({
         fitViewport && "flex min-h-0 flex-col overflow-visible",
         className,
       )}
-      style={fitViewport ? { height: viewportHeight } : undefined}
+      style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
     >
       <div
         className={cn(

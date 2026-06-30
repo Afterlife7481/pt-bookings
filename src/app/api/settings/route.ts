@@ -23,6 +23,8 @@ export async function PATCH(request: Request) {
 
   try {
     await updateTrainerSettings(trainerId, {
+      email: body.email,
+      phone: body.phone,
       scheduleStartTime: body.scheduleStartTime,
       scheduleEndTime: body.scheduleEndTime,
       scheduleDefaultView: body.scheduleDefaultView,

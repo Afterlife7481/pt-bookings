@@ -29,6 +29,20 @@
       "when": 1782771600000,
       "tag": "0003_confirmation_sent_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782772200000,
+      "tag": "0004_booking_status_booked",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782772800000,
+      "tag": "0005_trainer_phone",
+      "breakpoints": true
     }
   ]
 }

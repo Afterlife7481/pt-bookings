@@ -3,6 +3,15 @@ import { useLayoutEffect, useState, type RefObject } from "react";
 const DEFAULT_RESERVED_BOTTOM = 120;
 const DEFAULT_MIN_HEIGHT = 240;
 
+export function scheduleGridContentHeight(
+  viewportHeight: number,
+  rowCount: number,
+  minRowRem: number,
+  headerPx = 48,
+): number {
+  return Math.max(viewportHeight, headerPx + rowCount * minRowRem * 16);
+}
+
 export function useScheduleViewportHeight(
   gridRef: RefObject<HTMLElement | null>,
   options: {

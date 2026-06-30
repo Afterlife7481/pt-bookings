@@ -59,6 +59,7 @@ export type TrainerSettings = {
   timezone: string;
   name: string;
   email: string;
+  phone: string;
   bankAccountNumber: string | null;
   bankSortCode: string | null;
   bankName: string | null;

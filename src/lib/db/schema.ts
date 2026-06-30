@@ -11,6 +11,7 @@ export const trainers = pgTable("trainers", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone").notNull().default(""),
   timezone: text("timezone").notNull().default("Europe/London"),
   scheduleStartTime: text("schedule_start_time").notNull().default("07:00"),
   scheduleEndTime: text("schedule_end_time").notNull().default("21:00"),
@@ -188,7 +189,7 @@ export const bookings = pgTable(
       .references(() => clients.id),
     token: text("token").notNull().unique(),
     status: text("status", {
-      enum: ["confirmed", "pending_change", "canceled", "voided"],
+      enum: ["booked", "pending_change", "canceled", "voided"],
     }).notNull(),
     override36h: boolean("override_36h").notNull().default(false),
     isRecurring: boolean("is_recurring").notNull().default(false),

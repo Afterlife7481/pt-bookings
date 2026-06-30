@@ -21,6 +21,8 @@ export function SettingsTab({
 }) {
   const [scheduleStartTime, setScheduleStartTime] = useState("07:00");
   const [scheduleEndTime, setScheduleEndTime] = useState("21:00");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [scheduleDefaultView, setScheduleDefaultView] = useState<"day" | "week">("week");
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [cancelDeadlineHours, setCancelDeadlineHours] = useState("36");
@@ -45,6 +47,8 @@ export function SettingsTab({
 
   useEffect(() => {
     if (settings) {
+      setEmail(settings.email);
+      setPhone(settings.phone);
       setScheduleStartTime(settings.scheduleStartTime);
       setScheduleEndTime(settings.scheduleEndTime);
       setScheduleDefaultView(settings.scheduleDefaultView);
@@ -71,6 +75,8 @@ export function SettingsTab({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email,
+          phone,
           scheduleStartTime,
           scheduleEndTime,
           scheduleDefaultView,
@@ -126,6 +132,38 @@ export function SettingsTab({
         </p>
 
         <form onSubmit={save} className="mt-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Contact details</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Your email is used to sign in. Your phone can be used for trainer
+              notifications.
+            </p>
+            <div className="mt-3 flex max-w-md flex-col gap-4">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Email</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Phone</span>
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+44 7700 900000"
+                />
+              </label>
+            </div>
+          </div>
+
           <div>
             <h3 className="text-sm font-medium text-slate-900">Time zone</h3>
             <p className="mt-1 text-sm text-slate-500">

@@ -46,7 +46,7 @@ function SessionList({
                 ) : session.status === "pending_change" ? (
                   <Badge tone="warning">Changing</Badge>
                 ) : (
-                  <Badge tone="success">Confirmed</Badge>
+                  <Badge tone="success">Booked</Badge>
                 )}
                 {session.isRecurring && <Badge>Recurring</Badge>}
               </div>

@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
+import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import {
   SESSION_PAYMENT_TYPES,
   bookingUrl,
   parseLocalDateTime,
+  type SessionPaymentType,
 } from "@/lib/constants";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
+import { getPaymentStatus } from "@/lib/payments";
 import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
+import { MarkSessionPaidModal } from "./MarkSessionPaidModal";
 import {
   cn,
   formatDurationMinutes,
@@ -28,6 +32,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
+  const [showPaidModal, setShowPaidModal] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/bookings/${bookingId}`);
@@ -53,7 +58,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
     });
   }, [load]);
 
-  async function patchUpdates(body: Record<string, unknown>) {
+  async function patchUpdates(body: Record<string, unknown>): Promise<boolean> {
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/bookings/${bookingId}`, {
@@ -65,10 +70,18 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
     setBusy(false);
     if (!res.ok) {
       setError(data.error ?? "Failed to save");
-      return;
+      return false;
     }
     setDetail(data);
     setSaved(true);
+    return true;
+  }
+
+  async function confirmMarkPaid(paymentType: SessionPaymentType) {
+    const ok = await patchUpdates({ sessionPaid: true, paymentType });
+    if (ok) {
+      setShowPaidModal(false);
+    }
   }
 
   async function runAction(
@@ -165,6 +178,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
             60_000,
         )
       : 60;
+  const paymentStatus = getPaymentStatus(booking);
   const clientSessionUrl = bookingUrl(booking.token);
 
   return (
@@ -203,8 +217,12 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
           ) : (
             <Badge>Manual</Badge>
           )}
-          {booking.sessionPaid && <Badge tone="success">Paid</Badge>}
-          {booking.invoiceSentAt && <Badge tone="success">Invoice sent</Badge>}
+          {!isInactive && (
+            <PaymentStatusBadge
+              sessionPaid={booking.sessionPaid}
+              invoiceSentAt={booking.invoiceSentAt}
+            />
+          )}
         </div>
       </div>
 
@@ -263,9 +281,9 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
         <div className="mt-4 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-900">Session paid</p>
+              <p className="text-sm font-medium text-slate-900">Payment status</p>
               <p className="text-sm text-slate-500">
-                Mark whether this session has been paid.
+                Send an invoice to move from unpaid to requested.
               </p>
             </div>
             <div className="flex shrink-0 self-start rounded-lg border border-slate-200 p-0.5">
@@ -274,7 +292,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
                 disabled={busy || isInactive}
                 onClick={() => patchUpdates({ sessionPaid: false })}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  !booking.sessionPaid
+                  paymentStatus === "unpaid"
                     ? "bg-slate-900 text-white"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -283,10 +301,25 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
               </button>
               <button
                 type="button"
-                disabled={busy || isInactive}
-                onClick={() => patchUpdates({ sessionPaid: true })}
+                disabled
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  booking.sessionPaid
+                  paymentStatus === "requested"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-400"
+                }`}
+              >
+                Requested
+              </button>
+              <button
+                type="button"
+                disabled={busy || isInactive}
+                onClick={() => {
+                  if (paymentStatus !== "paid") {
+                    setShowPaidModal(true);
+                  }
+                }}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  paymentStatus === "paid"
                     ? "bg-slate-900 text-white"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
@@ -514,6 +547,14 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
           </Button>
         </div>
       </Card>
+
+      <MarkSessionPaidModal
+        open={showPaidModal}
+        busy={busy}
+        initialPaymentType={booking.paymentType}
+        onClose={() => setShowPaidModal(false)}
+        onConfirm={confirmMarkPaid}
+      />
     </div>
   );
 }

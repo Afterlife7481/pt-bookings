@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { trainers } from "@/lib/db/schema";
+import { getTrainerByEmail } from "@/lib/services/trainers";
 import {
   DEFAULT_SCHEDULE_END,
   DEFAULT_SCHEDULE_START,
@@ -19,6 +20,7 @@ export type ScheduleDefaultView = "day" | "week";
 export type TrainerSettings = {
   name: string;
   email: string;
+  phone: string;
   timezone: string;
   scheduleStartTime: string;
   scheduleEndTime: string;
@@ -60,6 +62,18 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
   return trimmed || null;
 }
 
+function normalizeTrainerEmail(value: string): string {
+  const email = value.toLowerCase().trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Enter a valid email address");
+  }
+  return email;
+}
+
+function normalizeTrainerPhone(value: string): string {
+  return value.trim();
+}
+
 export async function getTrainerSettings(
   trainerId: string,
 ): Promise<TrainerSettings> {
@@ -72,6 +86,7 @@ export async function getTrainerSettings(
   return {
     name: trainer.name,
     email: trainer.email,
+    phone: trainer.phone ?? "",
     timezone: trainer.timezone,
     scheduleStartTime: trainer.scheduleStartTime ?? DEFAULT_SCHEDULE_START,
     scheduleEndTime: trainer.scheduleEndTime ?? DEFAULT_SCHEDULE_END,
@@ -95,6 +110,8 @@ export async function updateTrainerSettings(
   updates: Partial<
     Pick<
       TrainerSettings,
+      | "email"
+      | "phone"
       | "scheduleStartTime"
       | "scheduleEndTime"
       | "scheduleDefaultView"
@@ -110,6 +127,19 @@ export async function updateTrainerSettings(
   >,
 ) {
   const db = getDb();
+
+  if (updates.email !== undefined) {
+    const email = normalizeTrainerEmail(updates.email);
+    const existing = await getTrainerByEmail(email);
+    if (existing && existing.id !== trainerId) {
+      throw new Error("An account with this email already exists.");
+    }
+    updates.email = email;
+  }
+
+  if (updates.phone !== undefined) {
+    updates.phone = normalizeTrainerPhone(updates.phone);
+  }
 
   if (updates.scheduleDefaultView !== undefined) {
     if (updates.scheduleDefaultView !== "day" && updates.scheduleDefaultView !== "week") {
@@ -183,6 +213,8 @@ export async function updateTrainerSettings(
   await db
     .update(trainers)
     .set({
+      ...(updates.email !== undefined && { email: updates.email }),
+      ...(updates.phone !== undefined && { phone: updates.phone }),
       ...(updates.scheduleStartTime !== undefined && {
         scheduleStartTime: updates.scheduleStartTime,
       }),

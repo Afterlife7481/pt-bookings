@@ -113,7 +113,7 @@ export async function createBookingForSlot(params: {
         sessionStartAt: slot.startAt,
         clientId,
         token: newToken,
-        status: "confirmed",
+        status: "booked",
         override36h: false,
         isRecurring,
         createdAt: ts,
@@ -228,7 +228,7 @@ export async function cancelBookingByToken(bookingToken: string) {
         .where(eq(changeRequests.id, activeChange.id));
       await db
         .update(bookings)
-        .set({ status: "confirmed", updatedAt: ts })
+        .set({ status: "booked", updatedAt: ts })
         .where(eq(bookings.id, booking.id));
       await db
         .update(slots)
@@ -238,7 +238,7 @@ export async function cancelBookingByToken(bookingToken: string) {
       const ts = nowIso();
       await db
         .update(bookings)
-        .set({ status: "confirmed", updatedAt: ts })
+        .set({ status: "booked", updatedAt: ts })
         .where(eq(bookings.id, booking.id));
       await db
         .update(slots)
@@ -533,14 +533,26 @@ export async function updateBookingPaymentForTrainer(
   const patch: {
     sessionPaid?: boolean;
     paymentType?: SessionPaymentType | null;
+    invoiceSentAt?: string | null;
     updatedAt: string;
   } = { updatedAt: nowIso() };
 
   if (updates.sessionPaid !== undefined) {
-    patch.sessionPaid = updates.sessionPaid;
-  }
-
-  if (updates.paymentType !== undefined) {
+    if (updates.sessionPaid) {
+      const paymentType =
+        updates.paymentType !== undefined
+          ? updates.paymentType
+          : booking.paymentType;
+      if (!paymentType) {
+        throw new Error("Select a payment type before marking as paid");
+      }
+      patch.sessionPaid = true;
+      patch.paymentType = paymentType;
+    } else {
+      patch.sessionPaid = false;
+      patch.invoiceSentAt = null;
+    }
+  } else if (updates.paymentType !== undefined) {
     patch.paymentType = updates.paymentType;
   }
 

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
-import { formatSessionPrice } from "@/lib/utils";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import type { DashboardClient } from "../types";
 
@@ -32,7 +31,6 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
             <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Session price</th>
                 <th className="px-4 py-3 font-medium">Recurring</th>
               </tr>
             </thead>
@@ -46,9 +44,6 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
                     >
                       {c.name}
                     </Link>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatSessionPrice(c.sessionPrice)}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {formatRecurring(c.recurringPreferences)}

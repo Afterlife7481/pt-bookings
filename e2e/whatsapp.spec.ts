@@ -70,6 +70,6 @@ test.describe("WhatsApp tab", () => {
     const confirmations = page.getByText("Booking confirmation");
     await expect(confirmations.first()).toBeVisible();
     await expect(confirmations).not.toHaveCount(0);
-    await expect(page.getByText(/session is confirmed for/i).first()).toBeVisible();
+    await expect(page.getByText(/session is booked for/i).first()).toBeVisible();
   });
 });
