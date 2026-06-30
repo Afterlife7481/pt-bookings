@@ -45,7 +45,7 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
           </Button>
         </div>
       </div>
-      <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6">
+      <nav className="mx-auto flex max-w-6xl flex-wrap gap-1 px-4 pb-3 sm:px-6">
         {NAV_ITEMS.map((item) => {
           const active = isNavActive(pathname, item.href);
           return (

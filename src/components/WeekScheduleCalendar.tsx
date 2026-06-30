@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Fragment } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Button } from "@/components/ui";
 import {
   ScheduleViewToggle,
@@ -34,14 +34,12 @@ import {
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
+import { useScheduleViewportHeight } from "@/components/schedule/useScheduleViewportHeight";
 
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
 
-/** Height of each 30-minute row in day view. */
-const DAY_VIEW_ROW_HEIGHT = "2.75rem";
-
-function MobileDaySchedule({
+function DayScheduleGrid({
   weekStart,
   selectedDay,
   timeRows,
@@ -51,6 +49,7 @@ function MobileDaySchedule({
   selectedOpenSlot,
   onRequestAdd,
   onOpenSlot,
+  viewportHeight,
 }: {
   weekStart: string;
   selectedDay: number;
@@ -61,18 +60,26 @@ function MobileDaySchedule({
   selectedOpenSlot: ScheduleEntry | null;
   onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
+  viewportHeight?: number;
 }) {
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
+  const fitViewport = viewportHeight != null;
+  const rowTemplate = fitViewport
+    ? `repeat(${timeRows.length}, minmax(0, 1fr))`
+    : `repeat(${timeRows.length}, 2.75rem)`;
 
   return (
     <div
-      className="overflow-hidden rounded-lg border border-slate-200"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "3.5rem 1fr",
-        gridTemplateRows: `repeat(${timeRows.length}, ${DAY_VIEW_ROW_HEIGHT})`,
-      }}
+      className="flex min-h-0 w-full min-w-0 flex-col overflow-visible rounded-lg border border-slate-200"
+      style={fitViewport ? { height: viewportHeight } : undefined}
     >
+      <div
+        className={cn("grid min-h-0 w-full min-w-0", fitViewport && "flex-1")}
+        style={{
+          gridTemplateColumns: "3.25rem 1fr",
+          gridTemplateRows: rowTemplate,
+        }}
+      >
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
         const match = findEntryForScheduleRow(entries, dateKey, rowTime);
@@ -84,11 +91,11 @@ function MobileDaySchedule({
             <div
               style={{ gridColumn: 1, gridRow }}
               className={cn(
-                "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-1 text-xs tabular-nums text-slate-500",
+                "flex min-h-0 items-start justify-center border-r border-slate-200 bg-slate-50 pt-0.5 text-[10px] tabular-nums text-slate-500",
                 rowIndex > 0 && "border-t border-slate-100",
               )}
             >
-              {scheduleGridTimeLabel(rowTime, false)}
+              {scheduleGridTimeLabel(rowTime, fitViewport)}
             </div>
 
             {match && !match.isStart ? null : (
@@ -117,6 +124,7 @@ function MobileDaySchedule({
                     onOpen={editable ? onOpenSlot : undefined}
                     selected={selectedOpenSlot?.slotId === match.entry.slotId}
                     mobile
+                    compact={fitViewport}
                   />
                 ) : canAdd ? (
                   <button
@@ -138,6 +146,7 @@ function MobileDaySchedule({
           </Fragment>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -153,7 +162,7 @@ function DayPicker({
   entries: ScheduleEntry[];
 }) {
   return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+    <div className="grid grid-cols-7 gap-1">
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
         const dateKey = formatDate(dateForWeekDay(weekStart, day.value));
@@ -165,13 +174,13 @@ function DayPicker({
             type="button"
             onClick={() => onSelectDay(day.value)}
             className={cn(
-              "flex min-w-[4.25rem] shrink-0 flex-col items-center rounded-xl border px-3 py-2 transition",
+              "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 transition sm:px-2",
               isSelected
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
             )}
           >
-            <span className="text-xs font-semibold">{day.label}</span>
+            <span className="text-[10px] font-semibold sm:text-xs">{day.label}</span>
             <span
               className={cn(
                 "text-[10px]",
@@ -207,6 +216,7 @@ function WeekGrid({
   onRequestAdd,
   onOpenSlot,
   compact = false,
+  viewportHeight,
 }: {
   weekStart: string;
   timeRows: string[];
@@ -217,12 +227,16 @@ function WeekGrid({
   onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   compact?: boolean;
+  viewportHeight?: number;
 }) {
+  const denseCells = compact || viewportHeight != null;
+
   return (
     <WeeklyHourGrid
       timeRows={timeRows}
       variant={compact ? "compact" : "full"}
       wide={!compact}
+      viewportHeight={viewportHeight}
       compactRowSize={compact ? "1.75rem" : undefined}
       className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
@@ -251,7 +265,7 @@ function WeekGrid({
                 }
                 onOpen={editable ? onOpenSlot : undefined}
                 selected={selectedOpenSlot?.slotId === entry.slotId}
-                compact={compact}
+                compact={denseCells}
               />
             ),
           };
@@ -339,6 +353,14 @@ export function WeekScheduleCalendar({
   const [viewMode, setViewMode] = useState<ScheduleView>(() => defaultView);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  const gridViewportHeight = useScheduleViewportHeight(gridRef, {
+    enabled: true,
+    legendRef,
+    remeasureKey: `${viewMode}-${weekStart}-${entries.length}-${selectedDay}`,
+  });
 
   useEffect(() => {
     setSelectedDay(defaultSelectedDay(weekStart));
@@ -475,20 +497,24 @@ export function WeekScheduleCalendar({
 
           <p className="mb-3 text-sm font-medium text-slate-900">{selectedDayLabel}</p>
 
-          <MobileDaySchedule
-            weekStart={weekStart}
-            selectedDay={selectedDay}
-            timeRows={timeRows}
-            entries={entries}
-            editable={editable}
-            busyKey={busyKey}
-            selectedOpenSlot={selectedOpenSlot}
-            onRequestAdd={onAddSlot ? requestAdd : undefined}
-            onOpenSlot={openSlotActions}
-          />
+          <div ref={gridRef}>
+            <DayScheduleGrid
+              weekStart={weekStart}
+              selectedDay={selectedDay}
+              timeRows={timeRows}
+              entries={entries}
+              editable={editable}
+              busyKey={busyKey}
+              selectedOpenSlot={selectedOpenSlot}
+              onRequestAdd={onAddSlot ? requestAdd : undefined}
+              onOpenSlot={openSlotActions}
+              viewportHeight={gridViewportHeight}
+            />
+          </div>
         </div>
       ) : (
-        <WeekGrid
+        <div ref={gridRef}>
+          <WeekGrid
             weekStart={weekStart}
             timeRows={timeRows}
             entries={entries}
@@ -497,11 +523,14 @@ export function WeekScheduleCalendar({
             selectedOpenSlot={selectedOpenSlot}
             onRequestAdd={onAddSlot ? requestAdd : undefined}
             onOpenSlot={openSlotActions}
-          compact={useCompactWeekGrid}
-        />
+            compact={useCompactWeekGrid}
+            viewportHeight={gridViewportHeight}
+          />
+        </div>
       )}
 
       <div
+        ref={legendRef}
         className={cn(
           "border-t border-slate-100 px-4 pt-5 pb-5 sm:px-5",
           viewMode === "week" ? "mt-6" : "mt-4",

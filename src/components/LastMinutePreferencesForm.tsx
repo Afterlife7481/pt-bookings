@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { LastMinutePreferenceCell } from "@/components/LastMinutePreferenceCell";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
+import { useScheduleViewportHeight } from "@/components/schedule/useScheduleViewportHeight";
 import { formatTimeRange } from "@/lib/constants";
 import {
   dayOfWeekLabel,
@@ -84,6 +85,8 @@ export function LastMinutePreferencesForm({
   const savedSignatureRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const gridFooterRef = useRef<HTMLDivElement>(null);
 
   selectedKeysRef.current = selectedKeys;
 
@@ -272,6 +275,11 @@ export function LastMinutePreferencesForm({
               : null;
 
   const hasAvailableSlots = templateSlots.length > 0;
+  const gridViewportHeight = useScheduleViewportHeight(gridRef, {
+    enabled: optIn && hasAvailableSlots,
+    legendRef: gridFooterRef,
+    remeasureKey: `${optIn}-${templateSlots.length}-${scheduleStartTime}-${scheduleEndTime}`,
+  });
   const locationSummary =
     enabledLocations.length > 0
       ? enabledLocations.map((loc) => loc.name).join(", ")
@@ -357,12 +365,13 @@ export function LastMinutePreferencesForm({
 
       {optIn && hasAvailableSlots && (
         <>
-          <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+          <div ref={gridRef} className="min-w-0">
             <WeeklyHourGrid
               timeRows={timeRows}
               variant="compact"
               compactRowSize="1.375rem"
               compactTimeCol="1.5rem"
+              viewportHeight={gridViewportHeight}
               className={WEEK_GRID_EDGE_CLASS}
               getDayHeader={dayHeaderInitial}
             renderCell={(dayOfWeek, rowTime) => {
@@ -402,7 +411,7 @@ export function LastMinutePreferencesForm({
           />
           </div>
 
-          <div className="space-y-4 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+          <div ref={gridFooterRef} className="space-y-4 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
             <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded border border-green-200 bg-green-50" />

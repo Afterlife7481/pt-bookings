@@ -28,8 +28,7 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
       {clients.length === 0 ? (
         <p className="p-4 text-sm text-slate-500">No clients yet.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <table className="w-full min-w-0 table-fixed text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -58,7 +57,6 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
               ))}
             </tbody>
           </table>
-        </div>
       )}
     </Card>
   );

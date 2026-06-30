@@ -65,6 +65,8 @@ type WeeklyHourGridProps = {
   compactTimeCol?: string;
   /** Render primary and secondary as separate header rows (date above day label). */
   splitDayHeaderRows?: boolean;
+  /** Fixed height — rows expand to fill without internal scroll. */
+  viewportHeight?: number;
 };
 
 export function WeeklyHourGrid({
@@ -80,10 +82,12 @@ export function WeeklyHourGrid({
   dayColMin,
   compactTimeCol,
   splitDayHeaderRows = false,
+  viewportHeight,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
   const rows = timeRows ?? (hours ?? []).map((hour) => hourToStartTime(hour));
   const durationGrid = !!timeRows;
+  const fitViewport = viewportHeight != null;
 
   const defaultDurationRowSize = compact ? "1.625rem" : "2.75rem";
   const rowSize = durationGrid
@@ -91,8 +95,7 @@ export function WeeklyHourGrid({
     : compact
       ? (compactRowSize ?? "2.5rem")
       : "2.75rem";
-  const denseDuration =
-    durationGrid && parseFloat(rowSize) < 2;
+  const denseDuration = durationGrid && (fitViewport || parseFloat(String(rowSize)) < 2);
   const compactTimeLabels = compact || denseDuration;
 
   const rowHeight = compact ? (compactRowSize ? "h-12" : "h-10") : "h-11";
@@ -110,21 +113,31 @@ export function WeeklyHourGrid({
   const bodyRowOffset = headerRowCount + 1;
   const timeLabelColor = splitDayHeaderRows ? "text-slate-700" : "text-slate-500";
 
+  const bodyRowTemplate = fitViewport
+    ? `repeat(${rows.length}, minmax(0, 1fr))`
+    : `repeat(${rows.length}, ${rowSize})`;
+  const gridRowTemplate =
+    headerRowCount === 2
+      ? `auto auto ${bodyRowTemplate}`
+      : `auto ${bodyRowTemplate}`;
+
   return (
     <div
       className={cn(
         "w-full rounded-lg border border-slate-200",
+        fitViewport && "flex min-h-0 flex-col overflow-visible",
         className,
       )}
+      style={fitViewport ? { height: viewportHeight } : undefined}
     >
       <div
-        className={cn("grid w-full", !compact && wide && "min-w-[720px]")}
+        className={cn(
+          "grid w-full min-w-0",
+          fitViewport && "min-h-0 flex-1",
+        )}
         style={{
           gridTemplateColumns: `${timeCol} repeat(${columns.length}, ${dayCol})`,
-          gridTemplateRows:
-            headerRowCount === 2
-              ? `auto auto repeat(${rows.length}, ${rowSize})`
-              : `auto repeat(${rows.length}, ${rowSize})`,
+          gridTemplateRows: gridRowTemplate,
         }}
       >
         <div
@@ -132,10 +145,7 @@ export function WeeklyHourGrid({
             gridColumn: 1,
             gridRow: headerRowCount === 2 ? "1 / span 2" : 1,
           }}
-          className={cn(
-            "border-b border-r border-slate-200 bg-slate-50",
-            !compact && "sticky left-0 top-0 z-20",
-          )}
+          className="border-b border-r border-slate-200 bg-slate-50"
         />
         {columns.map((day, dayIndex) => {
           const header = getDayHeader(day);
@@ -147,7 +157,6 @@ export function WeeklyHourGrid({
                 style={{ gridColumn: dayIndex + 2, gridRow: "1 / span 2" }}
                 className={cn(
                   "flex flex-col items-center justify-center gap-0.5 border-b border-slate-200 bg-slate-50 px-0.5 py-1 text-center",
-                  !compact && "sticky top-0 z-10",
                 )}
               >
                 <div
@@ -177,7 +186,6 @@ export function WeeklyHourGrid({
               className={cn(
                 "border-b border-slate-200 bg-slate-50 px-0.5 text-center",
                 denseDuration ? "py-1" : "py-2",
-                !compact && "sticky top-0 z-10",
               )}
             >
               <div
@@ -211,7 +219,7 @@ export function WeeklyHourGrid({
                     : cn("font-semibold", timeLabelColor),
                   compactTimeLabels
                     ? "text-[9px]"
-                    : "sticky left-0 z-10 text-[10px]",
+                    : "text-[10px]",
                   rowIndex > 0 && "border-t border-slate-100",
                 )}
               >

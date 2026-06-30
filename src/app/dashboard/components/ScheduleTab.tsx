@@ -50,7 +50,7 @@ export function ScheduleTab({
   onRefresh: () => void;
 }) {
   return (
-    <Card className="overflow-hidden !p-0">
+    <Card className="!p-0">
       <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
         <h2 className="font-semibold">Weekly schedule</h2>
         {scheduleError && (
