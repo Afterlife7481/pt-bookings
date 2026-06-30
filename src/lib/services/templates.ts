@@ -27,7 +27,7 @@ import {
   toLocalDateTimeString,
   parseLocalDateTime,
 } from "@/lib/constants";
-import { dayOfWeekLabel } from "@/lib/schedule-grid";
+import { dayOfWeekLabel, recurringSlotKey } from "@/lib/schedule-grid";
 import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
 import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
@@ -325,7 +325,7 @@ export async function applyTemplateToWeek(
   const existingStartAt = new Set(existingWeekSlots.map((row) => row.startAt));
 
   const prefBySlotKey = new Map(
-    prefs.map((pref) => [`${pref.dayOfWeek}-${pref.startTime}`, pref] as const),
+    prefs.map((pref) => [recurringSlotKey(pref.dayOfWeek, pref.startTime), pref]),
   );
 
   type SlotInsert = {
@@ -356,7 +356,7 @@ export async function applyTemplateToWeek(
     const endAtStr = toLocalDateTimeString(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
-    const slotKey = `${ts.dayOfWeek}-${ts.startTime}`;
+    const slotKey = recurringSlotKey(ts.dayOfWeek, ts.startTime);
     const matchingPref = prefBySlotKey.get(slotKey);
     const locationId = matchingPref?.locationId ?? ts.locationId;
     const slotId = nanoid();

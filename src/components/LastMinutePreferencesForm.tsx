@@ -145,6 +145,13 @@ export function LastMinutePreferencesForm({
     [scheduleStartTime, scheduleEndTime],
   );
 
+  const hasAvailableSlots = templateSlots.length > 0;
+  const gridViewportHeight = useScheduleViewportHeight(gridRef, {
+    enabled: !loading && optIn && hasAvailableSlots,
+    legendRef: gridFooterRef,
+    remeasureKey: `${optIn}-${templateSlots.length}-${scheduleStartTime}-${scheduleEndTime}`,
+  });
+
   const persistPreferences = useCallback(
     async (keys: Set<string>) => {
       if (saveTimerRef.current) {
@@ -274,12 +281,6 @@ export function LastMinutePreferencesForm({
               ? "Changes save automatically"
               : null;
 
-  const hasAvailableSlots = templateSlots.length > 0;
-  const gridViewportHeight = useScheduleViewportHeight(gridRef, {
-    enabled: optIn && hasAvailableSlots,
-    legendRef: gridFooterRef,
-    remeasureKey: `${optIn}-${templateSlots.length}-${scheduleStartTime}-${scheduleEndTime}`,
-  });
   const locationSummary =
     enabledLocations.length > 0
       ? enabledLocations.map((loc) => loc.name).join(", ")

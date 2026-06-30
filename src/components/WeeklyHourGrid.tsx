@@ -77,7 +77,6 @@ export function WeeklyHourGrid({
   getDayHeader,
   renderCell,
   className,
-  wide = false,
   compactRowSize,
   dayColMin,
   compactTimeCol,
