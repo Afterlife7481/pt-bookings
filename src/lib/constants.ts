@@ -218,21 +218,39 @@ export function normalizeAppBaseUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
+function isLocalhostBaseUrl(raw: string): boolean {
+  return /(^|\/\/)(localhost|127\.0\.0\.1)([:/]|$)/i.test(raw.trim());
+}
+
+/** True when NEXT_PUBLIC was baked to localhost but the app runs in production. */
+function isStaleLocalhostPublicUrl(raw: string): boolean {
+  return process.env.NODE_ENV === "production" && isLocalhostBaseUrl(raw);
+}
+
 export function resolveAppBaseUrlRaw(): string {
   if (process.env.APP_BASE_URL?.trim()) {
     return process.env.APP_BASE_URL;
   }
-  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) {
-    return process.env.NEXT_PUBLIC_APP_URL;
+
+  const nextPublic = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (nextPublic && !isStaleLocalhostPublicUrl(nextPublic)) {
+    return nextPublic;
   }
+
   const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
   if (railwayDomain) {
     return `https://${railwayDomain}`;
   }
+
   const vercelUrl = process.env.VERCEL_URL?.trim();
   if (vercelUrl) {
     return `https://${vercelUrl}`;
   }
+
+  if (nextPublic) {
+    return nextPublic;
+  }
+
   return "http://localhost:3000";
 }
 

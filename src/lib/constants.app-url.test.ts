@@ -59,4 +59,14 @@ describe("appUrl", () => {
       "https://pt-bookings-production.up.railway.app",
     );
   });
+
+  it("ignores stale localhost NEXT_PUBLIC in production on Railway", () => {
+    delete process.env.APP_BASE_URL;
+    process.env.NODE_ENV = "production";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    process.env.RAILWAY_PUBLIC_DOMAIN = "pt-bookings-production.up.railway.app";
+    expect(resolveAppBaseUrlRaw()).toBe(
+      "https://pt-bookings-production.up.railway.app",
+    );
+  });
 });
