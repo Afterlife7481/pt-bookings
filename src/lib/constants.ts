@@ -218,9 +218,26 @@ export function normalizeAppBaseUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
+export function resolveAppBaseUrlRaw(): string {
+  if (process.env.APP_BASE_URL?.trim()) {
+    return process.env.APP_BASE_URL;
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railwayDomain) {
+    return `https://${railwayDomain}`;
+  }
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) {
+    return `https://${vercelUrl}`;
+  }
+  return "http://localhost:3000";
+}
+
 export function appBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return normalizeAppBaseUrl(raw);
+  return normalizeAppBaseUrl(resolveAppBaseUrlRaw());
 }
 
 /** Absolute app URL for redirects (use instead of request.url behind Railway/proxies). */

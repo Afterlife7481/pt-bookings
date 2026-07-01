@@ -27,7 +27,7 @@ import {
   findEntryForScheduleRow,
 } from "@/components/schedule/schedule-utils";
 import { cn } from "@/lib/utils";
-import { addDays, formatDate, parseDateOnly } from "@/lib/constants";
+import { formatDate } from "@/lib/constants";
 import {
   WEEK_DAYS,
   scheduleGridTimeLabel,
@@ -457,7 +457,6 @@ export function WeekScheduleCalendar({
   }
 
   const bookedCount = entries.filter((e) => e.booking).length;
-  const openCount = entries.filter((e) => !e.booking && e.status === "available").length;
   const showApplyTemplate = bookedCount === 0 && !!onApplyTemplate;
 
   const selectedDayLabel = dayHeader(weekStart, selectedDay);
@@ -466,17 +465,6 @@ export function WeekScheduleCalendar({
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 px-4 sm:mb-3 sm:px-5">
-        <div className="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-          <span className="font-medium text-slate-900">
-            {formatDate(parseDateOnly(weekStart))} —{" "}
-            {formatDate(addDays(parseDateOnly(weekStart), 6))}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs sm:text-sm">{bookedCount} booked</span>
-            <span className="text-xs sm:text-sm">{openCount} open</span>
-          </div>
-        </div>
-
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
           {showApplyTemplate && (

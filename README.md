@@ -26,7 +26,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Purpose |
 |----------|---------|
-| `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (defaults to `http://localhost:3000`) |
+| `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (read at runtime on the server; recommended on Railway) |
+| `NEXT_PUBLIC_APP_URL` | Same URL for client-side code (must be set at build time if used in the browser) |
 | `NODE_ENV` | `development` exposes magic-link URLs in API responses |
 | `PT_BOOKINGS_DB_PATH` | Override SQLite file path (used by tests and e2e) |
 
