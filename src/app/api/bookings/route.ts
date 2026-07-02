@@ -2,8 +2,9 @@ import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listBookings } from "@/lib/services/templates";
 import {
-  cancelBooking,
+  cancelBookingForTrainer,
   createBookingForSlot,
+  getBookingDetailForTrainer,
   sendConfirmationForBooking,
 } from "@/lib/services/bookings";
 
@@ -23,13 +24,13 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  if (body.action === "cancel") {
-    await cancelBooking(body.bookingId);
-    return Response.json({ ok: true });
-  }
+  try {
+    if (body.action === "cancel") {
+      await cancelBookingForTrainer(trainerId, body.bookingId);
+      return Response.json({ ok: true });
+    }
 
-  if (body.action === "allocate") {
-    try {
+    if (body.action === "allocate") {
       const result = await createBookingForSlot({
         slotId: body.slotId,
         clientId: body.clientId,
@@ -39,19 +40,24 @@ export async function POST(request: Request) {
         locationValidation: "trainer",
       });
       return Response.json(result);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to allocate slot";
-      return Response.json({ error: message }, { status: 400 });
     }
-  }
 
-  if (body.action === "send_confirmation") {
-    const detail = await sendConfirmationForBooking(body.bookingId);
-    if (!detail) {
-      return Response.json({ error: "Session not found" }, { status: 404 });
+    if (body.action === "send_confirmation") {
+      // Confirm the booking belongs to this trainer before acting on it.
+      const owned = await getBookingDetailForTrainer(trainerId, body.bookingId);
+      if (!owned) {
+        return Response.json({ error: "Session not found" }, { status: 404 });
+      }
+      const detail = await sendConfirmationForBooking(body.bookingId);
+      if (!detail) {
+        return Response.json({ error: "Session not found" }, { status: 404 });
+      }
+      return Response.json(detail);
     }
-    return Response.json(detail);
-  }
 
-  return Response.json({ error: "Unknown action" }, { status: 400 });
+    return Response.json({ error: "Unknown action" }, { status: 400 });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Action failed";
+    return Response.json({ error: message }, { status: 400 });
+  }
 }
