@@ -1,5 +1,4 @@
 import { ensureDb } from "@/lib/db/init";
-import { shouldExposeMagicLinks } from "@/lib/auth/dev-mode";
 import { requestMagicLink } from "@/lib/services/auth";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -36,10 +35,10 @@ export async function POST(request: Request) {
     });
     return Response.json({
       ok: true,
-      message: shouldExposeMagicLinks()
+      message: result.exposeLink
         ? "Use the link below to sign in."
         : "Check your email for a sign-in link.",
-      devLink: shouldExposeMagicLinks() ? result.url : undefined,
+      devLink: result.exposeLink ? result.url : undefined,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to send magic link";
