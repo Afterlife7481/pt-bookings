@@ -42,6 +42,17 @@ export function WhatsAppTab({
 }) {
   return (
     <div className="space-y-3">
+      <Card className="!border-amber-200 !bg-amber-50">
+        <h2 className="text-sm font-semibold text-amber-900">
+          WhatsApp is not integrated yet
+        </h2>
+        <p className="mt-1 text-sm text-amber-800">
+          This is a log of all the messages the app intends to send. For now,
+          you can copy any message below and paste it into WhatsApp yourself if
+          you want to send it.
+        </p>
+      </Card>
+
       {messages.length === 0 && (
         <Card>
           <p className="text-slate-500">
