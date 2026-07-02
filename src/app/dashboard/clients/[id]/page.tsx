@@ -12,6 +12,7 @@ import {
   type TemplateSlotOverlay,
 } from "@/components/RecurringWeekCalendar";
 import { RecurringSlotDetailModal } from "@/components/RecurringSlotDetailModal";
+import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { clientHomeUrl, parseLocalDateTime } from "@/lib/constants";
@@ -474,6 +475,8 @@ export default function ClientDetailPage() {
           </p>
         </div>
       </Card>
+
+      <ClientNotesSection clientId={client.id} />
 
       <Card>
         <h2 className="font-semibold">Locations</h2>

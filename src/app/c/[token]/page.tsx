@@ -2,7 +2,9 @@ import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
 import { listClientSessions } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
+import { getSharedNotesForClient } from "@/lib/services/notes";
 import { Badge, Button, Card } from "@/components/ui";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { formatSlot } from "@/lib/utils";
 import { LastMinutePreferencesForm } from "@/components/LastMinutePreferencesForm";
 import { notFound } from "next/navigation";
@@ -69,7 +71,10 @@ export default async function ClientHomePage({
   const client = await getClientByToken(token);
   if (!client) notFound();
 
-  const { upcoming, history } = await listClientSessions(client.id);
+  const [{ upcoming, history }, sharedNotes] = await Promise.all([
+    listClientSessions(client.id),
+    getSharedNotesForClient(client.id),
+  ]);
 
   return (
     <main className="mx-auto min-w-0 max-w-6xl space-y-4 p-4 sm:p-6">
@@ -77,6 +82,25 @@ export default async function ClientHomePage({
         <p className="text-sm text-slate-500">Your sessions</p>
         <h1 className="text-2xl font-bold">Hi {client.name}</h1>
       </div>
+
+      {sharedNotes.length > 0 && (
+        <Card>
+          <h2 className="font-semibold">Notes from your trainer</h2>
+          <ul className="mt-3 space-y-3">
+            {sharedNotes.map((note) => (
+              <li
+                key={note.id}
+                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+              >
+                <LinkifiedText
+                  text={note.body}
+                  className="whitespace-pre-wrap text-sm text-slate-800"
+                />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <h2 className="font-semibold">Upcoming sessions</h2>
