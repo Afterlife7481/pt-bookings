@@ -209,9 +209,9 @@ export function ClientNotesSection({ clientId }: { clientId: string }) {
         <p className="mt-4 text-sm text-slate-500">Loading notes…</p>
       ) : (
         <div className="mt-4 space-y-6">
-          <section>
+          <section className="rounded-lg border border-green-200 bg-green-50/50 p-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-700">
+              <h3 className="text-sm font-semibold text-green-900">
                 Shared with client
               </h3>
               <Badge tone="success">Client can read</Badge>
@@ -221,7 +221,7 @@ export function ClientNotesSection({ clientId }: { clientId: string }) {
                 No shared notes yet.
               </p>
             ) : (
-              <ul className="mt-1 divide-y divide-slate-100">
+              <ul className="mt-1 divide-y divide-green-100">
                 {shared.map(renderNote)}
               </ul>
             )}

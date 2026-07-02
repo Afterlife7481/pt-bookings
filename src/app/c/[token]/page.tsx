@@ -5,7 +5,7 @@ import { getClientByToken } from "@/lib/services/clients";
 import { getSharedNotesForClient } from "@/lib/services/notes";
 import { Badge, Button, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
-import { formatSlot } from "@/lib/utils";
+import { formatSlot, formatCreatedDate } from "@/lib/utils";
 import { LastMinutePreferencesForm } from "@/components/LastMinutePreferencesForm";
 import { notFound } from "next/navigation";
 
@@ -96,6 +96,9 @@ export default async function ClientHomePage({
                   text={note.body}
                   className="whitespace-pre-wrap text-sm text-slate-800"
                 />
+                <p className="mt-1 text-xs text-slate-400">
+                  Updated {formatCreatedDate(note.updatedAt)}
+                </p>
               </li>
             ))}
           </ul>
