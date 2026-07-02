@@ -8,22 +8,34 @@ describe("shouldExposeMagicLinks", () => {
     process.env = { ...env };
   });
 
-  it("is true in development", () => {
+  it("is true on the local tier", () => {
+    process.env.APP_ENV = "local";
+    delete process.env.EXPOSE_DEV_MAGIC_LINKS;
+    expect(shouldExposeMagicLinks()).toBe(true);
+  });
+
+  it("infers local from NODE_ENV=development when APP_ENV is unset", () => {
+    delete process.env.APP_ENV;
     process.env.NODE_ENV = "development";
     delete process.env.EXPOSE_DEV_MAGIC_LINKS;
-    delete process.env.RAILWAY_SERVICE_ID;
     expect(shouldExposeMagicLinks()).toBe(true);
   });
 
-  it("is true on Railway by default", () => {
-    process.env.NODE_ENV = "production";
-    process.env.RAILWAY_SERVICE_ID = "svc-123";
-    expect(shouldExposeMagicLinks()).toBe(true);
+  it("is never true on staging", () => {
+    process.env.APP_ENV = "staging";
+    process.env.EXPOSE_DEV_MAGIC_LINKS = "1";
+    expect(shouldExposeMagicLinks()).toBe(false);
   });
 
-  it("can be disabled with EXPOSE_DEV_MAGIC_LINKS=0", () => {
-    process.env.NODE_ENV = "production";
+  it("is never true in production, even with the override or on Railway", () => {
+    process.env.APP_ENV = "production";
     process.env.RAILWAY_SERVICE_ID = "svc-123";
+    process.env.EXPOSE_DEV_MAGIC_LINKS = "1";
+    expect(shouldExposeMagicLinks()).toBe(false);
+  });
+
+  it("can be disabled on the local tier with EXPOSE_DEV_MAGIC_LINKS=0", () => {
+    process.env.APP_ENV = "local";
     process.env.EXPOSE_DEV_MAGIC_LINKS = "0";
     expect(shouldExposeMagicLinks()).toBe(false);
   });

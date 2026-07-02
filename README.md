@@ -17,7 +17,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-- **Trainer login:** magic link at `/login` (dev links print to the server console)
+- **Trainer login:** magic link at `/login` (emailed via Resend; in local dev without `RESEND_API_KEY`, links print to the server console)
 - **Trainer dashboard:** `/dashboard` → redirects to `/dashboard/schedule`
 - **Client portal:** `/c/{clientToken}` (book sessions)
 - **Session page:** `/s/{bookingToken}` (change or cancel)
@@ -28,7 +28,9 @@ Open [http://localhost:3000](http://localhost:3000).
 |----------|---------|
 | `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (read at runtime on the server; recommended on Railway) |
 | `NEXT_PUBLIC_APP_URL` | Same URL for client-side code (must be set at build time if used in the browser) |
-| `NODE_ENV` | `development` exposes magic-link URLs in API responses |
+| `RESEND_API_KEY` | Resend API key for sending magic-link emails. **Required in production.** Without it, links are printed to the server console (local dev only) |
+| `EMAIL_FROM` | Verified sender address for sign-in emails (e.g. `PT Bookings <noreply@yourdomain.com>`) |
+| `NODE_ENV` | Non-`production` exposes magic-link URLs in API responses; production never does |
 | `PT_BOOKINGS_DB_PATH` | Override SQLite file path (used by tests and e2e) |
 
 ## Dashboard routes
@@ -89,6 +91,7 @@ Messages are logged to the database and printed to the server console. Wire Twil
 ### Trainer authentication
 
 - Magic-link login creates a server-side session row (`trainer_sessions`) stored in an HTTP-only cookie (`pt_session`).
+- Sign-in links are delivered by email (Resend). They are **never** returned in API responses in production; outside production they can be surfaced for local dev (see `EXPOSE_DEV_MAGIC_LINKS`).
 - Middleware validates the session against `/api/auth/me` before serving dashboard pages or trainer API routes. Expired or invalid cookies are cleared.
 - Magic-link requests are rate-limited (5 per IP / 15 min, 3 per email / 15 min).
 
