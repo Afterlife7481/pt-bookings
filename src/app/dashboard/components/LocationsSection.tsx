@@ -5,7 +5,13 @@ import { Button, Card } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { LocationRow } from "../types";
 
-export function LocationsSection({ onChanged }: { onChanged?: () => void }) {
+export function LocationsSection({
+  onChanged,
+  embedded = false,
+}: {
+  onChanged?: () => void;
+  embedded?: boolean;
+}) {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -100,20 +106,14 @@ export function LocationsSection({ onChanged }: { onChanged?: () => void }) {
     }
   }
 
-  return (
-    <Card>
-      <h2 className="font-semibold">Locations</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Places where you train. Assign which locations each client can use from
-        their profile page.
-      </p>
-
+  const body = (
+    <>
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500">Loading locations…</p>
+        <p className="text-sm text-slate-500">Loading locations…</p>
       ) : locations.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No locations yet.</p>
+        <p className="text-sm text-slate-500">No locations yet.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
           {locations.map((location) => (
             <li
               key={location.id}
@@ -198,7 +198,7 @@ export function LocationsSection({ onChanged }: { onChanged?: () => void }) {
         </ul>
       )}
 
-      <form onSubmit={addLocation} className="mt-4 space-y-3">
+      <form onSubmit={addLocation} className="mt-6 space-y-3 border-t border-slate-100 pt-6">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm">
             <span className="text-slate-600">New location</span>
@@ -226,6 +226,21 @@ export function LocationsSection({ onChanged }: { onChanged?: () => void }) {
       </form>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+    </>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <Card>
+      <h2 className="font-semibold">Locations</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Places where you train. Assign which locations each client can use from
+        their profile page.
+      </p>
+      <div className="mt-4">{body}</div>
     </Card>
   );
 }

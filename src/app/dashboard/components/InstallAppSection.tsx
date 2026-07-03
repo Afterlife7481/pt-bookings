@@ -9,7 +9,7 @@ import {
   isStandaloneDisplayMode,
 } from "@/lib/pwa";
 
-export function InstallAppSection() {
+export function InstallAppSection({ embedded = false }: { embedded?: boolean }) {
   const [installed, setInstalled] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -63,21 +63,15 @@ export function InstallAppSection() {
 
   const canInstall = canUseInstallPrompt(installPrompt);
 
-  return (
-    <Card>
-      <h3 className="text-sm font-medium text-slate-900">Install on your phone</h3>
-      <p className="mt-1 text-sm text-slate-500">
-        Add PT Bookings to your home screen for quick access to your schedule —
-        like a native app, without the App Store.
-      </p>
-
+  const body = (
+    <>
       {installed ? (
-        <InlineNotice tone="success" className="mt-4">
+        <InlineNotice tone="success">
           You&apos;re using the installed app. Your schedule opens from your home
           screen.
         </InlineNotice>
       ) : (
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           {canInstall && (
             <Button type="button" onClick={install} disabled={installing}>
               {installing ? "Installing…" : "Install app"}
@@ -115,6 +109,21 @@ export function InstallAppSection() {
           )}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <Card>
+      <h3 className="text-sm font-medium text-slate-900">Install on your phone</h3>
+      <p className="mt-1 text-sm text-slate-500">
+        Add PT Bookings to your home screen for quick access to your schedule —
+        like a native app, without the App Store.
+      </p>
+      <div className="mt-4">{body}</div>
     </Card>
   );
 }

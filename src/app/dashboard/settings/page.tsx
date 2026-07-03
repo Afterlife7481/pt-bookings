@@ -1,16 +1,10 @@
 "use client";
 
-import { SettingsTab } from "../components/SettingsTab";
+import { SettingsMenu } from "../components/settings/SettingsMenu";
 import { useTrainerSettings } from "../hooks/useTrainerSettings";
 
 export default function SettingsPage() {
-  const { settings, refresh } = useTrainerSettings();
+  const { settings } = useTrainerSettings();
 
-  return (
-    <SettingsTab
-      settings={settings}
-      onSaved={refresh}
-      onLocationsChanged={refresh}
-    />
-  );
+  return <SettingsMenu settings={settings} />;
 }

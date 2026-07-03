@@ -10,9 +10,11 @@ const COMING_SOON_INTEGRATIONS = ["Stripe", "Revolut"] as const;
 export function PaymentDetailsSection({
   settings,
   onSaved,
+  embedded = false,
 }: {
   settings: TrainerSettings | null;
   onSaved: () => void;
+  embedded?: boolean;
 }) {
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankSortCode, setBankSortCode] = useState("");
@@ -56,15 +58,8 @@ export function PaymentDetailsSection({
     }
   }
 
-  return (
-    <Card>
-      <h2 className="font-semibold">Payment details</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Bank details for clients paying by transfer. These can be shared when you
-        send payment requests.
-      </p>
-
-      <form onSubmit={save} className="mt-6 space-y-6">
+  const body = (
+    <form onSubmit={save} className="space-y-6">
         <div>
           <h3 className="text-sm font-medium text-slate-900">Payee</h3>
           <p className="mt-1 text-sm text-slate-500">
@@ -145,10 +140,24 @@ export function PaymentDetailsSection({
         {error && <InlineNotice tone="error">{error}</InlineNotice>}
         {saved && <InlineNotice tone="success">Payment details saved.</InlineNotice>}
 
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save payment details"}
-        </Button>
-      </form>
+      <Button type="submit" disabled={saving}>
+        {saving ? "Saving…" : "Save payment details"}
+      </Button>
+    </form>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <Card>
+      <h2 className="font-semibold">Payment details</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Bank details for clients paying by transfer. These can be shared when you
+        send payment requests.
+      </p>
+      <div className="mt-6">{body}</div>
     </Card>
   );
 }
