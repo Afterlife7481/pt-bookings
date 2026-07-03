@@ -53,11 +53,13 @@ export function SettingsGroup({
 export function SettingsRowLink({
   href,
   title,
+  subtitle,
   detail,
   external,
 }: {
   href: string;
   title: string;
+  subtitle?: string;
   detail?: string;
   external?: boolean;
 }) {
@@ -66,8 +68,13 @@ export function SettingsRowLink({
 
   const content = (
     <>
-      <span className="font-medium text-slate-900">{title}</span>
-      <span className="flex shrink-0 items-center gap-2 text-slate-400">
+      <div className="min-w-0 flex-1">
+        <span className="font-medium text-slate-900">{title}</span>
+        {subtitle ? (
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{subtitle}</p>
+        ) : null}
+      </div>
+      <span className="flex shrink-0 items-center gap-2 self-center text-slate-400">
         {detail ? (
           <span className="max-w-[10rem] truncate text-slate-500">{detail}</span>
         ) : null}
@@ -90,6 +97,40 @@ export function SettingsRowLink({
     <Link href={href} className={className}>
       {content}
     </Link>
+  );
+}
+
+export function SettingsRowButton({
+  title,
+  subtitle,
+  onClick,
+  tone = "default",
+}: {
+  title: string;
+  subtitle?: string;
+  onClick: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full min-h-[3rem] items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-slate-50 active:bg-slate-100"
+    >
+      <div className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "font-medium",
+            tone === "danger" ? "text-red-600" : "text-slate-900",
+          )}
+        >
+          {title}
+        </span>
+        {subtitle ? (
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{subtitle}</p>
+        ) : null}
+      </div>
+    </button>
   );
 }
 

@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { Button } from "@/components/ui";
 import { logoutTrainer } from "../../hooks/useTrainerSettings";
 import type { TrainerSettings } from "../../types";
-import { SettingsGroup, SettingsRowLink } from "./settings-ui";
+import {
+  SettingsGroup,
+  SettingsRowButton,
+  SettingsRowLink,
+} from "./settings-ui";
 
 export function SettingsMenu({ settings }: { settings: TrainerSettings | null }) {
   const bookingWindowWeeks = settings?.clientBookingWindowWeeks;
@@ -13,31 +15,19 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8">
-      <header className="space-y-4 pt-1 text-center">
+      <header className="pt-1">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => logoutTrainer()}
-          >
-            Log out
-          </Button>
-        </div>
-        <p>
-          <Link
-            href="/info#getting-started"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-          >
-            New here? Read the getting-started guide →
-          </Link>
-        </p>
       </header>
 
-      <SettingsGroup footer="Add the app to your home screen and set up where you train.">
+      <SettingsGroup>
+        <SettingsRowLink
+          href="/info#getting-started"
+          title="Getting started guide"
+        />
         <SettingsRowLink
           href="/dashboard/settings/install"
           title="Install on your phone"
+          subtitle="Add the app to your home screen"
         />
         <SettingsRowLink href="/dashboard/settings/locations" title="Locations" />
       </SettingsGroup>
@@ -59,6 +49,14 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           detail={bookingDetail}
         />
         <SettingsRowLink href="/dashboard/settings/payment" title="Payment details" />
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <SettingsRowButton
+          title="Log out"
+          onClick={() => logoutTrainer()}
+          tone="danger"
+        />
       </SettingsGroup>
     </div>
   );
