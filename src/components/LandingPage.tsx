@@ -82,12 +82,6 @@ function SiteHeader() {
           PT Bookings
         </Link>
         <nav className="flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/info"
-            className="hidden text-sm text-slate-300 hover:text-white sm:inline"
-          >
-            How it works
-          </Link>
           <Link href="/login">
             <Button className="bg-emerald-500 text-white hover:bg-emerald-400">
               Trainer sign in
@@ -140,14 +134,14 @@ export function LandingPage() {
                   Get started free
                 </Button>
               </Link>
-              <Link href="/info">
+              <a href="#features">
                 <Button
                   variant="secondary"
                   className="w-full border-slate-600 bg-white/5 px-6 py-3 text-base text-white hover:bg-white/10 sm:w-auto"
                 >
-                  See how it works
+                  See what&apos;s included
                 </Button>
-              </Link>
+              </a>
             </div>
             <p className="mt-6 text-sm text-slate-400">
               Clients use a personal link from you — no account or app download
@@ -158,7 +152,7 @@ export function LandingPage() {
       </section>
 
       {/* Feature cards with images */}
-      <section className="border-t border-slate-800 bg-slate-950 py-20 sm:py-24">
+      <section id="features" className="border-t border-slate-800 bg-slate-950 py-20 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -321,10 +315,10 @@ export function LandingPage() {
               </Button>
             </Link>
             <Link
-              href="/info#getting-started"
+              href="/login"
               className="text-sm text-slate-400 hover:text-white"
             >
-              Read the getting-started guide →
+              Sign in to read the getting-started guide →
             </Link>
           </div>
         </div>
@@ -335,9 +329,6 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-slate-500 sm:flex-row sm:px-6">
           <p>© {new Date().getFullYear()} PT Bookings</p>
           <div className="flex gap-6">
-            <Link href="/info" className="hover:text-slate-300">
-              How it works
-            </Link>
             <Link href="/login" className="hover:text-slate-300">
               Sign in
             </Link>

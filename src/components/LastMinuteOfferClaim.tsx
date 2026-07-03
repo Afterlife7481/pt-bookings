@@ -97,7 +97,7 @@ export function LastMinuteOfferClaim({
         href={`/c/${preview.clientToken}`}
         className="inline-block text-sm text-slate-500 hover:text-slate-900"
       >
-        ← Your sessions
+        ← Home
       </Link>
 
       <div>

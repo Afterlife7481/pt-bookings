@@ -26,10 +26,10 @@ describe("seo", () => {
     const metadata = buildPageMetadata({
       title: "Test page",
       description: "Test description",
-      path: "/info",
+      path: "/login",
     });
 
-    expect(metadata.alternates?.canonical).toBe("https://ptbookings.co.uk/info");
+    expect(metadata.alternates?.canonical).toBe("https://ptbookings.co.uk/login");
     expect(metadata.openGraph?.locale).toBe("en_GB");
     expect(metadata.openGraph?.countryName).toBe("United Kingdom");
   });

@@ -2,7 +2,6 @@ import { ensureDb } from "@/lib/db/init";
 import { listClientSessions } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
 import { getSharedNotesForClient } from "@/lib/services/notes";
-import { getClientLastMinutePreferences } from "@/lib/services/last-minute";
 import { ClientSessionList } from "@/components/client/ClientSessionList";
 import {
   ClientGroup,
@@ -15,14 +14,6 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-function lastMinuteMenuDetail(
-  optIn: boolean,
-  preferenceCount: number,
-): string {
-  if (!optIn || preferenceCount === 0) return "Off";
-  return `${preferenceCount} slot${preferenceCount === 1 ? "" : "s"}`;
-}
-
 export default async function ClientHomePage({
   params,
 }: {
@@ -33,10 +24,9 @@ export default async function ClientHomePage({
   const client = await getClientByToken(token);
   if (!client) notFound();
 
-  const [{ upcoming, history }, sharedNotes, lastMinutePrefs] = await Promise.all([
+  const [{ upcoming, history }, sharedNotes] = await Promise.all([
     listClientSessions(client.id),
     getSharedNotesForClient(client.id),
-    getClientLastMinutePreferences(client.id),
   ]);
 
   const historyDetail =
@@ -47,7 +37,7 @@ export default async function ClientHomePage({
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6">
       <header className="pt-1">
-        <p className="text-sm text-slate-500">Your sessions</p>
+        <p className="text-sm text-slate-500">Home</p>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Hi {client.name}
         </h1>
@@ -87,14 +77,6 @@ export default async function ClientHomePage({
 
       <ClientGroup>
         <ClientRowLink
-          href={`/c/${token}/install`}
-          title="Install on your phone"
-          subtitle="Add the app to your home screen"
-        />
-      </ClientGroup>
-
-      <ClientGroup>
-        <ClientRowLink
           href={`/c/${token}/book`}
           title="Book a session"
           subtitle="Choose from open slots in your booking window"
@@ -108,7 +90,14 @@ export default async function ClientHomePage({
           href={`/c/${token}/last-minute`}
           title="Last-minute openings"
           subtitle="Get notified when a slot opens at short notice"
-          detail={lastMinuteMenuDetail(client.lastMinuteOptIn, lastMinutePrefs.length)}
+        />
+      </ClientGroup>
+
+      <ClientGroup>
+        <ClientRowLink
+          href={`/c/${token}/install`}
+          title="Install on your phone"
+          subtitle="Add the app to your home screen"
         />
       </ClientGroup>
     </main>

@@ -1,10 +1,6 @@
 import Link from "next/link";
 
-export function GettingStartedGuide({
-  footer = "full-guide",
-}: {
-  footer?: "full-guide" | "sections-below";
-}) {
+export function GettingStartedGuide() {
   return (
     <>
       <p>
@@ -80,19 +76,6 @@ export function GettingStartedGuide({
           invoices.
         </li>
       </ol>
-      {footer === "sections-below" ? (
-        <p className="text-slate-500">
-          The sections below explain each area in more detail.
-        </p>
-      ) : (
-        <p className="text-slate-500">
-          The full guide on{" "}
-          <Link href="/info" className="underline">
-            How PT Bookings works
-          </Link>{" "}
-          explains each area in more detail.
-        </p>
-      )}
     </>
   );
 }

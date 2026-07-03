@@ -153,6 +153,5 @@ export function homePageJsonLd() {
 
 export const PUBLIC_ROUTES = [
   { path: "/", changeFrequency: "weekly" as const, priority: 1 },
-  { path: "/info", changeFrequency: "monthly" as const, priority: 0.8 },
   { path: "/login", changeFrequency: "monthly" as const, priority: 0.6 },
 ];

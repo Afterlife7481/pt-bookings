@@ -31,9 +31,9 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Link href="/info">
+          <Link href="/dashboard/settings/getting-started">
             <Button variant="secondary" className="px-2 text-xs sm:px-4 sm:text-sm">
-              How it works
+              Getting started
             </Button>
           </Link>
           <Button

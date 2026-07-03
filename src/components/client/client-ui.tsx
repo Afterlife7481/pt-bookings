@@ -5,7 +5,7 @@ export function ClientPageLayout({
   title,
   description,
   backHref,
-  backLabel = "Your sessions",
+  backLabel = "Home",
   children,
 }: {
   title: string;
