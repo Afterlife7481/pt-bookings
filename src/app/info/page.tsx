@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { getTrainerIdFromRequest } from "@/lib/auth/api";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "How it works · PT Bookings",
+export const metadata: Metadata = buildPageMetadata({
+  title: "How PT Bookings Works for UK Personal Trainers",
   description:
-    "Guide to PT Bookings — scheduling, client portal, last-minute offers, and WhatsApp messaging.",
-};
+    "Learn how PT Bookings helps UK personal trainers set up weekly schedules, recurring clients, client portal links, last-minute offers, and session payments.",
+  path: "/info",
+  keywords: [
+    "how personal trainer booking works UK",
+    "PT scheduling guide",
+    "personal trainer client portal UK",
+    "recurring PT sessions UK",
+  ],
+});
 
 function Section({
   id,
