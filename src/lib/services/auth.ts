@@ -3,6 +3,8 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { trainerMagicLinks, trainerSessions } from "@/lib/db/schema";
 import { addMinutes, appBaseUrl, nowIso, SESSION_COOKIE } from "@/lib/constants";
+import { sendMagicLinkEmail } from "@/lib/email";
+import { shouldExposeMagicLinkForEmail } from "@/lib/auth/dev-mode";
 import { createTrainer, getTrainerByEmail } from "./trainers";
 
 const MAGIC_LINK_MINUTES = 15;
@@ -51,9 +53,27 @@ export async function requestMagicLink(params: {
   });
 
   const url = `${appBaseUrl()}/auth/verify?token=${token}`;
-  console.log(`[Magic link → ${email}] ${url}`);
+  const exposeLink = shouldExposeMagicLinkForEmail(email);
 
-  return { email, url, expiresInMinutes: MAGIC_LINK_MINUTES };
+  // When the link is shown to the requester on screen, don't email it — this
+  // lets a known test account sign in even while email delivery is being set up.
+  let delivered = false;
+  if (exposeLink) {
+    console.log(`[Magic link → ${email}] ${url}`);
+  } else {
+    delivered = await sendMagicLinkEmail({
+      to: email,
+      url,
+      purpose: params.purpose,
+      expiresInMinutes: MAGIC_LINK_MINUTES,
+    });
+    // No email provider configured (local dev): print the link so sign-in still works.
+    if (!delivered) {
+      console.log(`[Magic link → ${email}] ${url}`);
+    }
+  }
+
+  return { email, url, expiresInMinutes: MAGIC_LINK_MINUTES, delivered, exposeLink };
 }
 
 export async function verifyMagicLink(token: string): Promise<string> {

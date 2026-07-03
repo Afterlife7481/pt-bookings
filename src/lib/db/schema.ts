@@ -4,6 +4,7 @@ import {
   text,
   integer,
   boolean,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -299,6 +300,28 @@ export const lastMinuteInterests = pgTable("last_minute_interests", {
   createdAt: text("created_at").notNull(),
 });
 
+export const clientNotes = pgTable(
+  "client_notes",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    visibility: text("visibility", { enum: ["shared", "private"] })
+      .notNull()
+      .default("private"),
+    body: text("body").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    clientIdx: index("client_notes_client_idx").on(table.clientId),
+  }),
+);
+
 export const whatsappMessages = pgTable("whatsapp_messages", {
   id: text("id").primaryKey(),
   trainerId: text("trainer_id")
@@ -344,3 +367,5 @@ export type ClientLastMinutePreference =
   typeof clientLastMinutePreferences.$inferSelect;
 export type ChangeRequest = typeof changeRequests.$inferSelect;
 export type LastMinuteInterest = typeof lastMinuteInterests.$inferSelect;
+export type ClientNote = typeof clientNotes.$inferSelect;
+export type ClientNoteVisibility = ClientNote["visibility"];

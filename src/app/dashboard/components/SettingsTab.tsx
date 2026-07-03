@@ -100,7 +100,13 @@ export function SettingsTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/info#getting-started"
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          New here? Read the getting-started guide →
+        </Link>
         <Button
           type="button"
           variant="secondary"

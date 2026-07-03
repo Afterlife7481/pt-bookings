@@ -13,6 +13,7 @@ import {
   changeRequests,
   clientLastMinutePreferences,
   lastMinuteInterests,
+  clientNotes,
   whatsappMessages,
 } from "./schema";
 
@@ -35,6 +36,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   lastMinuteInterests: many(lastMinuteInterests),
   lastMinutePreferences: many(clientLastMinutePreferences),
   clientLocations: many(clientLocations),
+  notes: many(clientNotes),
 }));
 
 export const locationsRelations = relations(locations, ({ one, many }) => ({
@@ -167,6 +169,17 @@ export const lastMinuteInterestsRelations = relations(
     }),
   }),
 );
+
+export const clientNotesRelations = relations(clientNotes, ({ one }) => ({
+  trainer: one(trainers, {
+    fields: [clientNotes.trainerId],
+    references: [trainers.id],
+  }),
+  client: one(clients, {
+    fields: [clientNotes.clientId],
+    references: [clients.id],
+  }),
+}));
 
 export const whatsappMessagesRelations = relations(
   whatsappMessages,

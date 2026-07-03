@@ -71,8 +71,15 @@ export async function createBookingForSlot(params: {
   const slot = await db.query.slots.findFirst({
     where: eq(slots.id, slotId),
   });
-  if (!slot || slot.status !== "available") {
+  if (!slot || slot.status !== "available" || slot.trainerId !== trainerId) {
     throw new Error("Slot is not available");
+  }
+
+  const bookingClient = await db.query.clients.findFirst({
+    where: eq(clients.id, clientId),
+  });
+  if (!bookingClient || bookingClient.trainerId !== trainerId) {
+    throw new Error("Client not found");
   }
 
   await assertClientCanUseSlotLocation(
@@ -144,9 +151,7 @@ export async function createBookingForSlot(params: {
   );
 
   if (sendConfirmation) {
-    const client = await db.query.clients.findFirst({
-      where: eq(clients.id, clientId),
-    });
+    const client = bookingClient;
     if (client) {
       await sendWhatsAppConfirmation({
         trainerId,
