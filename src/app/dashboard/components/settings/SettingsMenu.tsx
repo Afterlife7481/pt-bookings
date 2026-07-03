@@ -29,15 +29,20 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           title="Install on your phone"
           subtitle="Add the app to your home screen"
         />
-        <SettingsRowLink href="/dashboard/settings/locations" title="Locations" />
       </SettingsGroup>
 
-      <SettingsGroup footer="Account details, schedule display, client rules, and payment info.">
+      <SettingsGroup>
         <SettingsRowLink
-          href="/dashboard/settings/account"
-          title="Account"
-          detail={settings?.email}
+          href="/dashboard/settings/locations"
+          title="Your locations"
         />
+        <SettingsRowLink
+          href="/dashboard/settings/templates"
+          title="Weekly template"
+        />
+      </SettingsGroup>
+
+      <SettingsGroup>
         <SettingsRowLink
           href="/dashboard/settings/schedule"
           title="Schedule"
@@ -45,13 +50,18 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
         />
         <SettingsRowLink
           href="/dashboard/settings/booking-rules"
-          title="Client booking rules"
+          title="Booking rules"
           detail={bookingDetail}
         />
         <SettingsRowLink href="/dashboard/settings/payment" title="Payment details" />
       </SettingsGroup>
 
       <SettingsGroup>
+        <SettingsRowLink
+          href="/dashboard/settings/account"
+          title="Account"
+          detail={settings?.email}
+        />
         <SettingsRowButton
           title="Log out"
           onClick={() => logoutTrainer()}

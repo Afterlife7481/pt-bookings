@@ -19,8 +19,6 @@ export default function TemplatesPage() {
     <SettingsPageLayout
       title="Weekly template"
       description="Define your weekly slot pattern and apply it to the schedule."
-      backHref="/dashboard/settings/schedule"
-      backLabel="Schedule"
     >
       <TemplatesTab
         template={template}
