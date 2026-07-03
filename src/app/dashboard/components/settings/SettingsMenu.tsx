@@ -1,5 +1,6 @@
 "use client";
 
+import { TRAINER_TIMEZONE_OPTIONS } from "@/lib/constants";
 import { logoutTrainer } from "../../hooks/useTrainerSettings";
 import type { TrainerSettings } from "../../types";
 import {
@@ -7,6 +8,14 @@ import {
   SettingsRowButton,
   SettingsRowLink,
 } from "./settings-ui";
+
+function timezoneMenuDetail(timezone: string | undefined): string | undefined {
+  if (!timezone) return undefined;
+  const match = TRAINER_TIMEZONE_OPTIONS.find((opt) => opt.value === timezone);
+  if (!match) return timezone;
+  const city = match.label.match(/\(([^)]+)\)/)?.[1];
+  return city ?? match.label;
+}
 
 export function SettingsMenu({ settings }: { settings: TrainerSettings | null }) {
   const bookingWindowWeeks = settings?.clientBookingWindowWeeks;
@@ -21,7 +30,7 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
 
       <SettingsGroup>
         <SettingsRowLink
-          href="/info#getting-started"
+          href="/dashboard/settings/getting-started"
           title="Getting started guide"
         />
         <SettingsRowLink
@@ -52,6 +61,11 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           href="/dashboard/settings/booking-rules"
           title="Booking rules"
           detail={bookingDetail}
+        />
+        <SettingsRowLink
+          href="/dashboard/settings/regional"
+          title="Regional settings"
+          detail={timezoneMenuDetail(settings?.timezone)}
         />
         <SettingsRowLink href="/dashboard/settings/payment" title="Payment details" />
       </SettingsGroup>

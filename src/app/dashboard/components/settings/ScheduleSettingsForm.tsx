@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button, InlineNotice } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
@@ -90,76 +89,62 @@ export function ScheduleSettingsForm({
   }
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-medium text-slate-900">Weekly template</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Define your weekly slot pattern and apply it to the schedule.
-        </p>
-        <Link href="/dashboard/settings/templates" className="mt-4 inline-block">
-          <Button type="button" variant="secondary">
-            Edit weekly template →
-          </Button>
-        </Link>
-      </section>
-
-      <form onSubmit={save} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-slate-700">Schedule hours</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Only show these hours on the weekly schedule grid.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-4">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-slate-600">Start</span>
-                <input
-                  type="time"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
-                  value={scheduleStartTime}
-                  onChange={(e) => setScheduleStartTime(e.target.value)}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-slate-600">End</span>
-                <input
-                  type="time"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
-                  value={scheduleEndTime}
-                  onChange={(e) => setScheduleEndTime(e.target.value)}
-                  required
-                />
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-sm font-medium text-slate-700">Default view</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Layout when you first open the Schedule tab.
-            </p>
-            <div className="mt-3">
-              <SegmentedControl
-                label="Default schedule view"
-                value={scheduleDefaultView}
-                onChange={setScheduleDefaultView}
-                options={[
-                  { value: "day", label: "Day" },
-                  { value: "week", label: "Week" },
-                ]}
+    <form onSubmit={save} className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium text-slate-700">Schedule hours</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Only show these hours on the weekly schedule grid.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-4">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-600">Start</span>
+              <input
+                type="time"
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                value={scheduleStartTime}
+                onChange={(e) => setScheduleStartTime(e.target.value)}
+                required
               />
-            </div>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-600">End</span>
+              <input
+                type="time"
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                value={scheduleEndTime}
+                onChange={(e) => setScheduleEndTime(e.target.value)}
+                required
+              />
+            </label>
           </div>
         </div>
 
-        {error && <InlineNotice tone="error">{error}</InlineNotice>}
-        {saved && <InlineNotice tone="success">Schedule settings saved.</InlineNotice>}
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-sm font-medium text-slate-700">Default view</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Layout when you first open the Schedule tab.
+          </p>
+          <div className="mt-3">
+            <SegmentedControl
+              label="Default schedule view"
+              value={scheduleDefaultView}
+              onChange={setScheduleDefaultView}
+              options={[
+                { value: "day", label: "Day" },
+                { value: "week", label: "Week" },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
 
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </Button>
-      </form>
-    </div>
+      {error && <InlineNotice tone="error">{error}</InlineNotice>}
+      {saved && <InlineNotice tone="success">Schedule settings saved.</InlineNotice>}
+
+      <Button type="submit" disabled={saving}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </form>
   );
 }

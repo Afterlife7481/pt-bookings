@@ -13,7 +13,7 @@ export default function AccountSettingsPage() {
   return (
     <SettingsPageLayout
       title="Account"
-      description="Contact details and time zone for your dashboard."
+      description="Email and phone for sign-in and notifications."
     >
       <SettingsInset>
         <AccountSettingsForm settings={settings} onSaved={refresh} />

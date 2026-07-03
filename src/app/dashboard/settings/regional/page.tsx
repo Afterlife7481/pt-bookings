@@ -1,22 +1,22 @@
 "use client";
 
-import { ScheduleSettingsForm } from "../../components/settings/ScheduleSettingsForm";
+import { RegionalSettingsForm } from "../../components/settings/RegionalSettingsForm";
 import {
   SettingsInset,
   SettingsPageLayout,
 } from "../../components/settings/settings-ui";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 
-export default function ScheduleSettingsPage() {
+export default function RegionalSettingsPage() {
   const { settings, refresh } = useTrainerSettings();
 
   return (
     <SettingsPageLayout
-      title="Schedule"
-      description="Visible hours and default schedule view."
+      title="Regional settings"
+      description="Time zone for WhatsApp timestamps and times shown in your dashboard."
     >
       <SettingsInset>
-        <ScheduleSettingsForm settings={settings} onSaved={refresh} />
+        <RegionalSettingsForm settings={settings} onSaved={refresh} />
       </SettingsInset>
     </SettingsPageLayout>
   );
