@@ -1,5 +1,11 @@
-import type { Metadata } from "next";
-import { SITE_LANGUAGE, SITE_NAME, DEFAULT_DESCRIPTION, getSiteUrl } from "@/lib/seo";
+import type { Metadata, Viewport } from "next";
+import { SerwistProvider } from "@serwist/next/react";
+import {
+  SITE_LANGUAGE,
+  SITE_NAME,
+  DEFAULT_DESCRIPTION,
+  getSiteUrl,
+} from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,11 +17,20 @@ export const metadata: Metadata = {
   description: DEFAULT_DESCRIPTION,
   applicationName: SITE_NAME,
   category: "Business",
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#020617",
 };
 
 export default function RootLayout({
@@ -25,7 +40,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={SITE_LANGUAGE}>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <SerwistProvider swUrl="/sw.js">{children}</SerwistProvider>
+      </body>
     </html>
   );
 }

@@ -6,6 +6,7 @@ import { Button, Card, InlineNotice } from "@/components/ui";
 import { TRAINER_TIMEZONE_OPTIONS, DEFAULT_TIMEZONE, MAX_CLIENT_BOOKING_WINDOW_WEEKS, MIN_CLIENT_BOOKING_WINDOW_WEEKS } from "@/lib/constants";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { LocationsSection } from "./LocationsSection";
+import { InstallAppSection } from "./InstallAppSection";
 import { PaymentDetailsSection } from "./PaymentDetailsSection";
 import { logoutTrainer } from "../hooks/useTrainerSettings";
 import type { TrainerSettings } from "../types";
@@ -117,6 +118,8 @@ export function SettingsTab({
       </div>
 
       <LocationsSection onChanged={onLocationsChanged} />
+
+      <InstallAppSection />
 
       <Card>
         <h3 className="text-sm font-medium text-slate-900">Weekly template</h3>

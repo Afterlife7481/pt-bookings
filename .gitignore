@@ -42,6 +42,10 @@ yarn-error.log*
 /data/pt-bookings-e2e.db*
 /e2e/fixtures.json
 
+# Serwist service worker (generated at build)
+/public/sw*
+/public/swe-worker*
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
