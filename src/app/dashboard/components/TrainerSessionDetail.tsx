@@ -8,7 +8,6 @@ import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import {
   SESSION_PAYMENT_TYPES,
-  bookingUrl,
   parseLocalDateTime,
   type SessionPaymentType,
 } from "@/lib/constants";
@@ -179,7 +178,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
         )
       : 60;
   const paymentStatus = getPaymentStatus(booking);
-  const clientSessionUrl = bookingUrl(booking.token);
+  const clientSessionUrl = booking.sessionUrl;
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">

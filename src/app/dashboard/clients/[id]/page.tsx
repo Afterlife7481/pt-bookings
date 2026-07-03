@@ -15,7 +15,7 @@ import { RecurringSlotDetailModal } from "@/components/RecurringSlotDetailModal"
 import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
-import { clientHomeUrl, parseLocalDateTime } from "@/lib/constants";
+import { parseLocalDateTime } from "@/lib/constants";
 
 type ClientBooking = {
   id: string;
@@ -36,6 +36,7 @@ type ClientLocationOption = {
 type ClientDetail = {
   id: string;
   token: string;
+  portalUrl: string;
   name: string;
   email: string;
   phone: string;
@@ -464,11 +465,11 @@ export default function ClientDetailPage() {
           <p className="text-sm text-slate-600">Client portal link</p>
           <a
             className="mt-1 inline-block break-all text-sm text-blue-600 underline"
-            href={clientHomeUrl(client.token)}
+            href={client.portalUrl}
             target="_blank"
             rel="noreferrer"
           >
-            {clientHomeUrl(client.token)}
+            {client.portalUrl}
           </a>
           <p className="mt-2 text-xs text-slate-400">
             Added {formatCreatedDate(client.createdAt)}

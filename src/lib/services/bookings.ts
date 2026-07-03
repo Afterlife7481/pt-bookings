@@ -3,6 +3,7 @@ import { eq, asc, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, clients, slots, changeRequests, locations } from "@/lib/db/schema";
 import {
+  bookingUrl,
   isWithinBookingDeadline,
   isInactiveBookingStatus,
   isWithinClientBookingWindow,
@@ -435,6 +436,8 @@ export type TrainerBookingDetail = {
     sessionStartAt: string;
     createdAt: string;
     updatedAt: string;
+    /** Absolute client-facing session URL, built server-side from APP_BASE_URL. */
+    sessionUrl: string;
   };
   slot: {
     id: string;
@@ -503,6 +506,7 @@ export async function getBookingDetailForTrainer(
       sessionStartAt: booking.sessionStartAt,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
+      sessionUrl: bookingUrl(booking.token),
     },
     slot: slot
       ? {

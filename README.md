@@ -26,8 +26,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Purpose |
 |----------|---------|
-| `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (read at runtime on the server; recommended on Railway) |
-| `NEXT_PUBLIC_APP_URL` | Same URL for client-side code (must be set at build time if used in the browser) |
+| `APP_BASE_URL` | Public base URL for all generated links (magic links, WhatsApp messages, client portal/session URLs). Read at runtime on the server; falls back to the Railway/Vercel domain when unset |
 | `RESEND_API_KEY` | Resend API key for sending magic-link emails. **Required in production.** Without it, links are printed to the server console (local dev only) |
 | `EMAIL_FROM` | Verified sender address for sign-in emails (e.g. `PT Bookings <noreply@yourdomain.com>`) |
 | `NODE_ENV` | Non-`production` exposes magic-link URLs in API responses; production never does |

@@ -9,7 +9,7 @@ import {
   slots,
   locations,
 } from "@/lib/db/schema";
-import { nowIso } from "@/lib/constants";
+import { clientHomeUrl, nowIso } from "@/lib/constants";
 import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
@@ -182,6 +182,7 @@ export async function getClientDetail(trainerId: string, clientId: string) {
 
   return {
     ...client,
+    portalUrl: clientHomeUrl(client.token),
     recurringPreferences: prefs.map((p) => ({
       dayOfWeek: p.dayOfWeek,
       startTime: p.startTime,
