@@ -26,7 +26,7 @@ const COPY = {
       "You're using the installed app. Your sessions open from your home screen.",
     iosStep3: "the app opens to your sessions",
     installFallback:
-      "On iPhone, tap Share → Add to Home Screen while viewing this page to save your personal session link. On Android, use your browser menu to install or add a shortcut.",
+      "Open this page in Chrome on Android, or Safari on iPhone, to see install options. You can also use your browser menu to “Install app” or “Add to Home Screen”.",
   },
 } as const;
 
