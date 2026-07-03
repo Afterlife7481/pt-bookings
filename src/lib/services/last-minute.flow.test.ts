@@ -1,13 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { lastMinuteInterests, slots, whatsappMessages, clients } from "@/lib/db/schema";
+import {
+  bookings,
+  lastMinuteInterests,
+  slots,
+  whatsappMessages,
+  clients,
+} from "@/lib/db/schema";
+import {
+  cancelBookingForTrainer,
+  createBookingForSlot,
+  getBookingByToken,
+  listClientSessions,
+} from "@/lib/services/bookings";
+import { startChangeRequest } from "@/lib/services/change";
 import {
   acceptLastMinuteOffer,
   declineLastMinuteOffer,
   sendLastMinuteOffer,
   setClientLastMinutePreferences,
 } from "@/lib/services/last-minute";
+import { addScheduleSlot } from "@/lib/services/schedule";
 import { saveTrainerTemplate } from "@/lib/services/templates";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID } from "@/lib/constants";
@@ -66,6 +80,21 @@ describe("last-minute offer flow", () => {
     );
 
     expect(result.booking.bookingId).toBeTruthy();
+    expect(result.booking.token).toBeTruthy();
+
+    const acceptedBooking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, result.booking.bookingId),
+    });
+    expect(acceptedBooking?.status).toBe("booked");
+
+    const sessionView = await getBookingByToken(result.booking.token);
+    expect(sessionView?.booking.status).toBe("booked");
+
+    const { upcoming } = await listClientSessions(fixtures.clientId);
+    const listed = upcoming.find(
+      (session) => session.bookingToken === result.booking.token,
+    );
+    expect(listed?.status).toBe("booked");
 
     const slotAfterAccept = await db.query.slots.findFirst({
       where: eq(slots.id, fixtures.slotId),
@@ -169,5 +198,82 @@ describe("last-minute offer flow", () => {
         fixtures.clientId,
       ),
     ).rejects.toThrow("Client is not opted in to last-minute alerts");
+  });
+
+  it("books as booked after trainer cancels an open slot and client accepts", async () => {
+    const fixtures = await seedTestFixtures();
+    await prepareClientForLastMinute(fixtures);
+
+    const { bookingId, token } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    await cancelBookingForTrainer(DEFAULT_TRAINER_ID, bookingId);
+
+    await sendLastMinuteOffer(
+      DEFAULT_TRAINER_ID,
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    const result = await acceptLastMinuteOffer(
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    const db = getDb();
+    const acceptedBooking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, result.booking.bookingId),
+    });
+    expect(acceptedBooking?.status).toBe("booked");
+    expect(result.booking.token).not.toBe(token);
+
+    const sessionView = await getBookingByToken(result.booking.token);
+    expect(sessionView?.booking.status).toBe("booked");
+  });
+
+  it("books as booked when client has another session in pending_change", async () => {
+    const fixtures = await seedTestFixtures();
+    await prepareClientForLastMinute(fixtures);
+
+    const { slotId: otherSlotId } = await addScheduleSlot(
+      DEFAULT_TRAINER_ID,
+      fixtures.weekStart,
+      fixtures.slotDayOfWeek,
+      "11:00",
+      fixtures.locationId,
+    );
+
+    const { token: changingToken } = await createBookingForSlot({
+      slotId: otherSlotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    await startChangeRequest(changingToken);
+
+    await sendLastMinuteOffer(
+      DEFAULT_TRAINER_ID,
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    const result = await acceptLastMinuteOffer(
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    const db = getDb();
+    const acceptedBooking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, result.booking.bookingId),
+    });
+    expect(acceptedBooking?.status).toBe("booked");
+
+    const sessionView = await getBookingByToken(result.booking.token);
+    expect(sessionView?.booking.status).toBe("booked");
   });
 });

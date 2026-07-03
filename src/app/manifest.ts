@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_NAME } from "@/lib/seo";
 
-/** Dashboard-scoped PWA — trainers install to open their schedule from the home screen. */
+/** App-wide PWA — trainers install to open the dashboard; clients add their portal link from /c/[token]/install (iOS saves the current page URL). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: SITE_NAME,
@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Personal trainer scheduling — weekly diary, client portal links, and session management.",
     start_url: "/dashboard/schedule",
-    scope: "/dashboard/",
-    id: "/dashboard/",
+    scope: "/",
+    id: "/",
     display: "standalone",
     orientation: "portrait-primary",
     background_color: "#020617",

@@ -18,10 +18,12 @@ export function BookSessionFlow({
   clientToken,
   slots,
   bookingWindowWeeks,
+  showHeader = true,
 }: {
   clientToken: string;
   slots: Slot[];
   bookingWindowWeeks: number;
+  showHeader?: boolean;
 }) {
   const router = useRouter();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -51,12 +53,18 @@ export function BookSessionFlow({
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Book a session</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Pick an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
-      </p>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 space-y-4">
+      {showHeader ? (
+        <>
+          <h2 className="text-lg font-semibold">Book a session</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Pick an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
+          </p>
+        </>
+      ) : null}
+      {error && (
+        <p className={`text-sm text-red-600${showHeader ? " mt-3" : ""}`}>{error}</p>
+      )}
+      <div className={`space-y-4${showHeader ? " mt-4" : ""}`}>
         {slots.length === 0 ? (
           <p className="text-sm text-slate-500">
             No open slots at your locations right now.

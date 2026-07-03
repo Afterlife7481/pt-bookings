@@ -66,8 +66,10 @@ function templateSlotAtRow(
 
 export function LastMinutePreferencesForm({
   clientToken,
+  showHeader = true,
 }: {
   clientToken: string;
+  showHeader?: boolean;
 }) {
   const [optIn, setOptIn] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -289,36 +291,65 @@ export function LastMinutePreferencesForm({
   return (
     <Card className="min-w-0 !p-0">
       <div className="space-y-4 p-4 sm:p-5 sm:pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className="font-medium">Last-minute openings</p>
-            <p className="text-sm text-slate-600">
-              Tap open slots to opt in for last-minute offers. Only session times
-              from your trainer&apos;s template at your available locations are
-              shown.
-            </p>
-            {locationSummary && (
-              <p className="mt-1 text-sm text-slate-500">
-                Your locations:{" "}
-                <span className="font-medium text-slate-700">{locationSummary}</span>
+        {showHeader ? (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-medium">Last-minute openings</p>
+              <p className="text-sm text-slate-600">
+                Tap open slots to opt in for last-minute offers. Only session times
+                from your trainer&apos;s template at your available locations are
+                shown.
+              </p>
+              {locationSummary && (
+                <p className="mt-1 text-sm text-slate-500">
+                  Your locations:{" "}
+                  <span className="font-medium text-slate-700">{locationSummary}</span>
+                </p>
+              )}
+            </div>
+            {statusMessage && (
+              <p
+                className={cn(
+                  "text-xs font-medium",
+                  saveStatus === "saved"
+                    ? "text-green-700"
+                    : saveStatus === "error"
+                      ? "text-red-600"
+                      : "text-slate-500",
+                )}
+              >
+                {statusMessage}
               </p>
             )}
           </div>
-          {statusMessage && (
-            <p
-              className={cn(
-                "text-xs font-medium",
-                saveStatus === "saved"
-                  ? "text-green-700"
-                  : saveStatus === "error"
-                    ? "text-red-600"
-                    : "text-slate-500",
+        ) : (
+          (statusMessage || locationSummary) && (
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              {locationSummary ? (
+                <p className="text-sm text-slate-500">
+                  Your locations:{" "}
+                  <span className="font-medium text-slate-700">{locationSummary}</span>
+                </p>
+              ) : (
+                <span />
               )}
-            >
-              {statusMessage}
-            </p>
-          )}
-        </div>
+              {statusMessage ? (
+                <p
+                  className={cn(
+                    "text-xs font-medium",
+                    saveStatus === "saved"
+                      ? "text-green-700"
+                      : saveStatus === "error"
+                        ? "text-red-600"
+                        : "text-slate-500",
+                  )}
+                >
+                  {statusMessage}
+                </p>
+              ) : null}
+            </div>
+          )
+        )}
 
         {optIn ? (
           <>

@@ -49,10 +49,18 @@ async function revertChangeRequest(changeRequestId: string) {
   });
   if (!req || req.status !== "browsing") return;
 
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.id, req.bookingId),
+  });
+
   await db
     .update(changeRequests)
     .set({ status: "expired", updatedAt: nowIso() })
     .where(eq(changeRequests.id, changeRequestId));
+
+  if (!booking || isInactiveBookingStatus(booking.status)) {
+    return;
+  }
 
   await db
     .update(bookings)

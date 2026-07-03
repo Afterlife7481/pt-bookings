@@ -20,6 +20,7 @@ import {
 } from "@/lib/payments";
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
+import { abortChangeByBookingToken } from "./change";
 
 type DbTx = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
@@ -579,6 +580,10 @@ export async function cancelBookingForTrainer(
   if (!booking) throw new Error("Booking not found");
   if (isInactiveBookingStatus(booking.status)) {
     throw new Error("Session is already inactive");
+  }
+
+  if (booking.status === "pending_change") {
+    await abortChangeByBookingToken(booking.token);
   }
 
   await cancelBooking(bookingId);

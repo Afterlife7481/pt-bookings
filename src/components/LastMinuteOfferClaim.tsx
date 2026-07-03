@@ -54,7 +54,12 @@ export function LastMinuteOfferClaim({
         setError(data.error ?? "Failed to accept offer");
         return;
       }
-      router.push(`/s/${data.token}`);
+      if (typeof data.token !== "string" || !data.token) {
+        setError("Booking confirmed but session link is missing. Check your sessions list.");
+        return;
+      }
+      // Hard navigation so the session page always reflects the new booked status.
+      window.location.assign(`/s/${data.token}`);
     } catch {
       setError("Failed to accept offer");
     } finally {
@@ -92,7 +97,7 @@ export function LastMinuteOfferClaim({
         href={`/c/${preview.clientToken}`}
         className="inline-block text-sm text-slate-500 hover:text-slate-900"
       >
-        ← All my sessions
+        ← Your sessions
       </Link>
 
       <div>

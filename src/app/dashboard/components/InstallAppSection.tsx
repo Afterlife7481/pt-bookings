@@ -9,7 +9,35 @@ import {
   isStandaloneDisplayMode,
 } from "@/lib/pwa";
 
-export function InstallAppSection({ embedded = false }: { embedded?: boolean }) {
+const COPY = {
+  trainer: {
+    pageDescription:
+      "Add PT Bookings to your home screen for quick access to your schedule — like a native app, without the App Store.",
+    installed:
+      "You're using the installed app. Your schedule opens from your home screen.",
+    iosStep3: "the app opens to your schedule",
+    installFallback:
+      "Open this page in Chrome on Android, or Safari on iPhone, to see install options. You can also use your browser menu to “Install app” or “Add to Home Screen”.",
+  },
+  client: {
+    pageDescription:
+      "Add PT Bookings to your home screen for quick access to your sessions — like a native app, without the App Store.",
+    installed:
+      "You're using the installed app. Your sessions open from your home screen.",
+    iosStep3: "the app opens to your sessions",
+    installFallback:
+      "On iPhone, tap Share → Add to Home Screen while viewing this page to save your personal session link. On Android, use your browser menu to install or add a shortcut.",
+  },
+} as const;
+
+export function InstallAppSection({
+  embedded = false,
+  variant = "trainer",
+}: {
+  embedded?: boolean;
+  variant?: keyof typeof COPY;
+}) {
+  const copy = COPY[variant];
   const [installed, setInstalled] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -66,10 +94,7 @@ export function InstallAppSection({ embedded = false }: { embedded?: boolean }) 
   const body = (
     <>
       {installed ? (
-        <InlineNotice tone="success">
-          You&apos;re using the installed app. Your schedule opens from your home
-          screen.
-        </InlineNotice>
+        <InlineNotice tone="success">{copy.installed}</InlineNotice>
       ) : (
         <div className="space-y-4">
           {canInstall && (
@@ -90,18 +115,14 @@ export function InstallAppSection({ embedded = false }: { embedded?: boolean }) 
                   Scroll down and tap <strong>Add to Home Screen</strong>
                 </li>
                 <li>
-                  Tap <strong>Add</strong> — the app opens to your schedule
+                  Tap <strong>Add</strong> — {copy.iosStep3}
                 </li>
               </ol>
             </div>
           )}
 
           {!canInstall && !showIosHelp && (
-            <p className="text-sm text-slate-500">
-              Open this page in Chrome on Android, or Safari on iPhone, to see
-              install options. You can also use your browser menu to &ldquo;Install
-              app&rdquo; or &ldquo;Add to Home Screen&rdquo;.
-            </p>
+            <p className="text-sm text-slate-500">{copy.installFallback}</p>
           )}
 
           {installMessage && (
@@ -119,10 +140,7 @@ export function InstallAppSection({ embedded = false }: { embedded?: boolean }) 
   return (
     <Card>
       <h3 className="text-sm font-medium text-slate-900">Install on your phone</h3>
-      <p className="mt-1 text-sm text-slate-500">
-        Add PT Bookings to your home screen for quick access to your schedule —
-        like a native app, without the App Store.
-      </p>
+      <p className="mt-1 text-sm text-slate-500">{copy.pageDescription}</p>
       <div className="mt-4">{body}</div>
     </Card>
   );
