@@ -14,6 +14,10 @@ export type DashboardClient = {
     startTime: string;
     locationId: string | null;
   }[];
+  lastSession: {
+    startAt: string;
+    endAt: string;
+  } | null;
 };
 
 export type DashboardTemplate = TemplateView;

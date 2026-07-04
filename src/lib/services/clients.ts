@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, ne, desc, inArray } from "drizzle-orm";
+import { eq, and, ne, desc, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
@@ -71,6 +71,40 @@ export async function getRecurringSlotAssignments(
     });
 }
 
+async function getLastSessionsByClientId(
+  trainerId: string,
+  clientIds: string[],
+): Promise<Map<string, { startAt: string; endAt: string }>> {
+  if (clientIds.length === 0) return new Map();
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      clientId: bookings.clientId,
+      startAt: slots.startAt,
+      endAt: slots.endAt,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(
+      and(
+        eq(bookings.trainerId, trainerId),
+        inArray(bookings.clientId, clientIds),
+        ne(bookings.status, "canceled"),
+        lt(slots.startAt, nowIso()),
+      ),
+    )
+    .orderBy(desc(slots.startAt));
+
+  const map = new Map<string, { startAt: string; endAt: string }>();
+  for (const row of rows) {
+    if (!map.has(row.clientId)) {
+      map.set(row.clientId, { startAt: row.startAt, endAt: row.endAt });
+    }
+  }
+  return map;
+}
+
 export async function listClients(trainerId: string) {
   const db = getDb();
   const rows = await db
@@ -97,6 +131,8 @@ export async function listClients(trainerId: string) {
     enabledByClient.set(row.clientId, list);
   }
 
+  const lastSessions = await getLastSessionsByClientId(trainerId, clientIds);
+
   return Promise.all(
     rows.map(async (c) => {
       const prefs = await db
@@ -111,6 +147,7 @@ export async function listClients(trainerId: string) {
           startTime: p.startTime,
           locationId: p.locationId,
         })),
+        lastSession: lastSessions.get(c.id) ?? null,
       };
     }),
   );

@@ -1,14 +1,22 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
+import { cn } from "@/lib/utils";
 import { parseLocalDateTime } from "@/lib/constants";
 import type { BookingRow } from "../types";
 
+type SessionsView = "upcoming" | "past";
+
 function isPastSession(startAt: string): boolean {
   return parseLocalDateTime(startAt).getTime() < Date.now();
+}
+
+function sessionSortKey(startAt: string): number {
+  return parseLocalDateTime(startAt).getTime();
 }
 
 function bookingSourceBadge(isRecurring: boolean) {
@@ -16,6 +24,45 @@ function bookingSourceBadge(isRecurring: boolean) {
     <Badge tone="success">Recurring</Badge>
   ) : (
     <Badge>Manual</Badge>
+  );
+}
+
+function SessionsViewToggle({
+  value,
+  onChange,
+}: {
+  value: SessionsView;
+  onChange: (view: SessionsView) => void;
+}) {
+  return (
+    <div
+      className="inline-flex w-fit shrink-0 self-start rounded-lg border border-slate-200 bg-slate-50 p-1"
+      role="tablist"
+      aria-label="Sessions view"
+    >
+      {(
+        [
+          { value: "upcoming", label: "Upcoming" },
+          { value: "past", label: "Past" },
+        ] as const
+      ).map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "rounded-md px-4 py-1.5 text-sm font-medium transition",
+            value === option.value
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 active:bg-slate-100",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -29,117 +76,95 @@ function SessionsTableColGroup() {
   );
 }
 
-function SessionsTable({
-  rows,
-  showHeader = true,
-}: {
-  rows: BookingRow[];
-  showHeader?: boolean;
-}) {
+function SessionsTable({ rows }: { rows: BookingRow[] }) {
   return (
     <table className="w-full min-w-0 table-fixed text-left text-sm">
-        <SessionsTableColGroup />
-        {showHeader && (
-          <thead className="border-b border-slate-100 bg-slate-50 text-slate-600">
-            <tr>
-              <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">When</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-        )}
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((row) => (
-            <tr key={row.booking.id} className="hover:bg-slate-50">
-              <td className="min-w-0 px-4 py-3">
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium text-slate-900">
-                    {row.client.name}
-                  </span>
-                  <Link
-                    href={`/dashboard/sessions/${row.booking.id}`}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Session
-                  </Link>
-                </div>
-              </td>
-              <td className="min-w-0 px-4 py-3 text-slate-600">
-                <SessionWhen
-                  startAt={row.slot.startAt}
-                  endAt={row.slot.endAt}
-                />
-              </td>
-              <td className="min-w-0 px-4 py-3">
-                <div className="flex flex-col items-start gap-1.5">
-                  {row.booking.status === "voided" ? (
-                    <Badge tone="danger">Voided</Badge>
-                  ) : (
-                    <>
-                      {row.booking.status === "pending_change" ? (
-                        <Badge tone="warning">Changing</Badge>
-                      ) : (
-                        bookingSourceBadge(row.booking.isRecurring)
-                      )}
-                      <PaymentStatusBadge
-                        sessionPaid={row.booking.sessionPaid}
-                        invoiceSentAt={row.booking.invoiceSentAt}
-                      />
-                    </>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <SessionsTableColGroup />
+      <tbody className="divide-y divide-slate-100">
+        {rows.map((row) => (
+          <tr key={row.booking.id} className="hover:bg-slate-50">
+            <td className="min-w-0 px-4 py-3">
+              <div className="flex flex-col gap-1">
+                <span className="font-medium text-slate-900">{row.client.name}</span>
+                <Link
+                  href={`/dashboard/sessions/${row.booking.id}`}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Session
+                </Link>
+              </div>
+            </td>
+            <td className="min-w-0 px-4 py-3 text-slate-600">
+              <SessionWhen startAt={row.slot.startAt} endAt={row.slot.endAt} />
+            </td>
+            <td className="min-w-0 px-4 py-3">
+              <div className="flex flex-col items-start gap-1.5">
+                {row.booking.status === "voided" ? (
+                  <Badge tone="danger">Voided</Badge>
+                ) : (
+                  <>
+                    {row.booking.status === "pending_change" ? (
+                      <Badge tone="warning">Changing</Badge>
+                    ) : (
+                      bookingSourceBadge(row.booking.isRecurring)
+                    )}
+                    <PaymentStatusBadge
+                      sessionPaid={row.booking.sessionPaid}
+                      invoiceSentAt={row.booking.invoiceSentAt}
+                    />
+                  </>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
 export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
-  const upcoming = bookings.filter((b) => !isPastSession(b.slot.startAt));
-  const past = bookings.filter((b) => isPastSession(b.slot.startAt));
+  const [view, setView] = useState<SessionsView>("upcoming");
 
-  if (bookings.length === 0) {
-    return (
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="font-semibold">Upcoming sessions</h2>
-        </div>
-        <p className="p-4 text-sm text-slate-500">
-          No sessions yet. Apply a template first.
-        </p>
-      </Card>
-    );
-  }
+  const { upcoming, past } = useMemo(() => {
+    const upcomingRows = bookings
+      .filter((b) => !isPastSession(b.slot.startAt))
+      .sort((a, b) => sessionSortKey(a.slot.startAt) - sessionSortKey(b.slot.startAt));
+    const pastRows = bookings
+      .filter((b) => isPastSession(b.slot.startAt))
+      .sort((a, b) => sessionSortKey(b.slot.startAt) - sessionSortKey(a.slot.startAt));
+
+    return { upcoming: upcomingRows, past: pastRows };
+  }, [bookings]);
+
+  const rows = view === "upcoming" ? upcoming : past;
+  const emptyMessage =
+    bookings.length === 0
+      ? "No sessions yet. Apply a template first."
+      : view === "upcoming"
+        ? "No upcoming sessions."
+        : "No past sessions.";
 
   return (
-    <div className="space-y-4">
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="font-semibold">Upcoming sessions</h2>
-          <p className="text-sm text-slate-500">
-            {upcoming.length === 0
+    <Card className="overflow-hidden p-0">
+      <div className="space-y-3 border-b border-slate-100 px-4 py-3">
+        <h2 className="font-semibold">Sessions</h2>
+        <SessionsViewToggle value={view} onChange={setView} />
+        <p className="text-sm text-slate-500">
+          {view === "upcoming"
+            ? upcoming.length === 0
               ? "No upcoming sessions"
-              : `${upcoming.length} upcoming`}
-          </p>
-        </div>
-        {upcoming.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No upcoming sessions.</p>
-        ) : (
-          <SessionsTable rows={upcoming} />
-        )}
-      </Card>
-
-      {past.length > 0 && (
-        <Card className="overflow-hidden p-0">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="font-semibold">Past sessions</h2>
-            <p className="text-sm text-slate-500">{past.length} past</p>
-          </div>
-          <SessionsTable rows={past} showHeader={upcoming.length === 0} />
-        </Card>
+              : `${upcoming.length} upcoming`
+            : past.length === 0
+              ? "No past sessions"
+              : `${past.length} past`}
+        </p>
+      </div>
+      {rows.length === 0 ? (
+        <p className="p-4 text-sm text-slate-500">{emptyMessage}</p>
+      ) : (
+        <SessionsTable rows={rows} />
       )}
-    </div>
+    </Card>
   );
 }
