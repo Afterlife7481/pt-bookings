@@ -364,7 +364,7 @@ export default function ClientDetailPage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+          ← Back to Clients
         </Link>
         <Card>
           <p className="text-slate-600">Client not found.</p>
@@ -395,7 +395,7 @@ export default function ClientDetailPage() {
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <div>
         <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+          ← Back to Clients
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{client.name}</h1>
         <p className="text-sm text-slate-500">Client profile</p>

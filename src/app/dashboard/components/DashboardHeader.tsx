@@ -73,7 +73,7 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
   const accountItems = MENU_ITEMS.filter((item) => !MAIN_MENU_HREFS.has(item.href));
 
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="min-w-0">
           <Link href="/dashboard/schedule" className="hover:opacity-90">

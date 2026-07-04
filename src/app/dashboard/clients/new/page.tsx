@@ -39,7 +39,7 @@ export default function AddClientPage() {
     <main className="mx-auto max-w-lg space-y-6 p-4 sm:p-6">
       <div>
         <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+          ← Back to Clients
         </Link>
         <h1 className="mt-2 text-2xl font-bold">Add client</h1>
         <p className="text-sm text-slate-500">Create a new client profile</p>
