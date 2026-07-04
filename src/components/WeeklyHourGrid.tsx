@@ -68,6 +68,10 @@ type WeeklyHourGridProps = {
   splitDayHeaderRows?: boolean;
   /** Fixed height — rows expand to fill without internal scroll. */
   viewportHeight?: number;
+  /** When true, the day column gets a diagonal hatch (e.g. dates before today). */
+  isPastDay?: (dayOfWeek: number) => boolean;
+  /** When true, the day column is highlighted as today. */
+  isToday?: (dayOfWeek: number) => boolean;
 };
 
 export function WeeklyHourGrid({
@@ -83,6 +87,8 @@ export function WeeklyHourGrid({
   compactTimeCol,
   splitDayHeaderRows = false,
   viewportHeight,
+  isPastDay,
+  isToday,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
   const rows = timeRows ?? (hours ?? []).map((hour) => hourToStartTime(hour));
@@ -132,6 +138,7 @@ export function WeeklyHourGrid({
           splitDayHeaderRows ? 56 : 40,
         )
       : undefined;
+  const totalGridRows = headerRowCount + rows.length;
 
   return (
     <div
@@ -152,6 +159,40 @@ export function WeeklyHourGrid({
           gridTemplateRows: gridRowTemplate,
         }}
       >
+        {isPastDay
+          ? columns.map((day, dayIndex) => {
+              if (!isPastDay(day.value)) return null;
+
+              return (
+                <div
+                  key={`past-${day.value}`}
+                  aria-hidden
+                  className="pointer-events-none past-day-hatch"
+                  style={{
+                    gridColumn: dayIndex + 2,
+                    gridRow: `1 / span ${totalGridRows}`,
+                  }}
+                />
+              );
+            })
+          : null}
+        {isToday
+          ? columns.map((day, dayIndex) => {
+              if (!isToday(day.value)) return null;
+
+              return (
+                <div
+                  key={`today-${day.value}`}
+                  aria-hidden
+                  className="pointer-events-none bg-sky-100/40"
+                  style={{
+                    gridColumn: dayIndex + 2,
+                    gridRow: `1 / span ${totalGridRows}`,
+                  }}
+                />
+              );
+            })
+          : null}
         <div
           style={{
             gridColumn: 1,
@@ -161,6 +202,8 @@ export function WeeklyHourGrid({
         />
         {columns.map((day, dayIndex) => {
           const header = getDayHeader(day);
+          const pastDay = isPastDay?.(day.value) ?? false;
+          const todayDay = isToday?.(day.value) ?? false;
 
           if (splitDayHeaderRows) {
             return (
@@ -168,21 +211,27 @@ export function WeeklyHourGrid({
                 key={`head-${day.value}`}
                 style={{ gridColumn: dayIndex + 2, gridRow: "1 / span 2" }}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 border-b border-slate-200 bg-slate-50 px-0.5 py-1 text-center",
+                  "relative z-[1] flex flex-col items-center justify-center gap-0.5 border-b px-0.5 py-1 text-center",
+                  todayDay
+                    ? "border-sky-700 bg-slate-900"
+                    : "border-slate-200",
+                  !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
                 )}
               >
                 <div
                   className={cn(
-                    "font-semibold tabular-nums leading-none text-slate-700",
+                    "font-semibold tabular-nums leading-none",
                     compact ? "text-[10px]" : "text-xs",
+                    todayDay ? "text-white" : "text-slate-700",
                   )}
                 >
                   {header.primary}
                 </div>
                 <div
                   className={cn(
-                    "font-semibold uppercase leading-none tracking-wide text-slate-500",
+                    "font-semibold uppercase leading-none tracking-wide",
                     compact ? "text-[9px]" : "text-[10px]",
+                    todayDay ? "text-slate-300" : "text-slate-500",
                   )}
                 >
                   {header.secondary ?? header.primary}
@@ -196,20 +245,32 @@ export function WeeklyHourGrid({
               key={`head-${day.value}`}
               style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
               className={cn(
-                "border-b border-slate-200 bg-slate-50 px-0.5 text-center",
+                "relative z-[1] border-b px-0.5 text-center",
+                todayDay
+                  ? "border-sky-700 bg-slate-900"
+                  : "border-slate-200",
+                !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
                 denseDuration ? "py-1" : "py-2",
               )}
             >
               <div
                 className={cn(
-                  "font-semibold uppercase tracking-wide text-slate-500",
+                  "font-semibold uppercase tracking-wide",
                   compact ? "text-[10px]" : "text-xs",
+                  todayDay ? "text-white" : "text-slate-500",
                 )}
               >
                 {header.primary}
               </div>
               {header.secondary && (
-                <div className="text-[10px] text-slate-400">{header.secondary}</div>
+                <div
+                  className={cn(
+                    "text-[10px]",
+                    todayDay ? "text-slate-300" : "text-slate-400",
+                  )}
+                >
+                  {header.secondary}
+                </div>
               )}
             </div>
           );
@@ -245,6 +306,8 @@ export function WeeklyHourGrid({
                 const cell = normalizeWeeklyHourGridCell(
                   renderCell(day.value, rowTime),
                 );
+                const pastDay = isPastDay?.(day.value) ?? false;
+                const todayDay = isToday?.(day.value) ?? false;
 
                 if (cell.covered) {
                   return null;
@@ -261,10 +324,11 @@ export function WeeklyHourGrid({
                           : gridRow,
                     }}
                     className={cn(
-                      "min-h-0 min-w-0 overflow-hidden border-slate-100",
+                      "relative z-[1] min-h-0 min-w-0 overflow-hidden border-slate-100",
                       denseDuration ? "p-0" : "p-0.5",
                       rowIndex > 0 && "border-t",
                       cell.rowSpan > 1 && "relative z-10",
+                      !pastDay && !todayDay && "bg-white",
                     )}
                   >
                     <div className="h-full min-h-0 min-w-0">{cell.content}</div>

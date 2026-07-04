@@ -13,6 +13,10 @@ export function ScheduleLegend({ className }: { className?: string }) {
       swatch: "border border-purple-400 bg-purple-600",
       label: "Locked offer",
     },
+    {
+      swatch: "past-day-hatch border border-slate-200",
+      label: "Past day",
+    },
   ] as const;
 
   return (

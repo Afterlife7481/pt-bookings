@@ -1,6 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Button, Card, InlineNotice } from "@/components/ui";
+import {
+  ScheduleViewToggle,
+  type ScheduleView,
+} from "@/components/ScheduleViewToggle";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import type { DashboardClient, TrainerLocation, TrainerSettings } from "../types";
@@ -49,10 +54,21 @@ export function ScheduleTab({
   onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
   onRefresh: () => void;
 }) {
+  const [viewMode, setViewMode] = useState<ScheduleView>("week");
+  const appliedDefaultView = useRef(false);
+
+  useEffect(() => {
+    if (settings && !appliedDefaultView.current) {
+      setViewMode(settings.scheduleDefaultView);
+      appliedDefaultView.current = true;
+    }
+  }, [settings]);
+
   return (
     <Card className="!p-0">
       <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
         <h2 className="font-semibold">Weekly schedule</h2>
+        <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
         {scheduleError && (
           <InlineNotice tone="error" className="flex items-start justify-between gap-3">
             <span>{scheduleError}</span>
@@ -98,7 +114,7 @@ export function ScheduleTab({
           applyingTemplate={applyingTemplate}
           scheduleStartTime={settings.scheduleStartTime}
           scheduleEndTime={settings.scheduleEndTime}
-          defaultView={settings.scheduleDefaultView}
+          viewMode={viewMode}
           lockHours={settings.lastMinuteOfferLockHours}
           clients={clients.map((c) => ({
             id: c.id,

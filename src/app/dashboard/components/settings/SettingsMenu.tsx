@@ -1,11 +1,9 @@
 "use client";
 
 import { TRAINER_TIMEZONE_OPTIONS } from "@/lib/constants";
-import { logoutTrainer } from "../../hooks/useTrainerSettings";
 import type { TrainerSettings } from "../../types";
 import {
   SettingsGroup,
-  SettingsRowButton,
   SettingsRowLink,
 } from "./settings-ui";
 
@@ -27,18 +25,6 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
       <header className="pt-1">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
       </header>
-
-      <SettingsGroup>
-        <SettingsRowLink
-          href="/dashboard/settings/getting-started"
-          title="Getting started guide"
-        />
-        <SettingsRowLink
-          href="/dashboard/settings/install"
-          title="Install on your phone"
-          subtitle="Add the app to your home screen"
-        />
-      </SettingsGroup>
 
       <SettingsGroup>
         <SettingsRowLink
@@ -68,19 +54,6 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           detail={timezoneMenuDetail(settings?.timezone)}
         />
         <SettingsRowLink href="/dashboard/settings/payment" title="Payment details" />
-      </SettingsGroup>
-
-      <SettingsGroup>
-        <SettingsRowLink
-          href="/dashboard/settings/account"
-          title="Account"
-          detail={settings?.email}
-        />
-        <SettingsRowButton
-          title="Log out"
-          onClick={() => logoutTrainer()}
-          tone="danger"
-        />
       </SettingsGroup>
     </div>
   );

@@ -5,6 +5,8 @@ import type { ScheduleEntry } from "@/lib/services/schedule";
 import {
   dateForWeekDay,
   findEntryForScheduleRow,
+  isPastWeekDay,
+  isTodayWeekDay,
 } from "./schedule-utils";
 
 function mondayEntry(
@@ -60,5 +62,20 @@ describe("schedule-utils week grid", () => {
     const dateKey = formatDate(dateForWeekDay(weekStart, 1));
     const match = findEntryForScheduleRow(entries, dateKey, "07:30");
     expect(match).toEqual({ entry: entries[0], isStart: false });
+  });
+
+  it("treats calendar days before today as past", () => {
+    const today = new Date(2026, 6, 3, 12, 0, 0);
+    expect(isPastWeekDay("2026-06-29", 1, today)).toBe(true);
+    expect(isPastWeekDay("2026-06-29", 3, today)).toBe(true);
+    expect(isPastWeekDay("2026-06-29", 5, today)).toBe(false);
+    expect(isPastWeekDay("2026-06-29", 6, today)).toBe(false);
+  });
+
+  it("identifies today's column in the visible week", () => {
+    const today = new Date(2026, 6, 3, 12, 0, 0);
+    expect(isTodayWeekDay("2026-06-29", 5, today)).toBe(true);
+    expect(isTodayWeekDay("2026-06-29", 4, today)).toBe(false);
+    expect(isTodayWeekDay("2026-07-06", 5, today)).toBe(false);
   });
 });

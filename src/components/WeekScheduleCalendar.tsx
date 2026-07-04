@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { Button } from "@/components/ui";
 import {
-  ScheduleViewToggle,
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
@@ -25,6 +24,8 @@ import {
   defaultSelectedDay,
   entryRowSpan,
   findEntryForScheduleRow,
+  isPastWeekDay,
+  isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/constants";
@@ -67,6 +68,7 @@ function DayScheduleGrid({
 }) {
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
+  const isPastDay = isPastWeekDay(weekStart, selectedDay);
   const minRowRem = 2.75;
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
@@ -82,12 +84,19 @@ function DayScheduleGrid({
       style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
     >
       <div
-        className={cn("grid min-h-0 w-full min-w-0", fitViewport && "flex-1")}
+        className={cn("relative grid min-h-0 w-full min-w-0", fitViewport && "flex-1")}
         style={{
           gridTemplateColumns: "3.25rem 1fr",
           gridTemplateRows: rowTemplate,
         }}
       >
+      {isPastDay ? (
+        <div
+          aria-hidden
+          className="pointer-events-none past-day-hatch"
+          style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
+        />
+      ) : null}
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
         const match = findEntryForScheduleRow(entries, dateKey, rowTime);
@@ -116,9 +125,10 @@ function DayScheduleGrid({
                       : gridRow,
                 }}
                 className={cn(
-                  "min-h-0 p-0.5",
+                  "relative z-[1] min-h-0 p-0.5",
                   rowIndex > 0 && "border-t border-slate-100",
                   match && match.isStart && "relative z-10",
+                  !isPastDay && "bg-white",
                 )}
               >
                 {match ? (
@@ -132,6 +142,7 @@ function DayScheduleGrid({
                     onOpen={editable ? onOpenSlot : undefined}
                     selected={selectedOpenSlot?.slotId === match.entry.slotId}
                     mobile
+                    onPastDay={isPastDay}
                   />
                 ) : canAdd ? (
                   <button
@@ -146,7 +157,7 @@ function DayScheduleGrid({
                     + Add slot
                   </button>
                 ) : (
-                  <div className="h-full min-h-0 rounded-lg bg-slate-50/80" />
+                  <div className="h-full min-h-0" />
                 )}
               </div>
             )}
@@ -172,6 +183,7 @@ function DayPicker({
     <div className="grid grid-cols-7 gap-1">
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
+        const isPast = isPastWeekDay(weekStart, day.value);
         const dateKey = formatDate(dateForWeekDay(weekStart, day.value));
         const daySlots = countEntriesForDate(entries, dateKey);
 
@@ -184,7 +196,9 @@ function DayPicker({
               "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 transition sm:px-2",
               isSelected
                 ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
+                : isPast
+                  ? "past-day-hatch border-slate-200 text-slate-700 active:bg-slate-50/80"
+                  : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
             )}
           >
             <span className="text-[10px] font-semibold sm:text-xs">{day.label}</span>
@@ -247,6 +261,8 @@ function WeekGrid({
       compactRowSize={compact ? "2rem" : undefined}
       className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
+      isPastDay={(dayOfWeek) => isPastWeekDay(weekStart, dayOfWeek)}
+      isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
         secondary: day.label.charAt(0),
@@ -273,6 +289,7 @@ function WeekGrid({
                 onOpen={editable ? onOpenSlot : undefined}
                 selected={selectedOpenSlot?.slotId === entry.slotId}
                 compact={denseCells}
+                onPastDay={isPastWeekDay(weekStart, dayOfWeek)}
               />
             ),
           };
@@ -296,7 +313,7 @@ function WeekGrid({
           );
         }
 
-        return <div className="h-full bg-white" />;
+        return <div className="h-full" />;
       }}
     />
   );
@@ -310,7 +327,7 @@ export function WeekScheduleCalendar({
   applyingTemplate,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
-  defaultView = "week",
+  viewMode,
   lockHours = 1,
   clients = [],
   locations = [],
@@ -327,7 +344,7 @@ export function WeekScheduleCalendar({
   applyingTemplate?: boolean;
   scheduleStartTime?: string;
   scheduleEndTime?: string;
-  defaultView?: ScheduleView;
+  viewMode: ScheduleView;
   lockHours?: number;
   clients?: ClientOption[];
   locations?: LocationOption[];
@@ -357,7 +374,6 @@ export function WeekScheduleCalendar({
     startTime: string;
   } | null>(null);
   const [selectedDay, setSelectedDay] = useState(1);
-  const [viewMode, setViewMode] = useState<ScheduleView>(() => defaultView);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -464,20 +480,17 @@ export function WeekScheduleCalendar({
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-3 px-4 sm:mb-3 sm:px-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
-          {showApplyTemplate && (
-            <Button
-              variant="secondary"
-              disabled={applyingTemplate}
-              onClick={() => setApplyTemplateOpen(true)}
-            >
-              {applyingTemplate ? "Applying…" : "Apply template"}
-            </Button>
-          )}
+      {showApplyTemplate ? (
+        <div className="mb-4 flex justify-end px-4 sm:mb-3 sm:px-5">
+          <Button
+            variant="secondary"
+            disabled={applyingTemplate}
+            onClick={() => setApplyTemplateOpen(true)}
+          >
+            {applyingTemplate ? "Applying…" : "Apply template"}
+          </Button>
         </div>
-      </div>
+      ) : null}
 
       {viewMode === "day" ? (
         <div className="px-4 sm:px-5">

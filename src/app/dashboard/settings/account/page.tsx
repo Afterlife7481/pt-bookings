@@ -14,6 +14,7 @@ export default function AccountSettingsPage() {
     <SettingsPageLayout
       title="Account"
       description="Email and phone for sign-in and notifications."
+      showBackLink={false}
     >
       <SettingsInset>
         <AccountSettingsForm settings={settings} onSaved={refresh} />

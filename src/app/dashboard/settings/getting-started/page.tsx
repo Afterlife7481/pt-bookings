@@ -11,6 +11,7 @@ export default function GettingStartedSettingsPage() {
     <SettingsPageLayout
       title="Getting started guide"
       description="Set up your account in order — locations, template, clients, then go live."
+      showBackLink={false}
     >
       <SettingsInset>
         <div className="space-y-4 text-sm leading-relaxed text-slate-600">

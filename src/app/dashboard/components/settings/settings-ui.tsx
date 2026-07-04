@@ -6,22 +6,26 @@ export function SettingsPageLayout({
   description,
   backHref = "/dashboard/settings",
   backLabel = "Settings",
+  showBackLink = true,
   children,
 }: {
   title: string;
   description?: string;
   backHref?: string;
   backLabel?: string;
+  showBackLink?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link
-        href={backHref}
-        className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-      >
-        ← {backLabel}
-      </Link>
+      {showBackLink ? (
+        <Link
+          href={backHref}
+          className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          ← {backLabel}
+        </Link>
+      ) : null}
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
         {description ? (

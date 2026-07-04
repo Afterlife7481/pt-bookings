@@ -44,6 +44,32 @@ export function defaultSelectedDay(weekStart: string): number {
   return 1;
 }
 
+/** True when the calendar day is strictly before today. */
+export function isPastWeekDay(
+  weekStart: string,
+  dayOfWeek: number,
+  now: Date = new Date(),
+): boolean {
+  const day = dateForWeekDay(weekStart, dayOfWeek);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  day.setHours(0, 0, 0, 0);
+  return day.getTime() < today.getTime();
+}
+
+/** True when the column date matches today. */
+export function isTodayWeekDay(
+  weekStart: string,
+  dayOfWeek: number,
+  now: Date = new Date(),
+): boolean {
+  const day = dateForWeekDay(weekStart, dayOfWeek);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  day.setHours(0, 0, 0, 0);
+  return day.getTime() === today.getTime();
+}
+
 export function dateKeyFromStartAt(startAt: string): string {
   return startAt.split("T")[0] ?? "";
 }
@@ -103,12 +129,52 @@ export function entryRowSpan(entry: ScheduleEntry): number {
   return slotGridRowSpan(entryStartTime(entry), entryEndTime(entry));
 }
 
+export function bookedSlotColorClasses(recurring: boolean, onPastDay = false) {
+  if (onPastDay) {
+    return recurring
+      ? "border-blue-400/80 bg-blue-600/45 text-white"
+      : "border-slate-500/80 bg-slate-800/45 text-white";
+  }
+
+  return recurring
+    ? "border-blue-300 bg-blue-600 text-white active:bg-blue-700"
+    : "border-slate-400 bg-slate-800 text-white active:bg-slate-700";
+}
+
+export function bookedSlotSubtextClasses(recurring: boolean, onPastDay = false) {
+  if (onPastDay) {
+    return recurring ? "text-blue-50" : "text-slate-200";
+  }
+
+  return recurring ? "text-blue-100" : "text-slate-300";
+}
+
 export function openSlotColorClasses(
   lm: ScheduleEntry["lastMinute"],
   selected: boolean,
+  onPastDay = false,
 ) {
   const isHeld = !!lm?.heldForClientId;
   const hasMatch = (lm?.eligibleCount ?? 0) > 0;
+
+  if (onPastDay) {
+    if (isHeld) {
+      return cn(
+        "border-purple-400/80 bg-purple-600/45 text-white",
+        selected && "ring-2 ring-purple-300/80",
+      );
+    }
+    if (hasMatch) {
+      return cn(
+        "border-amber-300/80 bg-amber-100/45",
+        selected && "border-amber-400/90 bg-amber-100/60 ring-2 ring-amber-300/80",
+      );
+    }
+    return cn(
+      "border-green-300/80 bg-green-100/40",
+      selected && "border-green-400/90 bg-green-100/55 ring-2 ring-green-300/80",
+    );
+  }
 
   if (isHeld) {
     return cn(
@@ -131,9 +197,20 @@ export function openSlotColorClasses(
 export function openSlotTextClasses(
   lm: ScheduleEntry["lastMinute"],
   line: "primary" | "secondary",
+  onPastDay = false,
 ) {
   const isHeld = !!lm?.heldForClientId;
   const hasMatch = (lm?.eligibleCount ?? 0) > 0;
+
+  if (onPastDay) {
+    if (isHeld) {
+      return line === "primary" ? "text-white" : "text-purple-100";
+    }
+    if (hasMatch) {
+      return line === "primary" ? "text-amber-950" : "text-amber-800";
+    }
+    return line === "primary" ? "text-green-900" : "text-green-700";
+  }
 
   if (isHeld) {
     return line === "primary" ? "text-white" : "text-purple-100";
