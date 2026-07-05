@@ -40,8 +40,9 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
           Set up PT Bookings
         </h1>
         <p className="text-sm leading-relaxed text-slate-600">
-          Complete these steps before using your schedule. The app needs your time
-          zone, locations, diary hours, and weekly template to work properly.
+          {status.complete
+            ? "Required setup is done. Add your first client now or open your schedule whenever you are ready."
+            : "Complete these steps before using your schedule. The app needs your time zone, locations, diary hours, and weekly template to work properly."}
         </p>
         <p className="text-sm font-medium text-slate-700">
           {completedRequired} of {requiredSteps.length} required steps complete
@@ -94,6 +95,11 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
           <Button type="button" onClick={() => router.push("/dashboard/schedule")}>
             Open schedule
           </Button>
+          {!status.allStepsComplete ? (
+            <p className="w-full text-sm text-slate-500">
+              The client step is optional — you can finish it later from Clients.
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="text-sm text-slate-500">

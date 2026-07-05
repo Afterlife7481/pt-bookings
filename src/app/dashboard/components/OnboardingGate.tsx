@@ -14,7 +14,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (loading || !status) return;
 
     if (status.complete) {
-      if (pathname === "/dashboard/onboarding") {
+      if (status.allStepsComplete && pathname === "/dashboard/onboarding") {
         router.replace("/dashboard/schedule");
       }
       return;

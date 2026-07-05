@@ -21,7 +21,10 @@ export type OnboardingStepStatus = {
 };
 
 export type OnboardingStatus = {
+  /** All required (non-optional) steps are complete — unlocks the app. */
   complete: boolean;
+  /** Every step including optional ones is complete. */
+  allStepsComplete: boolean;
   steps: OnboardingStepStatus[];
 };
 
@@ -103,8 +106,9 @@ export async function getOnboardingStatus(trainerId: string): Promise<Onboarding
   const complete = steps
     .filter((step) => !step.optional)
     .every((step) => step.complete);
+  const allStepsComplete = steps.every((step) => step.complete);
 
-  return { complete, steps };
+  return { complete, allStepsComplete, steps };
 }
 
 export async function markRegionalSettingsConfigured(trainerId: string) {

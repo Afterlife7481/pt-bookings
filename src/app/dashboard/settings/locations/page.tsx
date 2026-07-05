@@ -6,14 +6,18 @@ import {
   SettingsPageLayout,
 } from "../../components/settings/settings-ui";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
+import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
 
 export default function LocationsSettingsPage() {
   const { refresh } = useTrainerSettings();
+  const back = useOnboardingBackLink();
 
   return (
     <SettingsPageLayout
       title="Locations"
       description="Places where you train. Enable locations for each client from their profile."
+      backHref={back.backHref}
+      backLabel={back.backLabel}
     >
       <SettingsInset>
         <LocationsSection embedded onChanged={refresh} />
