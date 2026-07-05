@@ -1,6 +1,7 @@
 "use client";
 
 import { AccountSettingsForm } from "../../components/settings/AccountSettingsForm";
+import { DeleteAccountSection } from "../../components/settings/DeleteAccountSection";
 import {
   SettingsInset,
   SettingsPageLayout,
@@ -18,6 +19,7 @@ export default function AccountSettingsPage() {
     >
       <SettingsInset>
         <AccountSettingsForm settings={settings} onSaved={refresh} />
+        <DeleteAccountSection settings={settings} />
       </SettingsInset>
     </SettingsPageLayout>
   );

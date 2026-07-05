@@ -44,6 +44,15 @@ export const DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS = 1;
 export const CHANGE_TIMEOUT_MINUTES = 30;
 
 export const DEFAULT_TRAINER_ID = "trainer_default";
+export const PROTECTED_TRAINER_EMAIL = "alex@example.com";
+
+export function normalizeTrainerEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
+export function isProtectedTrainerEmail(email: string): boolean {
+  return normalizeTrainerEmail(email) === PROTECTED_TRAINER_EMAIL;
+}
 export const SESSION_COOKIE = "pt_session";
 export const DEFAULT_TIMEZONE = "Europe/London";
 
