@@ -50,6 +50,13 @@
       "when": 1783023654600,
       "tag": "0006_client_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783110000000,
+      "tag": "0007_onboarding_flags",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ import {
   MAX_CLIENT_BOOKING_WINDOW_WEEKS,
   isValidIanaTimezone,
   parseTimeToHour,
+  nowIso,
 } from "@/lib/constants";
 
 export type ScheduleDefaultView = "day" | "week";
@@ -210,6 +211,18 @@ export async function updateTrainerSettings(
     }
   }
 
+  const existingTrainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, trainerId),
+  });
+  if (!existingTrainer) throw new Error("Trainer not found");
+
+  const markRegional =
+    updates.timezone !== undefined && !existingTrainer.regionalSettingsConfiguredAt;
+  const markSchedule =
+    (updates.scheduleStartTime !== undefined ||
+      updates.scheduleEndTime !== undefined) &&
+    !existingTrainer.scheduleHoursConfiguredAt;
+
   await db
     .update(trainers)
     .set({
@@ -246,6 +259,8 @@ export async function updateTrainerSettings(
       ...(updates.paymentPayeeName !== undefined && {
         paymentPayeeName: updates.paymentPayeeName,
       }),
+      ...(markRegional && { regionalSettingsConfiguredAt: nowIso() }),
+      ...(markSchedule && { scheduleHoursConfiguredAt: nowIso() }),
     })
     .where(eq(trainers.id, trainerId));
 }

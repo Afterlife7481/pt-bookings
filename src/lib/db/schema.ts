@@ -30,6 +30,8 @@ export const trainers = pgTable("trainers", {
   bankSortCode: text("bank_sort_code"),
   bankName: text("bank_name"),
   paymentPayeeName: text("payment_payee_name"),
+  regionalSettingsConfiguredAt: text("regional_settings_configured_at"),
+  scheduleHoursConfiguredAt: text("schedule_hours_configured_at"),
   createdAt: text("created_at").notNull(),
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardHeader } from "./DashboardHeader";
+import { OnboardingGate } from "./OnboardingGate";
 import { useTrainerSettings } from "../hooks/useTrainerSettings";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -10,7 +11,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50">
       <DashboardHeader settings={settings} />
       <main className="mx-auto w-full min-w-0 max-w-6xl space-y-4 overflow-x-clip p-4 sm:p-6">
-        {children}
+        <OnboardingGate>{children}</OnboardingGate>
       </main>
     </div>
   );
