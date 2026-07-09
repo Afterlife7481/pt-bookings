@@ -56,23 +56,24 @@ export function isProtectedTrainerEmail(email: string): boolean {
 export const SESSION_COOKIE = "pt_session";
 export const DEFAULT_TIMEZONE = "Europe/London";
 
-export const SESSION_PAYMENT_TYPES = [
-  { value: "cash", label: "Cash" },
-  { value: "bank_transfer", label: "Bank transfer" },
-  { value: "card", label: "Card" },
-  { value: "other", label: "Other" },
-] as const;
+/** Default payment methods seeded for every trainer. */
+export const DEFAULT_PAYMENT_METHODS = ["Cash", "Transfer", "Monzo"] as const;
 
-export type SessionPaymentType = (typeof SESSION_PAYMENT_TYPES)[number]["value"];
+/** Stored on bookings as the selected method name (trainer-configurable). */
+export type SessionPaymentType = string;
+
+const LEGACY_PAYMENT_TYPE_LABELS: Record<string, string> = {
+  cash: "Cash",
+  bank_transfer: "Transfer",
+  card: "Card",
+  other: "Other",
+};
 
 export function sessionPaymentTypeLabel(
   value: SessionPaymentType | null | undefined,
 ): string {
   if (!value) return "Not set";
-  return (
-    SESSION_PAYMENT_TYPES.find((option) => option.value === value)?.label ??
-    value
-  );
+  return LEGACY_PAYMENT_TYPE_LABELS[value] ?? value;
 }
 
 export function parseSessionPaymentType(
@@ -82,12 +83,12 @@ export function parseSessionPaymentType(
   if (typeof value !== "string") {
     throw new Error("Invalid payment type");
   }
-  if (
-    !SESSION_PAYMENT_TYPES.some((option) => option.value === value)
-  ) {
-    throw new Error("Invalid payment type");
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 40) {
+    throw new Error("Payment method name is too long");
   }
-  return value as SessionPaymentType;
+  return LEGACY_PAYMENT_TYPE_LABELS[trimmed] ?? trimmed;
 }
 
 export const TRAINER_TIMEZONE_OPTIONS = [

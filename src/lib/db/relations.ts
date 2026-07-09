@@ -3,6 +3,7 @@ import {
   trainers,
   clients,
   locations,
+  trainerPaymentMethods,
   clientLocations,
   weeklyTemplates,
   templateSlots,
@@ -20,11 +21,22 @@ import {
 export const trainersRelations = relations(trainers, ({ many }) => ({
   clients: many(clients),
   locations: many(locations),
+  paymentMethods: many(trainerPaymentMethods),
   templates: many(weeklyTemplates),
   appliedWeeks: many(appliedWeeks),
   slots: many(slots),
   bookings: many(bookings),
 }));
+
+export const trainerPaymentMethodsRelations = relations(
+  trainerPaymentMethods,
+  ({ one }) => ({
+    trainer: one(trainers, {
+      fields: [trainerPaymentMethods.trainerId],
+      references: [trainers.id],
+    }),
+  }),
+);
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
   trainer: one(trainers, {

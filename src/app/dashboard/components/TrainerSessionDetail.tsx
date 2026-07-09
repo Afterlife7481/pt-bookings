@@ -7,9 +7,8 @@ import { Badge, Button, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import {
-  SESSION_PAYMENT_TYPES,
   parseLocalDateTime,
-  type SessionPaymentType,
+  sessionPaymentTypeLabel,
 } from "@/lib/constants";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import { getPaymentStatus } from "@/lib/payments";
@@ -40,6 +39,7 @@ export function TrainerSessionDetail({
   const [saved, setSaved] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
+  const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/bookings/${bookingId}`);
@@ -84,11 +84,25 @@ export function TrainerSessionDetail({
     return true;
   }
 
-  async function confirmMarkPaid(paymentType: SessionPaymentType) {
-    const ok = await patchUpdates({ sessionPaid: true, paymentType });
+  async function confirmPaymentMethod(paymentType: string) {
+    const ok = await patchUpdates(
+      paidModalMode === "edit"
+        ? { paymentType }
+        : { sessionPaid: true, paymentType },
+    );
     if (ok) {
       setShowPaidModal(false);
     }
+  }
+
+  function openMarkPaidModal() {
+    setPaidModalMode("mark");
+    setShowPaidModal(true);
+  }
+
+  function openEditPaymentMethodModal() {
+    setPaidModalMode("edit");
+    setShowPaidModal(true);
   }
 
   async function runAction(
@@ -322,7 +336,7 @@ export function TrainerSessionDetail({
                 disabled={busy || isInactive}
                 onClick={() => {
                   if (paymentStatus !== "paid") {
-                    setShowPaidModal(true);
+                    openMarkPaidModal();
                   }
                 }}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
@@ -336,48 +350,24 @@ export function TrainerSessionDetail({
             </div>
           </div>
 
-          <div>
-            <p className="text-sm font-medium text-slate-900">Payment type</p>
-            <p className="text-sm text-slate-500">
-              Select how this session was paid.
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          {paymentStatus === "paid" && (
+            <div>
+              <p className="text-sm font-medium text-slate-900">
+                Payment method
+              </p>
               <button
                 type="button"
                 disabled={busy || isInactive}
-                onClick={() => patchUpdates({ paymentType: null })}
-                className={cn(
-                  "min-w-0 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                  booking.paymentType == null
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                  (busy || isInactive) && "opacity-60",
-                )}
+                onClick={openEditPaymentMethodModal}
+                className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
               >
-                Not set
+                {sessionPaymentTypeLabel(booking.paymentType)}
               </button>
-              {SESSION_PAYMENT_TYPES.map((option) => {
-                const selected = booking.paymentType === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={busy || isInactive}
-                    onClick={() => patchUpdates({ paymentType: option.value })}
-                    className={cn(
-                      "min-w-0 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                      selected
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                      (busy || isInactive) && "opacity-60",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
+              <p className="mt-1 text-xs text-slate-500">
+                Tap to change payment method.
+              </p>
             </div>
-          </div>
+          )}
 
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-500">
@@ -558,9 +548,11 @@ export function TrainerSessionDetail({
       <MarkSessionPaidModal
         open={showPaidModal}
         busy={busy}
+        mode={paidModalMode}
+        paymentMethods={detail.paymentMethods}
         initialPaymentType={booking.paymentType}
         onClose={() => setShowPaidModal(false)}
-        onConfirm={confirmMarkPaid}
+        onConfirm={confirmPaymentMethod}
       />
     </div>
   );

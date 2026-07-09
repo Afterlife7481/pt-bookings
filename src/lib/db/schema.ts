@@ -80,6 +80,29 @@ export const locations = pgTable("locations", {
   createdAt: text("created_at").notNull(),
 });
 
+export const trainerPaymentMethods = pgTable(
+  "trainer_payment_methods",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerNameIdx: uniqueIndex("trainer_payment_methods_trainer_name_idx").on(
+      table.trainerId,
+      table.name,
+    ),
+    trainerSortIdx: index("trainer_payment_methods_trainer_sort_idx").on(
+      table.trainerId,
+      table.sortOrder,
+    ),
+  }),
+);
+
 export const clientLocations = pgTable(
   "client_locations",
   {
@@ -197,9 +220,7 @@ export const bookings = pgTable(
     override36h: boolean("override_36h").notNull().default(false),
     isRecurring: boolean("is_recurring").notNull().default(false),
     sessionPaid: boolean("session_paid").notNull().default(false),
-    paymentType: text("payment_type", {
-      enum: ["cash", "bank_transfer", "card", "other"],
-    }),
+    paymentType: text("payment_type"),
     invoiceSentAt: text("invoice_sent_at"),
     confirmationSentAt: text("confirmation_sent_at"),
     createdAt: text("created_at").notNull(),
@@ -358,6 +379,7 @@ export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Location = typeof locations.$inferSelect;
+export type TrainerPaymentMethod = typeof trainerPaymentMethods.$inferSelect;
 export type ClientLocation = typeof clientLocations.$inferSelect;
 export type WeeklyTemplate = typeof weeklyTemplates.$inferSelect;
 export type TemplateSlot = typeof templateSlots.$inferSelect;

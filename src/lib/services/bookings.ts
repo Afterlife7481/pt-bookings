@@ -21,6 +21,10 @@ import {
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
 import { abortChangeByBookingToken } from "./change";
+import {
+  assertTrainerPaymentMethodName,
+  listPaymentMethods,
+} from "./payment-methods";
 
 type DbTx = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
@@ -455,6 +459,7 @@ export type TrainerBookingDetail = {
     sessionPrice: number | null;
   };
   paymentDetailsReady: boolean;
+  paymentMethods: { id: string; name: string }[];
 };
 
 async function getBookingForTrainer(trainerId: string, bookingId: string) {
@@ -493,6 +498,10 @@ export async function getBookingDetailForTrainer(
   const paymentDetailsReady = hasBankTransferDetails(
     getPaymentDetailsForMessage(settings),
   );
+  const paymentMethods = (await listPaymentMethods(trainerId)).map((method) => ({
+    id: method.id,
+    name: method.name,
+  }));
 
   return {
     booking: {
@@ -526,6 +535,7 @@ export async function getBookingDetailForTrainer(
       sessionPrice: client.sessionPrice,
     },
     paymentDetailsReady,
+    paymentMethods,
   };
 }
 
@@ -554,16 +564,26 @@ export async function updateBookingPaymentForTrainer(
           ? updates.paymentType
           : booking.paymentType;
       if (!paymentType) {
-        throw new Error("Select a payment type before marking as paid");
+        throw new Error("Select a payment method before marking as paid");
       }
       patch.sessionPaid = true;
-      patch.paymentType = paymentType;
+      patch.paymentType = await assertTrainerPaymentMethodName(
+        trainerId,
+        paymentType,
+      );
     } else {
       patch.sessionPaid = false;
       patch.invoiceSentAt = null;
     }
   } else if (updates.paymentType !== undefined) {
-    patch.paymentType = updates.paymentType;
+    if (updates.paymentType == null) {
+      patch.paymentType = null;
+    } else {
+      patch.paymentType = await assertTrainerPaymentMethodName(
+        trainerId,
+        updates.paymentType,
+      );
+    }
   }
 
   const db = getDb();

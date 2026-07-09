@@ -8,10 +8,9 @@ import { SheetModal } from "@/components/SheetModal";
 import { MarkSessionPaidModal } from "@/app/dashboard/components/MarkSessionPaidModal";
 import { TrainerChangeSessionSection } from "@/app/dashboard/components/TrainerChangeSessionSection";
 import {
-  SESSION_PAYMENT_TYPES,
   formatSlotLabel,
   parseLocalDateTime,
-  type SessionPaymentType,
+  sessionPaymentTypeLabel,
 } from "@/lib/constants";
 import { getPaymentStatus } from "@/lib/payments";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
@@ -35,6 +34,7 @@ export function BookedSlotModal({
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
+  const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
 
   const load = useCallback(async () => {
     if (!bookingId) return;
@@ -75,9 +75,23 @@ export function BookedSlotModal({
     return true;
   }
 
-  async function confirmMarkPaid(paymentType: SessionPaymentType) {
-    const ok = await patchUpdates({ sessionPaid: true, paymentType });
+  async function confirmPaymentMethod(paymentType: string) {
+    const ok = await patchUpdates(
+      paidModalMode === "edit"
+        ? { paymentType }
+        : { sessionPaid: true, paymentType },
+    );
     if (ok) setShowPaidModal(false);
+  }
+
+  function openMarkPaidModal() {
+    setPaidModalMode("mark");
+    setShowPaidModal(true);
+  }
+
+  function openEditPaymentMethodModal() {
+    setPaidModalMode("edit");
+    setShowPaidModal(true);
   }
 
   async function runAction(
@@ -231,7 +245,7 @@ export function BookedSlotModal({
                     type="button"
                     disabled={busy}
                     onClick={() => {
-                      if (paymentStatus !== "paid") setShowPaidModal(true);
+                      if (paymentStatus !== "paid") openMarkPaidModal();
                     }}
                     className={cn(
                       "rounded-md px-3 py-1.5 text-sm font-medium transition",
@@ -244,42 +258,21 @@ export function BookedSlotModal({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void patchUpdates({ paymentType: null })}
-                    className={cn(
-                      "min-w-0 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                      booking.paymentType == null
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                    )}
-                  >
-                    Not set
-                  </button>
-                  {SESSION_PAYMENT_TYPES.map((option) => {
-                    const selected = booking.paymentType === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          void patchUpdates({ paymentType: option.value })
-                        }
-                        className={cn(
-                          "min-w-0 rounded-lg border px-3 py-2 text-sm font-medium transition",
-                          selected
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                        )}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                {paymentStatus === "paid" && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">
+                      Payment method
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={openEditPaymentMethodModal}
+                      className="mt-1 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {sessionPaymentTypeLabel(booking.paymentType)}
+                    </button>
+                  </div>
+                )}
 
                 <Button
                   variant="secondary"
@@ -364,9 +357,11 @@ export function BookedSlotModal({
         <MarkSessionPaidModal
           open={showPaidModal}
           busy={busy}
+          mode={paidModalMode}
+          paymentMethods={detail.paymentMethods}
           initialPaymentType={detail.booking.paymentType}
           onClose={() => setShowPaidModal(false)}
-          onConfirm={confirmMarkPaid}
+          onConfirm={confirmPaymentMethod}
         />
       )}
     </>

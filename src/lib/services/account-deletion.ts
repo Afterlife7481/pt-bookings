@@ -9,6 +9,7 @@ import {
   clients,
   lastMinuteInterests,
   locations,
+  trainerPaymentMethods,
   recurringPreferences,
   slots,
   trainerMagicLinks,
@@ -69,6 +70,9 @@ export async function deleteTrainerAccount(
     await tx.delete(clientNotes).where(eq(clientNotes.trainerId, trainerId));
     await tx.delete(clients).where(eq(clients.trainerId, trainerId));
     await tx.delete(locations).where(eq(locations.trainerId, trainerId));
+    await tx
+      .delete(trainerPaymentMethods)
+      .where(eq(trainerPaymentMethods.trainerId, trainerId));
     await tx
       .delete(trainerSessions)
       .where(eq(trainerSessions.trainerId, trainerId));

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { trainers, clients } from "@/lib/db/schema";
 import { DEFAULT_TRAINER_ID, nowIso } from "@/lib/constants";
 import { createClient } from "@/lib/services/clients";
+import { ensureDefaultPaymentMethods } from "@/lib/services/payment-methods";
 
 const SEED_CLIENTS = [
   { name: "Casey Morgan", phone: "+447700901101", lastMinuteOptIn: true },
@@ -35,6 +36,7 @@ export async function wipeTestDatabase() {
       weekly_templates,
       client_locations,
       locations,
+      trainer_payment_methods,
       clients,
       trainer_sessions,
       trainer_magic_links,
@@ -56,6 +58,7 @@ export async function seedTestDatabase() {
     timezone: "Europe/London",
     createdAt: ts,
   });
+  await ensureDefaultPaymentMethods(DEFAULT_TRAINER_ID);
 
   const createdClients: {
     name: string;
