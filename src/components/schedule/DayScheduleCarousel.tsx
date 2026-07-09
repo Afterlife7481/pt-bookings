@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -11,16 +10,13 @@ import { WEEK_DAYS } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
 import { DAY_VIEW_ORDER } from "./schedule-utils";
 
-type DaySlide = { type: "day"; dayOfWeek: number };
-type EdgeSlide = { type: "edge"; delta: -1 | 1; label: string };
-type CarouselSlide = DaySlide | EdgeSlide;
+const BOUNDARY_SWIPE_PX = 56;
 
-function dayToSlideIndex(dayOfWeek: number, hasEdges: boolean): number {
+function dayToSlideIndex(dayOfWeek: number): number {
   const dayIndex = DAY_VIEW_ORDER.indexOf(
     dayOfWeek as (typeof DAY_VIEW_ORDER)[number],
   );
-  const safeIndex = dayIndex === -1 ? 0 : dayIndex;
-  return hasEdges ? safeIndex + 1 : safeIndex;
+  return dayIndex === -1 ? 0 : dayIndex;
 }
 
 export function DayScheduleCarousel({
@@ -28,8 +24,6 @@ export function DayScheduleCarousel({
   selectedDay,
   onSelectDay,
   onShiftDay,
-  peekLabel,
-  enableWeekEdges = false,
   className,
   renderDay,
 }: {
@@ -37,44 +31,24 @@ export function DayScheduleCarousel({
   selectedDay: number;
   onSelectDay: (dayOfWeek: number) => void;
   onShiftDay?: (delta: -1 | 1) => void;
-  peekLabel?: (delta: -1 | 1) => string;
-  enableWeekEdges?: boolean;
   className?: string;
   renderDay: (dayOfWeek: number) => ReactNode;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const programmaticScrollRef = useRef(false);
-  const edgeHandledRef = useRef(false);
-  const hasEdges = enableWeekEdges && !!onShiftDay;
-
-  const slides = useMemo((): CarouselSlide[] => {
-    const days: DaySlide[] = WEEK_DAYS.map((day) => ({
-      type: "day",
-      dayOfWeek: day.value,
-    }));
-    if (!hasEdges) return days;
-
-    return [
-      {
-        type: "edge",
-        delta: -1,
-        label: peekLabel?.(-1) ?? "Previous day",
-      },
-      ...days,
-      {
-        type: "edge",
-        delta: 1,
-        label: peekLabel?.(1) ?? "Next day",
-      },
-    ];
-  }, [hasEdges, peekLabel]);
+  const boundaryHandledRef = useRef(false);
+  const gestureRef = useRef<{
+    startDayIndex: number;
+    originX: number;
+    active: boolean;
+  } | null>(null);
 
   const scrollToDay = useCallback(
     (dayOfWeek: number, behavior: ScrollBehavior = "smooth") => {
       const scroller = scrollerRef.current;
       if (!scroller) return;
 
-      const index = dayToSlideIndex(dayOfWeek, hasEdges);
+      const index = dayToSlideIndex(dayOfWeek);
       const slide = scroller.children[index] as HTMLElement | undefined;
       if (!slide) return;
 
@@ -84,7 +58,7 @@ export function DayScheduleCarousel({
         programmaticScrollRef.current = false;
       }, behavior === "smooth" ? 320 : 0);
     },
-    [hasEdges],
+    [],
   );
 
   const settleActiveSlide = useCallback(() => {
@@ -93,40 +67,20 @@ export function DayScheduleCarousel({
     const scroller = scrollerRef.current;
     if (!scroller || scroller.children.length === 0) return;
 
-    const mid = scroller.scrollLeft + scroller.clientWidth / 2;
-    let best = 0;
-    let bestDist = Number.POSITIVE_INFINITY;
+    const slideWidth = scroller.clientWidth;
+    if (slideWidth <= 0) return;
 
-    Array.from(scroller.children).forEach((child, index) => {
-      const element = child as HTMLElement;
-      const center = element.offsetLeft + element.offsetWidth / 2;
-      const dist = Math.abs(center - mid);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = index;
-      }
-    });
+    const index = Math.round(scroller.scrollLeft / slideWidth);
+    const dayOfWeek = DAY_VIEW_ORDER[index];
+    if (dayOfWeek == null) return;
 
-    const slide = slides[best];
-    if (!slide) return;
-
-    if (slide.type === "edge") {
-      if (edgeHandledRef.current) return;
-      edgeHandledRef.current = true;
-      onShiftDay?.(slide.delta);
-      window.setTimeout(() => {
-        edgeHandledRef.current = false;
-      }, 600);
-      return;
+    if (dayOfWeek !== selectedDay) {
+      onSelectDay(dayOfWeek);
     }
-
-    if (slide.dayOfWeek !== selectedDay) {
-      onSelectDay(slide.dayOfWeek);
-    }
-  }, [onSelectDay, onShiftDay, selectedDay, slides]);
+  }, [onSelectDay, selectedDay]);
 
   useEffect(() => {
-    edgeHandledRef.current = false;
+    boundaryHandledRef.current = false;
     scrollToDay(selectedDay, "auto");
   }, [weekStart, selectedDay, scrollToDay]);
 
@@ -156,47 +110,99 @@ export function DayScheduleCarousel({
     };
   }, [settleActiveSlide]);
 
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !onShiftDay) return;
+
+    function startGesture(clientX: number) {
+      const startDayIndex = DAY_VIEW_ORDER.indexOf(
+        selectedDay as (typeof DAY_VIEW_ORDER)[number],
+      );
+      gestureRef.current = {
+        startDayIndex: startDayIndex === -1 ? 0 : startDayIndex,
+        originX: clientX,
+        active: true,
+      };
+      boundaryHandledRef.current = false;
+    }
+
+    function moveGesture(clientX: number) {
+      const gesture = gestureRef.current;
+      if (!gesture?.active || boundaryHandledRef.current) return;
+
+      const dx = clientX - gesture.originX;
+      const lastDayIndex = DAY_VIEW_ORDER.length - 1;
+
+      if (gesture.startDayIndex === lastDayIndex && dx < -BOUNDARY_SWIPE_PX) {
+        boundaryHandledRef.current = true;
+        onShiftDay(1);
+        return;
+      }
+
+      if (gesture.startDayIndex === 0 && dx > BOUNDARY_SWIPE_PX) {
+        boundaryHandledRef.current = true;
+        onShiftDay(-1);
+      }
+    }
+
+    function endGesture() {
+      gestureRef.current = null;
+    }
+
+    const onTouchStart = (event: TouchEvent) => {
+      startGesture(event.touches[0]?.clientX ?? 0);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      moveGesture(event.touches[0]?.clientX ?? 0);
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      startGesture(event.clientX);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && !(event.buttons & 1)) return;
+      moveGesture(event.clientX);
+    };
+
+    scroller.addEventListener("touchstart", onTouchStart, { passive: true });
+    scroller.addEventListener("touchmove", onTouchMove, { passive: true });
+    scroller.addEventListener("touchend", endGesture);
+    scroller.addEventListener("pointerdown", onPointerDown);
+    scroller.addEventListener("pointermove", onPointerMove);
+    scroller.addEventListener("pointerup", endGesture);
+    scroller.addEventListener("pointercancel", endGesture);
+
+    return () => {
+      scroller.removeEventListener("touchstart", onTouchStart);
+      scroller.removeEventListener("touchmove", onTouchMove);
+      scroller.removeEventListener("touchend", endGesture);
+      scroller.removeEventListener("pointerdown", onPointerDown);
+      scroller.removeEventListener("pointermove", onPointerMove);
+      scroller.removeEventListener("pointerup", endGesture);
+      scroller.removeEventListener("pointercancel", endGesture);
+    };
+  }, [onShiftDay, selectedDay]);
+
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn(className)}>
       <div
         ref={scrollerRef}
-        className="day-schedule-carousel__track -mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth px-1 pb-1"
+        className="day-schedule-carousel__track flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth"
         aria-label="Daily schedule"
         aria-roledescription="carousel"
       >
-        {slides.map((slide, index) => (
+        {WEEK_DAYS.map((day) => (
           <div
-            key={
-              slide.type === "day"
-                ? `${weekStart}-${slide.dayOfWeek}`
-                : `${weekStart}-edge-${slide.delta}`
-            }
-            className={cn(
-              "day-schedule-carousel__slide shrink-0 snap-center snap-always",
-              slide.type === "edge"
-                ? "w-[min(30vw,6.5rem)]"
-                : "w-full",
-            )}
+            key={`${weekStart}-${day.value}`}
+            className="day-schedule-carousel__slide w-full shrink-0 snap-start snap-always"
             aria-roledescription="slide"
-            aria-label={
-              slide.type === "day"
-                ? `Day ${index + 1} of ${slides.length}`
-                : slide.label
-            }
+            aria-label={day.longLabel}
           >
-            {slide.type === "edge" ? (
-              <div className="flex h-full min-h-[10rem] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-2 text-center text-xs font-medium leading-snug text-slate-500">
-                {slide.label}
-              </div>
-            ) : (
-              renderDay(slide.dayOfWeek)
-            )}
+            {renderDay(day.value)}
           </div>
         ))}
       </div>
-      <p className="text-center text-[11px] text-slate-400 sm:hidden">
-        Swipe between days
-      </p>
     </div>
   );
 }

@@ -24,7 +24,6 @@ import {
 import {
   adjacentDaySelection,
   dateForWeekDay,
-  dayHeader,
   dayNumberForWeekDay,
   dayShortDate,
   defaultSelectedDay,
@@ -414,14 +413,6 @@ export function WeekScheduleCalendar({
     onChangeWeekRef.current(next.weekDelta);
   }, []);
 
-  const peekDayLabel = useCallback((delta: -1 | 1) => {
-    const next = adjacentDaySelection(selectedDayRef.current, delta);
-    if (next.weekDelta === 0) {
-      return dayHeader(weekStartRef.current, next.dayOfWeek);
-    }
-    return next.weekDelta > 0 ? "Next week · Mon" : "Previous week · Sun";
-  }, []);
-
   useEffect(() => {
     setSelectedOpenSlot((prev) => {
       if (!prev) return null;
@@ -515,9 +506,7 @@ export function WeekScheduleCalendar({
               weekStart={weekStart}
               selectedDay={selectedDay}
               onSelectDay={setSelectedDay}
-              onShiftDay={shiftSelectedDay}
-              peekLabel={peekDayLabel}
-              enableWeekEdges={!!onChangeWeek}
+              onShiftDay={onChangeWeek ? shiftSelectedDay : undefined}
               className="mb-1"
               renderDay={(dayOfWeek) => (
                 <DayScheduleGrid
