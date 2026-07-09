@@ -271,10 +271,6 @@ export function interestUrl(token: string): string {
   return `${appBaseUrl()}/interest/${token}`;
 }
 
-export function interestClaimUrl(slotId: string, clientId: string): string {
-  return `${appBaseUrl()}/interest/claim?slotId=${slotId}&clientId=${clientId}`;
-}
-
 export const DEFAULT_SCHEDULE_START = "07:00";
 export const DEFAULT_SCHEDULE_END = "21:00";
 export const DEFAULT_SCHEDULE_DEFAULT_VIEW = "week" as const;

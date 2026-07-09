@@ -225,28 +225,36 @@ export async function startChangeRequest(
 }
 
 export async function confirmChange(
+  bookingToken: string,
   changeRequestId: string,
   toSlotId: string,
 ) {
   await expireStaleChangeRequests();
   const db = getDb();
 
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.token, bookingToken),
+  });
+  if (!booking) throw new Error("Booking not found");
+
   const req = await db.query.changeRequests.findFirst({
     where: eq(changeRequests.id, changeRequestId),
   });
-  if (!req || req.status !== "browsing") {
+  if (
+    !req ||
+    req.status !== "browsing" ||
+    req.bookingId !== booking.id
+  ) {
     throw new Error("Change request is no longer active");
   }
-
-  const booking = await db.query.bookings.findFirst({
-    where: eq(bookings.id, req.bookingId),
-  });
-  if (!booking) throw new Error("Booking not found");
 
   const targetSlot = await db.query.slots.findFirst({
     where: eq(slots.id, toSlotId),
   });
   if (!targetSlot) throw new Error("Selected slot is no longer available");
+  if (targetSlot.trainerId !== booking.trainerId) {
+    throw new Error("Selected slot is no longer available");
+  }
 
   await assertClientCanUseSlotLocation(booking.clientId, targetSlot.locationId);
 
@@ -259,19 +267,27 @@ export async function confirmChange(
     const reqRow = await tx.query.changeRequests.findFirst({
       where: eq(changeRequests.id, changeRequestId),
     });
-    if (!reqRow || reqRow.status !== "browsing") {
+    if (
+      !reqRow ||
+      reqRow.status !== "browsing" ||
+      reqRow.bookingId !== booking.id
+    ) {
       throw new Error("Change request is no longer active");
     }
 
     const toSlotRow = await tx.query.slots.findFirst({
       where: eq(slots.id, toSlotId),
     });
-    if (!toSlotRow || toSlotRow.status !== "available") {
+    if (
+      !toSlotRow ||
+      toSlotRow.status !== "available" ||
+      toSlotRow.trainerId !== booking.trainerId
+    ) {
       throw new Error("Selected slot is no longer available");
     }
 
     const bookingRow = await tx.query.bookings.findFirst({
-      where: eq(bookings.id, reqRow.bookingId),
+      where: and(eq(bookings.id, reqRow.bookingId), eq(bookings.token, bookingToken)),
     });
     if (!bookingRow) throw new Error("Booking not found");
 

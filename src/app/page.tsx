@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
-import { LandingPage } from "@/components/LandingPage";
+import { HomeLanding } from "@/components/home/HomeLanding";
 import { buildPageMetadata, homePageJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -14,7 +14,7 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={homePageJsonLd()} />
-      <LandingPage />
+      <HomeLanding />
     </>
   );
 }

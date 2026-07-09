@@ -20,12 +20,10 @@ function formatOfferExpiry(expiresAt: string): string {
 }
 
 export function LastMinuteOfferClaim({
-  slotId,
-  clientId,
+  offerToken,
   preview,
 }: {
-  slotId: string;
-  clientId: string;
+  offerToken: string;
   preview: LastMinuteOfferPreview;
 }) {
   const router = useRouter();
@@ -47,7 +45,7 @@ export function LastMinuteOfferClaim({
       const res = await fetch("/api/client/last-minute/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, clientId }),
+        body: JSON.stringify({ offerToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -74,7 +72,7 @@ export function LastMinuteOfferClaim({
       const res = await fetch("/api/client/last-minute/decline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, clientId }),
+        body: JSON.stringify({ offerToken }),
       });
       const data = await res.json();
       if (!res.ok) {

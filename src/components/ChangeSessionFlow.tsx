@@ -119,6 +119,7 @@ export function ChangeSessionFlow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "confirm",
+          bookingToken,
           changeRequestId,
           toSlotId: selectedSlot,
         }),

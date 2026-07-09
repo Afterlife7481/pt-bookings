@@ -27,7 +27,28 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "confirm") {
-      const result = await confirmChange(body.changeRequestId, body.toSlotId);
+      const bookingToken =
+        typeof body.bookingToken === "string" ? body.bookingToken.trim() : "";
+      const changeRequestId =
+        typeof body.changeRequestId === "string"
+          ? body.changeRequestId.trim()
+          : "";
+      const toSlotId =
+        typeof body.toSlotId === "string" ? body.toSlotId.trim() : "";
+      if (!bookingToken || !changeRequestId || !toSlotId) {
+        return Response.json(
+          {
+            error:
+              "bookingToken, changeRequestId, and toSlotId are required",
+          },
+          { status: 400 },
+        );
+      }
+      const result = await confirmChange(
+        bookingToken,
+        changeRequestId,
+        toSlotId,
+      );
       return Response.json(result);
     }
 

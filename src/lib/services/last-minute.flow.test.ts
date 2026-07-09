@@ -68,16 +68,22 @@ describe("last-minute offer flow", () => {
       where: eq(lastMinuteInterests.slotId, fixtures.slotId),
     });
     expect(interest?.status).toBe("offered");
+    expect(interest?.token).toBe(offer.offerToken);
+    expect(interest?.token).toBeTruthy();
 
     const messages = await db.query.whatsappMessages.findMany({
       where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
     });
     expect(messages.some((m) => m.messageType === "last_minute")).toBe(true);
+    expect(
+      messages.some((m) => m.body.includes(`/interest/${offer.offerToken}`)),
+    ).toBe(true);
 
-    const result = await acceptLastMinuteOffer(
-      fixtures.slotId,
-      fixtures.clientId,
-    );
+    await expect(
+      acceptLastMinuteOffer("not-a-real-offer-token"),
+    ).rejects.toThrow(/No active offer/);
+
+    const result = await acceptLastMinuteOffer(offer.offerToken);
 
     expect(result.booking.bookingId).toBeTruthy();
     expect(result.booking.token).toBeTruthy();
@@ -122,16 +128,13 @@ describe("last-minute offer flow", () => {
     const fixtures = await seedTestFixtures();
     await prepareClientForLastMinute(fixtures);
 
-    await sendLastMinuteOffer(
+    const offer = await sendLastMinuteOffer(
       DEFAULT_TRAINER_ID,
       fixtures.slotId,
       fixtures.clientId,
     );
 
-    const result = await declineLastMinuteOffer(
-      fixtures.slotId,
-      fixtures.clientId,
-    );
+    const result = await declineLastMinuteOffer(offer.offerToken);
 
     expect(result.client.id).toBe(fixtures.clientId);
 

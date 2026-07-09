@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Figtree, Syne } from "next/font/google";
 import { SerwistProvider } from "@serwist/next/react";
 import {
   SITE_LANGUAGE,
@@ -7,6 +8,18 @@ import {
   getSiteUrl,
 } from "@/lib/seo";
 import "./globals.css";
+
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700", "800"],
+});
+
+const body = Figtree({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -40,7 +53,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={SITE_LANGUAGE}>
-      <body className="min-h-screen antialiased">
+      <body
+        className={`${display.variable} ${body.variable} min-h-screen antialiased`}
+      >
         <SerwistProvider swUrl="/sw.js">{children}</SerwistProvider>
       </body>
     </html>

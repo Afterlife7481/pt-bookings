@@ -15,18 +15,15 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   const body = await request.json();
-  const slotId = typeof body.slotId === "string" ? body.slotId.trim() : "";
-  const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
+  const offerToken =
+    typeof body.offerToken === "string" ? body.offerToken.trim() : "";
 
-  if (!slotId || !clientId) {
-    return Response.json(
-      { error: "slotId and clientId are required" },
-      { status: 400 },
-    );
+  if (!offerToken) {
+    return Response.json({ error: "offerToken is required" }, { status: 400 });
   }
 
   try {
-    const result = await declineLastMinuteOffer(slotId, clientId);
+    const result = await declineLastMinuteOffer(offerToken);
     return Response.json({ ok: true, clientToken: result.client.token });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to decline offer";

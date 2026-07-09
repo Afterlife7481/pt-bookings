@@ -596,19 +596,22 @@ export async function sendLastMinuteOffer(
     ),
   });
 
+  let offerToken: string;
   if (existingActive) {
+    offerToken = existingActive.token;
     await db
       .update(lastMinuteInterests)
       .set({ expiresAt, createdAt: offeredAt })
       .where(eq(lastMinuteInterests.id, existingActive.id));
   } else {
+    offerToken = nanoid(12);
     await db.insert(lastMinuteInterests).values({
       id: nanoid(),
       trainerId,
       slotId,
       clientId,
       status: "offered",
-      token: nanoid(12),
+      token: offerToken,
       expiresAt,
       createdAt: offeredAt,
     });
@@ -618,14 +621,14 @@ export async function sendLastMinuteOffer(
     trainerId,
     clientId: client.id,
     phone: client.phone,
-    slotId,
+    offerToken,
     slotStartAt: slot.startAt,
     slotEndAt: slot.endAt,
     clientName: client.name,
     lockHours: lastMinuteOfferLockHours,
   });
 
-  return { expiresAt, lockHours: lastMinuteOfferLockHours };
+  return { expiresAt, lockHours: lastMinuteOfferLockHours, offerToken };
 }
 
 export type LastMinuteOfferPreview = {
@@ -639,30 +642,37 @@ export type LastMinuteOfferPreview = {
   unavailableReason: string | null;
 };
 
+async function getOfferedInterestByToken(offerToken: string) {
+  const db = getDb();
+  return db.query.lastMinuteInterests.findFirst({
+    where: and(
+      eq(lastMinuteInterests.token, offerToken),
+      eq(lastMinuteInterests.status, "offered"),
+    ),
+  });
+}
+
 export async function getLastMinuteOfferPreview(
-  slotId: string,
-  clientId: string,
+  offerToken: string,
 ): Promise<LastMinuteOfferPreview | null> {
   const db = getDb();
-  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  const offer = await getOfferedInterestByToken(offerToken);
+  if (!offer) return null;
+
+  let slot = await db.query.slots.findFirst({
+    where: eq(slots.id, offer.slotId),
+  });
   if (!slot) return null;
 
   await clearExpiredSlotHolds(slot.trainerId);
   slot =
-    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
+    (await db.query.slots.findFirst({ where: eq(slots.id, offer.slotId) })) ??
+    slot;
 
   const client = await db.query.clients.findFirst({
-    where: eq(clients.id, clientId),
+    where: eq(clients.id, offer.clientId),
   });
   if (!client) return null;
-
-  const offer = await db.query.lastMinuteInterests.findFirst({
-    where: and(
-      eq(lastMinuteInterests.slotId, slotId),
-      eq(lastMinuteInterests.clientId, clientId),
-      eq(lastMinuteInterests.status, "offered"),
-    ),
-  });
 
   const location = slot.locationId
     ? await db.query.locations.findFirst({
@@ -671,14 +681,12 @@ export async function getLastMinuteOfferPreview(
     : null;
 
   const now = nowIso();
-  const expiresAt = slot.holdExpiresAt ?? offer?.expiresAt ?? null;
+  const expiresAt = slot.holdExpiresAt ?? offer.expiresAt ?? null;
 
   let unavailableReason: string | null = null;
   if (slot.status !== "available") {
     unavailableReason = "This slot is no longer available.";
-  } else if (!offer) {
-    unavailableReason = "No active offer found for this slot.";
-  } else if (slot.heldForClientId !== clientId) {
+  } else if (slot.heldForClientId !== offer.clientId) {
     unavailableReason = "This offer is no longer reserved for you.";
   } else if (!expiresAt || expiresAt < now) {
     unavailableReason =
@@ -697,25 +705,33 @@ export async function getLastMinuteOfferPreview(
   };
 }
 
-export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
+export async function acceptLastMinuteOffer(offerToken: string) {
   const db = getDb();
-  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  const offer = await getOfferedInterestByToken(offerToken);
+  if (!offer) {
+    throw new Error("No active offer found for this slot");
+  }
+
+  let slot = await db.query.slots.findFirst({
+    where: eq(slots.id, offer.slotId),
+  });
   if (!slot || slot.status !== "available") {
     throw new Error("This slot is no longer available");
   }
 
   await clearExpiredSlotHolds(slot.trainerId);
   slot =
-    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
+    (await db.query.slots.findFirst({ where: eq(slots.id, offer.slotId) })) ??
+    slot;
 
   const client = await db.query.clients.findFirst({
-    where: eq(clients.id, clientId),
+    where: eq(clients.id, offer.clientId),
   });
   if (!client) throw new Error("Client not found");
 
   const now = nowIso();
   if (
-    slot.heldForClientId !== clientId ||
+    slot.heldForClientId !== offer.clientId ||
     !slot.holdExpiresAt ||
     slot.holdExpiresAt < now
   ) {
@@ -724,20 +740,9 @@ export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
     );
   }
 
-  const offer = await db.query.lastMinuteInterests.findFirst({
-    where: and(
-      eq(lastMinuteInterests.slotId, slotId),
-      eq(lastMinuteInterests.clientId, clientId),
-      eq(lastMinuteInterests.status, "offered"),
-    ),
-  });
-  if (!offer) {
-    throw new Error("No active offer found for this slot");
-  }
-
   const booking = await createBookingForSlot({
-    slotId,
-    clientId,
+    slotId: offer.slotId,
+    clientId: offer.clientId,
     trainerId: slot.trainerId,
     sendConfirmation: true,
   });
@@ -752,7 +757,7 @@ export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
     .from(lastMinuteInterests)
     .where(
       and(
-        eq(lastMinuteInterests.slotId, slotId),
+        eq(lastMinuteInterests.slotId, offer.slotId),
         eq(lastMinuteInterests.status, "offered"),
       ),
     );
@@ -767,7 +772,7 @@ export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
   await db
     .update(slots)
     .set({ heldForClientId: null, holdExpiresAt: null })
-    .where(eq(slots.id, slotId));
+    .where(eq(slots.id, offer.slotId));
 
   const trainer = await db.query.trainers.findFirst({
     where: eq(trainers.id, slot.trainerId),
@@ -786,42 +791,39 @@ export async function acceptLastMinuteOffer(slotId: string, clientId: string) {
   return { alreadyRegistered: false, booking, client, slot };
 }
 
-export async function declineLastMinuteOffer(slotId: string, clientId: string) {
+export async function declineLastMinuteOffer(offerToken: string) {
   const db = getDb();
-  let slot = await db.query.slots.findFirst({ where: eq(slots.id, slotId) });
+  const offer = await getOfferedInterestByToken(offerToken);
+  if (!offer) {
+    throw new Error("No active offer found for this slot");
+  }
+
+  let slot = await db.query.slots.findFirst({
+    where: eq(slots.id, offer.slotId),
+  });
   if (!slot || slot.status !== "available") {
     throw new Error("This slot is no longer available");
   }
 
   await clearExpiredSlotHolds(slot.trainerId);
   slot =
-    (await db.query.slots.findFirst({ where: eq(slots.id, slotId) })) ?? slot;
+    (await db.query.slots.findFirst({ where: eq(slots.id, offer.slotId) })) ??
+    slot;
 
   const client = await db.query.clients.findFirst({
-    where: eq(clients.id, clientId),
+    where: eq(clients.id, offer.clientId),
   });
   if (!client) throw new Error("Client not found");
 
   const now = nowIso();
   if (
-    slot.heldForClientId !== clientId ||
+    slot.heldForClientId !== offer.clientId ||
     !slot.holdExpiresAt ||
     slot.holdExpiresAt < now
   ) {
     throw new Error(
       "This offer is no longer active. Please contact your trainer.",
     );
-  }
-
-  const offer = await db.query.lastMinuteInterests.findFirst({
-    where: and(
-      eq(lastMinuteInterests.slotId, slotId),
-      eq(lastMinuteInterests.clientId, clientId),
-      eq(lastMinuteInterests.status, "offered"),
-    ),
-  });
-  if (!offer) {
-    throw new Error("No active offer found for this slot");
   }
 
   await db
@@ -832,7 +834,7 @@ export async function declineLastMinuteOffer(slotId: string, clientId: string) {
   await db
     .update(slots)
     .set({ heldForClientId: null, holdExpiresAt: null })
-    .where(eq(slots.id, slotId));
+    .where(eq(slots.id, offer.slotId));
 
   const trainer = await db.query.trainers.findFirst({
     where: eq(trainers.id, slot.trainerId),
@@ -849,30 +851,6 @@ export async function declineLastMinuteOffer(slotId: string, clientId: string) {
   }
 
   return { client, slot };
-}
-
-/** @deprecated use acceptLastMinuteOffer */
-export async function expressInterest(slotId: string, clientId: string) {
-  try {
-    const result = await acceptLastMinuteOffer(slotId, clientId);
-    return {
-      alreadyRegistered: false,
-      interest: null,
-      client: result.client,
-      slot: result.slot,
-    };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Something went wrong";
-    if (message.includes("no longer active")) {
-      return {
-        alreadyRegistered: true,
-        interest: null,
-        client: null,
-        slot: null,
-      };
-    }
-    throw e;
-  }
 }
 
 export async function listOpenLastMinuteSlots(trainerId: string) {

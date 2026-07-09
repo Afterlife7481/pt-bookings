@@ -5,7 +5,7 @@ import { whatsappMessages } from "@/lib/db/schema";
 import {
   bookingUrl,
   formatSlotLabel,
-  interestClaimUrl,
+  interestUrl,
   nowIso,
 } from "@/lib/constants";
 import {
@@ -73,13 +73,13 @@ export async function sendWhatsAppLastMinute(params: {
   trainerId: string;
   clientId: string;
   phone: string;
-  slotId: string;
+  offerToken: string;
   slotStartAt: string;
   slotEndAt?: string | null;
   clientName: string;
   lockHours: number;
 }) {
-  const link = interestClaimUrl(params.slotId, params.clientId);
+  const link = interestUrl(params.offerToken);
   const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
