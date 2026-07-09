@@ -33,7 +33,7 @@ import {
   isPastWeekDay,
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
-import { DaySwipeDeck } from "@/components/schedule/DaySwipeDeck";
+import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/constants";
 import {
@@ -496,7 +496,6 @@ export function WeekScheduleCalendar({
     setSelectedOpenSlot(entry);
   }
 
-  const selectedDayLabel = dayHeader(weekStart, selectedDay);
   const useCompactWeekGrid = isCompactScreen && viewMode === "week";
 
   return (
@@ -511,29 +510,31 @@ export function WeekScheduleCalendar({
             />
           </div>
 
-          <DaySwipeDeck
-            weekStart={weekStart}
-            selectedDay={selectedDay}
-            dayLabel={selectedDayLabel}
-            onShiftDay={shiftSelectedDay}
-            peekLabel={peekDayLabel}
-            className="mb-1"
-          >
-            <div ref={gridRef}>
-              <DayScheduleGrid
-                weekStart={weekStart}
-                selectedDay={selectedDay}
-                timeRows={timeRows}
-                entries={entries}
-                editable={editable}
-                busyKey={busyKey}
-                selectedOpenSlot={selectedOpenSlot}
-                onRequestAdd={onAddSlot ? requestAdd : undefined}
-                onOpenSlot={openSlotActions}
-                viewportHeight={gridViewportHeight}
-              />
-            </div>
-          </DaySwipeDeck>
+          <div ref={gridRef}>
+            <DayScheduleCarousel
+              weekStart={weekStart}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+              onShiftDay={shiftSelectedDay}
+              peekLabel={peekDayLabel}
+              enableWeekEdges={!!onChangeWeek}
+              className="mb-1"
+              renderDay={(dayOfWeek) => (
+                <DayScheduleGrid
+                  weekStart={weekStart}
+                  selectedDay={dayOfWeek}
+                  timeRows={timeRows}
+                  entries={entries}
+                  editable={editable}
+                  busyKey={busyKey}
+                  selectedOpenSlot={selectedOpenSlot}
+                  onRequestAdd={onAddSlot ? requestAdd : undefined}
+                  onOpenSlot={openSlotActions}
+                  viewportHeight={gridViewportHeight}
+                />
+              )}
+            />
+          </div>
         </div>
       ) : (
         <div ref={gridRef}>

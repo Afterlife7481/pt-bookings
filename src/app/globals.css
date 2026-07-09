@@ -31,6 +31,15 @@ body {
   }
 }
 
+.day-schedule-carousel__track {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day-schedule-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
 /* —— Home landing —— */
 
 .home {
