@@ -15,7 +15,6 @@ import {
 } from "@/components/schedule/ScheduleModals";
 import {
   adjacentDaySelection,
-  countEntriesForDate,
   dateForWeekDay,
   dayHeader,
   dayNumberForWeekDay,
@@ -172,20 +171,16 @@ function DayPicker({
   weekStart,
   selectedDay,
   onSelectDay,
-  entries,
 }: {
   weekStart: string;
   selectedDay: number;
   onSelectDay: (day: number) => void;
-  entries: ScheduleEntry[];
 }) {
   return (
     <div className="grid grid-cols-7 gap-1">
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
         const isPast = isPastWeekDay(weekStart, day.value);
-        const dateKey = formatDate(dateForWeekDay(weekStart, day.value));
-        const daySlots = countEntriesForDate(entries, dateKey);
 
         return (
           <button
@@ -210,16 +205,6 @@ function DayPicker({
             >
               {dayShortDate(weekStart, day.value)}
             </span>
-            {daySlots > 0 && (
-              <span
-                className={cn(
-                  "mt-1 rounded-full px-1.5 text-[10px] font-medium",
-                  isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600",
-                )}
-              >
-                {daySlots}
-              </span>
-            )}
           </button>
         );
       })}
@@ -404,11 +389,19 @@ export function WeekScheduleCalendar({
 
   function shiftSelectedDay(delta: -1 | 1) {
     const next = adjacentDaySelection(selectedDayRef.current, delta);
-    // Update selection immediately so the day picker doesn't lag behind the swipe.
-    setSelectedDay(next.dayOfWeek);
-    selectedDayRef.current = next.dayOfWeek;
-    if (next.weekDelta === 0) return;
-    if (!onChangeWeekRef.current) return;
+    if (next.weekDelta === 0) {
+      // Same week: update the picker immediately.
+      setSelectedDay(next.dayOfWeek);
+      selectedDayRef.current = next.dayOfWeek;
+      return;
+    }
+    if (!onChangeWeekRef.current) {
+      setSelectedDay(next.dayOfWeek);
+      selectedDayRef.current = next.dayOfWeek;
+      return;
+    }
+    // Week boundary: wait for the new weekStart before selecting the day,
+    // so the picker never briefly highlights the wrong week's date.
     pendingWeekDayRef.current = next.dayOfWeek;
     onChangeWeekRef.current(next.weekDelta);
   }
@@ -508,7 +501,6 @@ export function WeekScheduleCalendar({
               weekStart={weekStart}
               selectedDay={selectedDay}
               onSelectDay={setSelectedDay}
-              entries={entries}
             />
           </div>
 

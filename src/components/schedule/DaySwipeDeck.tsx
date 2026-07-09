@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const SWIPE_THRESHOLD_PX = 88;
 const SWIPE_VELOCITY = 0.55;
 const MAX_ROTATION_DEG = 9;
+const EXIT_MS = 200;
 const ENTER_MS = 240;
 
 type DragState = {
@@ -46,8 +47,8 @@ export function DaySwipeDeck({
   const dragRef = useRef<DragState | null>(null);
   const busyRef = useRef(false);
   const suppressClickRef = useRef(false);
-  const pendingEnterRef = useRef<-1 | 1 | null>(null);
   const skipTransitionRef = useRef(false);
+  const swipeGenRef = useRef(0);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [deckWidth, setDeckWidth] = useState(320);
@@ -62,36 +63,16 @@ export function DaySwipeDeck({
     return () => observer.disconnect();
   }, []);
 
+  // Picker / week-button navigation: snap flat without fighting an in-flight swipe.
   useEffect(() => {
-    const enterDelta = pendingEnterRef.current;
-    pendingEnterRef.current = null;
-
-    if (enterDelta == null) {
-      // Day changed via picker / week buttons — snap with no animation.
-      skipTransitionRef.current = true;
-      setDragX(0);
-      setDragging(false);
-      busyRef.current = false;
-      const id = window.requestAnimationFrame(() => {
-        skipTransitionRef.current = false;
-      });
-      return () => window.cancelAnimationFrame(id);
-    }
-
-    // Content already swapped; ease the new card in from the swipe direction.
-    let enterFrame = 0;
-    const settleFrame = window.requestAnimationFrame(() => {
+    if (busyRef.current) return;
+    skipTransitionRef.current = true;
+    setDragX(0);
+    setDragging(false);
+    const id = window.requestAnimationFrame(() => {
       skipTransitionRef.current = false;
-      enterFrame = window.requestAnimationFrame(() => {
-        setDragX(0);
-        busyRef.current = false;
-      });
     });
-
-    return () => {
-      window.cancelAnimationFrame(settleFrame);
-      window.cancelAnimationFrame(enterFrame);
-    };
+    return () => window.cancelAnimationFrame(id);
   }, [weekStart, selectedDay]);
 
   const commitSwipe = useCallback(
@@ -99,13 +80,35 @@ export function DaySwipeDeck({
       if (busyRef.current) return;
       busyRef.current = true;
       suppressClickRef.current = true;
-      pendingEnterRef.current = delta;
       setDragging(false);
-      // Park the incoming card off-screen before the day content updates,
-      // so the picker/content never flash at the old swipe offset.
-      skipTransitionRef.current = true;
-      setDragX(delta > 0 ? deckWidth * 0.38 : -deckWidth * 0.38);
+
+      const gen = ++swipeGenRef.current;
+      // Continue in the finger direction: next exits left, previous exits right.
+      const exitX = delta > 0 ? -(deckWidth + 48) : deckWidth + 48;
+      skipTransitionRef.current = false;
+      setDragX(exitX);
+
+      // Advance the day immediately so the picker stays in sync.
       onShiftDay(delta);
+
+      window.setTimeout(() => {
+        if (swipeGenRef.current !== gen) return;
+
+        // Place the new day just off-screen on the arrival edge, then ease in.
+        // next arrives from the right; previous arrives from the left.
+        skipTransitionRef.current = true;
+        setDragX(delta > 0 ? deckWidth * 0.34 : -deckWidth * 0.34);
+
+        window.requestAnimationFrame(() => {
+          if (swipeGenRef.current !== gen) return;
+          skipTransitionRef.current = false;
+          setDragX(0);
+          window.setTimeout(() => {
+            if (swipeGenRef.current !== gen) return;
+            busyRef.current = false;
+          }, ENTER_MS);
+        });
+      }, EXIT_MS);
     },
     [onShiftDay, deckWidth],
   );
@@ -252,7 +255,7 @@ export function DaySwipeDeck({
 
       <div
         className={cn(
-          "relative z-[1] touch-pan-y rounded-xl border border-slate-200 bg-white shadow-lg",
+          "relative z-[1] overflow-visible touch-pan-y rounded-xl border border-slate-200 bg-white shadow-lg",
           dragging && "cursor-grabbing select-none",
           !dragging && "cursor-grab",
         )}
@@ -269,33 +272,38 @@ export function DaySwipeDeck({
             Swipe day
           </p>
         </div>
-        <div className="p-2 sm:p-3">{children}</div>
-
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute left-3 top-14 transition-opacity duration-100",
-            progress > 0.15 ? "opacity-100" : "opacity-0",
-          )}
-          style={{ transform: `rotate(-12deg) scale(${0.9 + progress * 0.1})` }}
-        >
-          <span className="rounded-md border-2 border-emerald-500 bg-white/95 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-emerald-600 shadow-sm">
-            Prev
-          </span>
-        </div>
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute right-3 top-14 transition-opacity duration-100",
-            progress < -0.15 ? "opacity-100" : "opacity-0",
-          )}
-          style={{
-            transform: `rotate(12deg) scale(${0.9 + Math.abs(progress) * 0.1})`,
-          }}
-        >
-          <span className="rounded-md border-2 border-sky-500 bg-white/95 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-sky-600 shadow-sm">
-            Next
-          </span>
+        <div className="relative p-2 sm:p-3">
+          {/* Stamps sit above the schedule grid so they aren't clipped or covered. */}
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-between px-5 transition-opacity duration-100",
+            )}
+          >
+            <span
+              className={cn(
+                "rounded-md border-2 border-emerald-500 bg-white/95 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-emerald-600 shadow-sm transition-opacity duration-100",
+                progress > 0.12 ? "opacity-100" : "opacity-0",
+              )}
+              style={{
+                transform: `rotate(-14deg) scale(${0.95 + Math.min(progress, 1) * 0.08})`,
+              }}
+            >
+              Prev
+            </span>
+            <span
+              className={cn(
+                "rounded-md border-2 border-sky-500 bg-white/95 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-sky-600 shadow-sm transition-opacity duration-100",
+                progress < -0.12 ? "opacity-100" : "opacity-0",
+              )}
+              style={{
+                transform: `rotate(14deg) scale(${0.95 + Math.min(Math.abs(progress), 1) * 0.08})`,
+              }}
+            >
+              Next
+            </span>
+          </div>
+          {children}
         </div>
       </div>
     </div>
