@@ -32,12 +32,25 @@ body {
 }
 
 .day-schedule-carousel__track {
+  gap: 1.5rem;
+  padding-inline: 1.25rem;
+  scroll-padding-inline: 1.25rem;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 
 .day-schedule-carousel__track::-webkit-scrollbar {
   display: none;
+}
+
+.day-schedule-carousel__slide {
+  flex: 0 0 88%;
+  max-width: 88%;
+}
+
+.day-schedule-carousel__edge {
+  min-height: 1px;
+  height: 100%;
 }
 
 /* —— Home landing —— */
