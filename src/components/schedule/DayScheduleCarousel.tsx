@@ -24,14 +24,13 @@ function dayToSlideIndex(dayOfWeek: number, hasWeekEdges: boolean): number {
 }
 
 function getActiveSlideIndex(scroller: HTMLElement): number {
-  const mid = scroller.scrollLeft + scroller.clientWidth / 2;
+  const scrollLeft = scroller.scrollLeft;
   let best = 0;
   let bestDist = Number.POSITIVE_INFINITY;
 
   Array.from(scroller.children).forEach((child, index) => {
     const element = child as HTMLElement;
-    const center = element.offsetLeft + element.offsetWidth / 2;
-    const dist = Math.abs(center - mid);
+    const dist = Math.abs(element.offsetLeft - scrollLeft);
     if (dist < bestDist) {
       bestDist = dist;
       best = index;
@@ -86,12 +85,7 @@ export function DayScheduleCarousel({
       if (!slide) return;
 
       programmaticScrollRef.current = true;
-      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
-      const targetLeft = slideCenter - scroller.clientWidth / 2;
-      scroller.scrollTo({
-        left: Math.max(0, targetLeft),
-        behavior,
-      });
+      scroller.scrollTo({ left: slide.offsetLeft, behavior });
       window.setTimeout(() => {
         programmaticScrollRef.current = false;
       }, behavior === "smooth" ? 320 : 0);
@@ -167,7 +161,7 @@ export function DayScheduleCarousel({
                 ? `${weekStart}-${slide.dayOfWeek}`
                 : `${weekStart}-week-edge-${slide.delta}`
             }
-            className="day-schedule-carousel__slide shrink-0 snap-center snap-always"
+            className="day-schedule-carousel__slide shrink-0 snap-start snap-always"
             aria-roledescription="slide"
             aria-hidden={slide.type === "week-edge" ? true : undefined}
             aria-label={
