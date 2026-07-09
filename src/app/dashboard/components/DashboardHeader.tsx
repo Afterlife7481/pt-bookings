@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { logoutTrainer } from "../hooks/useTrainerSettings";
 import { MENU_ITEMS, type TrainerSettings } from "../types";
 
@@ -12,6 +13,8 @@ const MAIN_MENU_HREFS = new Set([
   "/dashboard/sessions",
   "/dashboard/whatsapp",
 ]);
+
+const MENU_ANIMATION_MS = 280;
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/dashboard/clients") {
@@ -46,17 +49,50 @@ function MenuIcon({ className }: { className?: string }) {
 
 export function DashboardHeader({ settings }: { settings: TrainerSettings | null }) {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuId = useId();
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+
+  function openMenu() {
+    clearCloseTimer();
+    setMounted(true);
+  }
+
+  function closeMenu() {
+    setOpen(false);
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setMounted(false);
+    }, MENU_ANIMATION_MS);
+  }
 
   useEffect(() => {
-    setMenuOpen(false);
+    closeMenu();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close on route change only
   }, [pathname]);
 
+  useEffect(() => () => clearCloseTimer(), []);
+
+  // Mount closed first, then open on the next frame so translate/opacity animate in.
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!mounted) {
+      setOpen(false);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => setOpen(true));
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") closeMenu();
     }
 
     const previousOverflow = document.body.style.overflow;
@@ -64,10 +100,12 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
+      window.cancelAnimationFrame(frame);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [menuOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const mainItems = MENU_ITEMS.filter((item) => MAIN_MENU_HREFS.has(item.href));
   const accountItems = MENU_ITEMS.filter((item) => !MAIN_MENU_HREFS.has(item.href));
@@ -85,34 +123,41 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
         </div>
         <button
           type="button"
-          onClick={() => setMenuOpen(true)}
+          onClick={openMenu}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
           aria-label="Open menu"
-          aria-expanded={menuOpen}
-          aria-controls="dashboard-menu"
+          aria-expanded={open}
+          aria-controls={menuId}
         >
           <MenuIcon className="h-5 w-5" />
         </button>
       </div>
 
-      {menuOpen ? (
+      {mounted ? (
         <div className="fixed inset-0 z-50">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className={cn(
+              "absolute inset-0 bg-black/40 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+              open ? "opacity-100" : "opacity-0",
+            )}
             aria-label="Close menu"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
           />
           <nav
-            id="dashboard-menu"
+            id={menuId}
             aria-label="Dashboard"
-            className="absolute right-0 top-0 flex h-full w-[min(100%,18rem)] flex-col bg-white shadow-xl"
+            className={cn(
+              "absolute right-0 top-0 flex h-full w-[min(100%,18rem)] flex-col bg-white shadow-xl",
+              "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              open ? "translate-x-0" : "translate-x-full",
+            )}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
               <p className="text-sm font-semibold text-slate-900">Menu</p>
               <button
                 type="button"
-                onClick={() => setMenuOpen(false)}
+                onClick={closeMenu}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Close menu"
               >
