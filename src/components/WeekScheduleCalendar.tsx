@@ -14,6 +14,7 @@ import {
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 import { ScheduleCell } from "@/components/schedule/ScheduleCell";
 import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
+import { BookedSlotModal } from "@/components/schedule/BookedSlotModal";
 import {
   AddSlotModal,
   OpenSlotModal,
@@ -140,11 +141,7 @@ function DayScheduleGrid({
                 {match ? (
                   <ScheduleCell
                     entry={match.entry}
-                    editable={
-                      editable &&
-                      !match.entry.booking &&
-                      match.entry.status === "available"
-                    }
+                    editable={editable}
                     onOpen={editable ? onOpenSlot : undefined}
                     selected={selectedOpenSlot?.slotId === match.entry.slotId}
                     mobile
@@ -275,9 +272,7 @@ function WeekGrid({
             content: (
               <ScheduleCell
                 entry={entry}
-                editable={
-                  editable && !entry.booking && entry.status === "available"
-                }
+                editable={editable}
                 onOpen={editable ? onOpenSlot : undefined}
                 selected={selectedOpenSlot?.slotId === entry.slotId}
                 compact={denseCells}
@@ -498,7 +493,6 @@ export function WeekScheduleCalendar({
   }
 
   function openSlotActions(entry: ScheduleEntry) {
-    if (entry.booking || entry.status !== "available") return;
     setSelectedOpenSlot(entry);
   }
 
@@ -568,10 +562,10 @@ export function WeekScheduleCalendar({
         {editable && (
           <p className="mb-2 text-xs text-slate-500">
             {viewMode === "day"
-              ? "Tap + to add slots · tap open slots to offer or allocate"
+              ? "Tap + to add slots · tap slots to manage"
               : useCompactWeekGrid
-                ? "Tap + to add · tap open slots to manage"
-                : "Click empty cells to add · click open slots to offer or allocate"}
+                ? "Tap + to add · tap slots to manage"
+                : "Click empty cells to add · click slots to manage"}
           </p>
         )}
         <ScheduleLegend />
@@ -589,7 +583,17 @@ export function WeekScheduleCalendar({
         />
       )}
 
-      {selectedOpenSlot && (
+      {selectedOpenSlot?.booking ? (
+        <BookedSlotModal
+          entry={selectedOpenSlot}
+          onClose={() => setSelectedOpenSlot(null)}
+          onChanged={async () => {
+            await onRefresh?.();
+          }}
+        />
+      ) : null}
+
+      {selectedOpenSlot && !selectedOpenSlot.booking ? (
         <OpenSlotModal
           entry={selectedOpenSlot}
           clients={clients}
@@ -602,7 +606,7 @@ export function WeekScheduleCalendar({
           onClose={() => !busyKey && setSelectedOpenSlot(null)}
           busy={!!busyKey}
         />
-      )}
+      ) : null}
     </div>
   );
 }

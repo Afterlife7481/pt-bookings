@@ -44,21 +44,11 @@ export function ScheduleCell({
 
   if (booked && entry.booking) {
     const recurring = entry.booking.isRecurring;
-
-    return (
-      <a
-        href={`/dashboard/sessions/${entry.booking.id}`}
-        title={
-          entry.location
-            ? `${timeLabel} · ${entry.booking.clientName} · ${entry.location.name}`
-            : `${timeLabel} · ${entry.booking.clientName}`
-        }
-        className={cn(
-          sizeClass,
-          "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
-          bookedSlotColorClasses(recurring, onPastDay),
-        )}
-      >
+    const title = entry.location
+      ? `${timeLabel} · ${entry.booking.clientName} · ${entry.location.name}`
+      : `${timeLabel} · ${entry.booking.clientName}`;
+    const content = (
+      <>
         <span className={cn(nameClass, "w-full truncate")}>
           {entry.booking.clientName}
         </span>
@@ -73,6 +63,35 @@ export function ScheduleCell({
             {entry.location.name}
           </span>
         )}
+      </>
+    );
+    const className = cn(
+      sizeClass,
+      "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
+      bookedSlotColorClasses(recurring, onPastDay),
+      selected && "ring-2 ring-slate-900 ring-offset-1",
+    );
+
+    if (onOpen) {
+      return (
+        <button
+          type="button"
+          title={title}
+          onClick={() => onOpen(entry)}
+          className={className}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <a
+        href={`/dashboard/sessions/${entry.booking.id}?from=schedule`}
+        title={title}
+        className={className}
+      >
+        {content}
       </a>
     );
   }

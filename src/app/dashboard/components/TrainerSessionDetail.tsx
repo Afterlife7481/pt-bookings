@@ -21,7 +21,15 @@ import {
   formatSessionPrice,
 } from "@/lib/utils";
 
-export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
+export function TrainerSessionDetail({
+  bookingId,
+  backHref = "/dashboard/sessions",
+  backLabel = "← Back to sessions",
+}: {
+  bookingId: string;
+  backHref?: string;
+  backLabel?: string;
+}) {
   const router = useRouter();
   const [detail, setDetail] = useState<TrainerBookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +116,7 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
       return;
     }
     if (action === "cancel") {
-      router.push("/dashboard/sessions");
+      router.push(backHref);
       router.refresh();
       return;
     }
@@ -149,10 +157,10 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
     return (
       <div className="space-y-4">
         <Link
-          href="/dashboard/sessions"
+          href={backHref}
           className="text-sm text-slate-500 hover:text-slate-900"
         >
-          ← Back to sessions
+          {backLabel}
         </Link>
         <Card>
           <p className="text-slate-600">Session not found.</p>
@@ -184,10 +192,10 @@ export function TrainerSessionDetail({ bookingId }: { bookingId: string }) {
     <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
       <div className="min-w-0">
         <Link
-          href="/dashboard/sessions"
+          href={backHref}
           className="text-sm text-slate-500 hover:text-slate-900"
         >
-          ← Back to sessions
+          {backLabel}
         </Link>
         <SessionWhen
           startAt={sessionStartAt}
