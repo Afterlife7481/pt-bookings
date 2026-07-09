@@ -28,6 +28,7 @@ import {
   isPastWeekDay,
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
+import { DaySwipeDeck } from "@/components/schedule/DaySwipeDeck";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/constants";
 import {
@@ -81,7 +82,7 @@ function DayScheduleGrid({
 
   return (
     <div
-      className="flex min-h-0 w-full min-w-0 flex-col overflow-visible rounded-lg border border-slate-200"
+      className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200"
       style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
     >
       <div
@@ -381,8 +382,6 @@ export function WeekScheduleCalendar({
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
-  const daySwipeRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const pendingWeekDayRef = useRef<number | null>(null);
   const selectedDayRef = useRef(selectedDay);
   const onChangeWeekRef = useRef(onChangeWeek);
@@ -426,38 +425,13 @@ export function WeekScheduleCalendar({
     onChangeWeekRef.current(next.weekDelta);
   }
 
-  useEffect(() => {
-    if (viewMode !== "day") return;
-    const node = daySwipeRef.current;
-    if (!node) return;
-
-    const onTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      const start = touchStartRef.current;
-      touchStartRef.current = null;
-      const touch = event.changedTouches[0];
-      if (!start || !touch) return;
-
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
-
-      // Swipe left → next day; swipe right → previous day.
-      shiftSelectedDay(dx < 0 ? 1 : -1);
-    };
-
-    node.addEventListener("touchstart", onTouchStart, { passive: true });
-    node.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      node.removeEventListener("touchstart", onTouchStart);
-      node.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [viewMode]);
+  function peekDayLabel(delta: -1 | 1) {
+    const next = adjacentDaySelection(selectedDayRef.current, delta);
+    if (next.weekDelta === 0) {
+      return dayHeader(weekStart, next.dayOfWeek);
+    }
+    return next.weekDelta > 0 ? "Next week · Mon" : "Previous week · Sun";
+  }
 
   useEffect(() => {
     setSelectedOpenSlot((prev) => {
@@ -555,7 +529,7 @@ export function WeekScheduleCalendar({
       ) : null}
 
       {viewMode === "day" ? (
-        <div ref={daySwipeRef} className="touch-pan-y px-4 sm:px-5">
+        <div className="px-4 sm:px-5">
           <div className="mb-4">
             <DayPicker
               weekStart={weekStart}
@@ -565,27 +539,29 @@ export function WeekScheduleCalendar({
             />
           </div>
 
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-slate-900">{selectedDayLabel}</p>
-            <p className="text-[11px] uppercase tracking-wide text-slate-400 sm:hidden">
-              Swipe to change day
-            </p>
-          </div>
-
-          <div ref={gridRef}>
-            <DayScheduleGrid
-              weekStart={weekStart}
-              selectedDay={selectedDay}
-              timeRows={timeRows}
-              entries={entries}
-              editable={editable}
-              busyKey={busyKey}
-              selectedOpenSlot={selectedOpenSlot}
-              onRequestAdd={onAddSlot ? requestAdd : undefined}
-              onOpenSlot={openSlotActions}
-              viewportHeight={gridViewportHeight}
-            />
-          </div>
+          <DaySwipeDeck
+            weekStart={weekStart}
+            selectedDay={selectedDay}
+            dayLabel={selectedDayLabel}
+            onShiftDay={shiftSelectedDay}
+            peekLabel={peekDayLabel}
+            className="mb-1"
+          >
+            <div ref={gridRef}>
+              <DayScheduleGrid
+                weekStart={weekStart}
+                selectedDay={selectedDay}
+                timeRows={timeRows}
+                entries={entries}
+                editable={editable}
+                busyKey={busyKey}
+                selectedOpenSlot={selectedOpenSlot}
+                onRequestAdd={onAddSlot ? requestAdd : undefined}
+                onOpenSlot={openSlotActions}
+                viewportHeight={gridViewportHeight}
+              />
+            </div>
+          </DaySwipeDeck>
         </div>
       ) : (
         <div ref={gridRef}>
