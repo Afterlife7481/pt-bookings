@@ -1,6 +1,36 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    const previous = {
+      overflow: style.overflow,
+      position: style.position,
+      top: style.top,
+      width: style.width,
+    };
+
+    style.overflow = "hidden";
+    style.position = "fixed";
+    style.top = `-${scrollY}px`;
+    style.width = "100%";
+
+    return () => {
+      style.overflow = previous.overflow;
+      style.position = previous.position;
+      style.top = previous.top;
+      style.width = previous.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, [active]);
+}
 
 export function SheetModal({
   title,
@@ -19,14 +49,16 @@ export function SheetModal({
   footer?: ReactNode;
   className?: string;
 }) {
+  useBodyScrollLock(true);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex touch-none items-end justify-center overflow-hidden bg-black/40 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
         className={cn(
-          "max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-lg sm:max-w-sm sm:rounded-xl sm:p-6",
+          "max-h-[90vh] w-full touch-auto overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-5 shadow-lg sm:max-w-sm sm:rounded-xl sm:p-6",
           className,
         )}
         onClick={(e) => e.stopPropagation()}

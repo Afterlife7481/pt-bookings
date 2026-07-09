@@ -45,17 +45,22 @@ export function SessionPriceEditor({
       ? parsedInput !== sessionPrice
       : sessionPrice != null);
 
-  async function save() {
+  async function save(pricePence: number | null = normalizedInput ? parseSessionPriceInput(normalizedInput) : null) {
     setError(null);
     try {
-      const pence = normalizedInput ? parseSessionPriceInput(normalizedInput) : null;
       setSaving(true);
-      await onSave(pence);
+      await onSave(pricePence);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save price");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function resetToClientDefault() {
+    if (clientDefaultPrice == null) return;
+    setValue(sessionPriceToInput(clientDefaultPrice));
+    await save(clientDefaultPrice);
   }
 
   return (
@@ -95,7 +100,14 @@ export function SessionPriceEditor({
       sessionPrice != null &&
       sessionPrice !== clientDefaultPrice ? (
         <p className="text-xs text-slate-500">
-          Client default: {formatSessionPrice(clientDefaultPrice)}
+          <button
+            type="button"
+            disabled={disabled || saving}
+            onClick={() => void resetToClientDefault()}
+            className="text-blue-600 hover:underline disabled:opacity-60"
+          >
+            Client default: {formatSessionPrice(clientDefaultPrice)}
+          </button>
         </p>
       ) : null}
       {sessionPrice == null && clientDefaultPrice != null ? (
