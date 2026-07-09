@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export function SheetModal({
   title,
+  titleHref,
   subtitle,
   onClose,
   children,
@@ -10,6 +12,7 @@ export function SheetModal({
   className,
 }: {
   title: string;
+  titleHref?: string;
   subtitle?: string;
   onClose: () => void;
   children?: ReactNode;
@@ -47,7 +50,15 @@ export function SheetModal({
               <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
             </svg>
           </button>
-          <h3 className="font-semibold text-slate-900">{title}</h3>
+          <h3 className="font-semibold text-slate-900">
+            {titleHref ? (
+              <Link href={titleHref} className="text-blue-600 hover:underline">
+                {title}
+              </Link>
+            ) : (
+              title
+            )}
+          </h3>
           {subtitle && (
             <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
           )}

@@ -41,23 +41,13 @@ export function MarkSessionPaidModal({
       subtitle="Choose how the client paid for this session."
       onClose={onClose}
       footer={
-        <>
-          <Button
-            disabled={!selected || busy}
-            className="w-full"
-            onClick={() => selected && onConfirm(selected)}
-          >
-            {confirmLabel}
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            disabled={busy}
-            onClick={onClose}
-          >
-            Cancel
-          </Button>
-        </>
+        <Button
+          disabled={!selected || busy}
+          className="w-full"
+          onClick={() => selected && onConfirm(selected)}
+        >
+          {confirmLabel}
+        </Button>
       }
     >
       {paymentMethods.length === 0 ? (

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
-import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SheetModal } from "@/components/SheetModal";
 import { MarkSessionPaidModal } from "@/app/dashboard/components/MarkSessionPaidModal";
 import { TrainerChangeSessionSection } from "@/app/dashboard/components/TrainerChangeSessionSection";
@@ -95,9 +94,7 @@ export function BookedSlotModal({
     setShowPaidModal(true);
   }
 
-  async function runAction(
-    action: "cancel" | "send_confirmation" | "send_invoice" | "void",
-  ) {
+  async function runAction(action: "cancel" | "send_invoice" | "void") {
     if (!bookingId) return;
     setBusy(true);
     setError(null);
@@ -163,7 +160,8 @@ export function BookedSlotModal({
   return (
     <>
       <SheetModal
-        title={entry.booking?.clientName ?? "Booked session"}
+        title={client?.name ?? entry.booking?.clientName ?? "Booked session"}
+        titleHref={client ? `/dashboard/clients/${client.id}` : undefined}
         subtitle={formatSlotLabel(entry.startAt, entry.endAt)}
         onClose={onClose}
         footer={
@@ -183,31 +181,14 @@ export function BookedSlotModal({
           </p>
         ) : (
           <div className="mt-4 space-y-5">
-            <div className="space-y-1 text-sm">
-              <p>
-                <span className="text-slate-500">Client: </span>
-                <Link
-                  href={`/dashboard/clients/${client.id}`}
-                  className="font-medium text-blue-600 hover:underline"
-                >
-                  {client.name}
-                </Link>
+            {entry.location && (
+              <p className="text-sm">
+                <span className="text-slate-500">Location: </span>
+                <span className="font-medium text-slate-900">
+                  {entry.location.name}
+                </span>
               </p>
-              {entry.location && (
-                <p>
-                  <span className="text-slate-500">Location: </span>
-                  <span className="font-medium text-slate-900">
-                    {entry.location.name}
-                  </span>
-                </p>
-              )}
-              <div className="pt-1">
-                <PaymentStatusBadge
-                  sessionPaid={booking.sessionPaid}
-                  invoiceSentAt={booking.invoiceSentAt}
-                />
-              </div>
-            </div>
+            )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -323,14 +304,6 @@ export function BookedSlotModal({
                         onClick={() => setShowChangeSlots((open) => !open)}
                       >
                         Change slot
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        disabled={busy}
-                        className="w-full"
-                        onClick={() => void runAction("send_confirmation")}
-                      >
-                        Send WhatsApp confirmation
                       </Button>
                       <Button
                         variant="danger"

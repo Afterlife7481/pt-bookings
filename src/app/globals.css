@@ -22,6 +22,15 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
+/* iOS Safari zooms focused inputs below 16px; keep mobile fields readable without auto-zoom. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* —— Home landing —— */
 
 .home {
