@@ -44,6 +44,28 @@ export function defaultSelectedDay(weekStart: string): number {
   return 1;
 }
 
+/** Monday-first order used by day view navigation. */
+export const DAY_VIEW_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+
+export function adjacentDaySelection(
+  selectedDay: number,
+  delta: -1 | 1,
+): { dayOfWeek: number; weekDelta: -1 | 0 | 1 } {
+  const index = DAY_VIEW_ORDER.indexOf(
+    selectedDay as (typeof DAY_VIEW_ORDER)[number],
+  );
+  const currentIndex = index === -1 ? 0 : index;
+  const nextIndex = currentIndex + delta;
+
+  if (nextIndex < 0) {
+    return { dayOfWeek: 0, weekDelta: -1 };
+  }
+  if (nextIndex >= DAY_VIEW_ORDER.length) {
+    return { dayOfWeek: 1, weekDelta: 1 };
+  }
+  return { dayOfWeek: DAY_VIEW_ORDER[nextIndex]!, weekDelta: 0 };
+}
+
 /** True when the calendar day is strictly before today. */
 export function isPastWeekDay(
   weekStart: string,

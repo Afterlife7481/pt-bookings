@@ -14,7 +14,7 @@ export function ScheduleLegend({ className }: { className?: string }) {
       label: "Locked offer",
     },
     {
-      swatch: "past-day-hatch border border-slate-200",
+      swatch: "past-day-hatch border border-red-200",
       label: "Past day",
     },
   ] as const;

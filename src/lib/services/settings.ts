@@ -92,7 +92,10 @@ export async function getTrainerSettings(
     scheduleStartTime: trainer.scheduleStartTime ?? DEFAULT_SCHEDULE_START,
     scheduleEndTime: trainer.scheduleEndTime ?? DEFAULT_SCHEDULE_END,
     scheduleDefaultView:
-      trainer.scheduleDefaultView === "day" ? "day" : DEFAULT_SCHEDULE_DEFAULT_VIEW,
+      trainer.scheduleDefaultView === "day" ||
+      trainer.scheduleDefaultView === "week"
+        ? trainer.scheduleDefaultView
+        : DEFAULT_SCHEDULE_DEFAULT_VIEW,
     cancelDeadlineHours:
       trainer.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS,
     lastMinuteOfferLockHours:

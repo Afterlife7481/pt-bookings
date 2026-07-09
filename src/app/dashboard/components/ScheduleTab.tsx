@@ -54,7 +54,7 @@ export function ScheduleTab({
   onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
   onRefresh: () => void;
 }) {
-  const [viewMode, setViewMode] = useState<ScheduleView>("week");
+  const [viewMode, setViewMode] = useState<ScheduleView>("day");
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
@@ -122,6 +122,7 @@ export function ScheduleTab({
             enabledLocationIds: c.enabledLocationIds ?? [],
           }))}
           locations={trainerLocations}
+          onChangeWeek={onChangeWeek}
           onAddSlot={onAddSlot}
           onRemoveSlot={onRemoveSlot}
           onAllocateSlot={onAllocateSlot}

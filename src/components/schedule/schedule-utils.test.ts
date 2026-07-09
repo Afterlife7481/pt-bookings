@@ -3,6 +3,7 @@ import { formatDate } from "@/lib/constants";
 import { timeRowsInScheduleRange } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import {
+  adjacentDaySelection,
   dateForWeekDay,
   findEntryForScheduleRow,
   isPastWeekDay,
@@ -77,5 +78,15 @@ describe("schedule-utils week grid", () => {
     expect(isTodayWeekDay("2026-06-29", 5, today)).toBe(true);
     expect(isTodayWeekDay("2026-06-29", 4, today)).toBe(false);
     expect(isTodayWeekDay("2026-07-06", 5, today)).toBe(false);
+  });
+
+  it("moves to the next and previous day within the week", () => {
+    expect(adjacentDaySelection(1, 1)).toEqual({ dayOfWeek: 2, weekDelta: 0 });
+    expect(adjacentDaySelection(3, -1)).toEqual({ dayOfWeek: 2, weekDelta: 0 });
+  });
+
+  it("wraps across week boundaries when swiping from Sunday or Monday", () => {
+    expect(adjacentDaySelection(0, 1)).toEqual({ dayOfWeek: 1, weekDelta: 1 });
+    expect(adjacentDaySelection(1, -1)).toEqual({ dayOfWeek: 0, weekDelta: -1 });
   });
 });
