@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Fragment,
+} from "react";
 import {
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
@@ -359,9 +366,12 @@ export function WeekScheduleCalendar({
   const gridRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const pendingWeekDayRef = useRef<number | null>(null);
+  const shiftingRef = useRef(false);
   const selectedDayRef = useRef(selectedDay);
+  const weekStartRef = useRef(weekStart);
   const onChangeWeekRef = useRef(onChangeWeek);
   selectedDayRef.current = selectedDay;
+  weekStartRef.current = weekStart;
   onChangeWeekRef.current = onChangeWeek;
 
   const gridViewportHeight = useScheduleViewportHeight(gridRef, {
@@ -371,6 +381,7 @@ export function WeekScheduleCalendar({
   });
 
   useEffect(() => {
+    shiftingRef.current = false;
     if (pendingWeekDayRef.current != null) {
       setSelectedDay(pendingWeekDayRef.current);
       pendingWeekDayRef.current = null;
@@ -387,10 +398,12 @@ export function WeekScheduleCalendar({
     return () => media.removeEventListener("change", update);
   }, []);
 
-  function shiftSelectedDay(delta: -1 | 1) {
+  const shiftSelectedDay = useCallback((delta: -1 | 1) => {
+    // Ignore overlapping commits from a previous swipe flight.
+    if (shiftingRef.current) return;
+
     const next = adjacentDaySelection(selectedDayRef.current, delta);
     if (next.weekDelta === 0) {
-      // Same week: update the picker immediately.
       setSelectedDay(next.dayOfWeek);
       selectedDayRef.current = next.dayOfWeek;
       return;
@@ -400,19 +413,19 @@ export function WeekScheduleCalendar({
       selectedDayRef.current = next.dayOfWeek;
       return;
     }
-    // Week boundary: wait for the new weekStart before selecting the day,
-    // so the picker never briefly highlights the wrong week's date.
+
+    shiftingRef.current = true;
     pendingWeekDayRef.current = next.dayOfWeek;
     onChangeWeekRef.current(next.weekDelta);
-  }
+  }, []);
 
-  function peekDayLabel(delta: -1 | 1) {
+  const peekDayLabel = useCallback((delta: -1 | 1) => {
     const next = adjacentDaySelection(selectedDayRef.current, delta);
     if (next.weekDelta === 0) {
-      return dayHeader(weekStart, next.dayOfWeek);
+      return dayHeader(weekStartRef.current, next.dayOfWeek);
     }
     return next.weekDelta > 0 ? "Next week · Mon" : "Previous week · Sun";
-  }
+  }, []);
 
   useEffect(() => {
     setSelectedOpenSlot((prev) => {
