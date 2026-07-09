@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, Fragment } from "react";
-import { Button } from "@/components/ui";
 import {
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
@@ -10,7 +9,6 @@ import { ScheduleCell } from "@/components/schedule/ScheduleCell";
 import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
 import {
   AddSlotModal,
-  ApplyTemplateModal,
   OpenSlotModal,
   type ScheduleClientOption,
   type ScheduleLocationOption,
@@ -195,7 +193,7 @@ function DayPicker({
             type="button"
             onClick={() => onSelectDay(day.value)}
             className={cn(
-              "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 transition sm:px-2",
+              "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 sm:px-2",
               isSelected
                 ? "border-slate-900 bg-slate-900 text-white"
                 : isPast
@@ -324,9 +322,6 @@ function WeekGrid({
 export function WeekScheduleCalendar({
   weekStart,
   entries,
-  hasTemplate,
-  onApplyTemplate,
-  applyingTemplate,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
   viewMode,
@@ -342,9 +337,6 @@ export function WeekScheduleCalendar({
 }: {
   weekStart: string;
   entries: ScheduleEntry[];
-  hasTemplate: boolean;
-  onApplyTemplate?: () => void | Promise<boolean>;
-  applyingTemplate?: boolean;
   scheduleStartTime?: string;
   scheduleEndTime?: string;
   viewMode: ScheduleView;
@@ -379,7 +371,6 @@ export function WeekScheduleCalendar({
   } | null>(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
-  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const pendingWeekDayRef = useRef<number | null>(null);
@@ -413,14 +404,11 @@ export function WeekScheduleCalendar({
 
   function shiftSelectedDay(delta: -1 | 1) {
     const next = adjacentDaySelection(selectedDayRef.current, delta);
-    if (next.weekDelta === 0) {
-      setSelectedDay(next.dayOfWeek);
-      return;
-    }
-    if (!onChangeWeekRef.current) {
-      setSelectedDay(next.dayOfWeek);
-      return;
-    }
+    // Update selection immediately so the day picker doesn't lag behind the swipe.
+    setSelectedDay(next.dayOfWeek);
+    selectedDayRef.current = next.dayOfWeek;
+    if (next.weekDelta === 0) return;
+    if (!onChangeWeekRef.current) return;
     pendingWeekDayRef.current = next.dayOfWeek;
     onChangeWeekRef.current(next.weekDelta);
   }
@@ -508,26 +496,11 @@ export function WeekScheduleCalendar({
     setSelectedOpenSlot(entry);
   }
 
-  const bookedCount = entries.filter((e) => e.booking).length;
-  const showApplyTemplate = bookedCount === 0 && !!onApplyTemplate;
-
   const selectedDayLabel = dayHeader(weekStart, selectedDay);
   const useCompactWeekGrid = isCompactScreen && viewMode === "week";
 
   return (
     <div>
-      {showApplyTemplate ? (
-        <div className="mb-4 flex justify-end px-4 sm:mb-3 sm:px-5">
-          <Button
-            variant="secondary"
-            disabled={applyingTemplate}
-            onClick={() => setApplyTemplateOpen(true)}
-          >
-            {applyingTemplate ? "Applying…" : "Apply template"}
-          </Button>
-        </div>
-      ) : null}
-
       {viewMode === "day" ? (
         <div className="px-4 sm:px-5">
           <div className="mb-4">
@@ -598,20 +571,6 @@ export function WeekScheduleCalendar({
         )}
         <ScheduleLegend />
       </div>
-
-      {applyTemplateOpen && onApplyTemplate && (
-        <ApplyTemplateModal
-          hasTemplate={hasTemplate}
-          applying={applyingTemplate ?? false}
-          onApply={async () => {
-            const result = await onApplyTemplate();
-            if (result !== false) {
-              setApplyTemplateOpen(false);
-            }
-          }}
-          onClose={() => !applyingTemplate && setApplyTemplateOpen(false)}
-        />
-      )}
 
       {pendingAdd && (
         <AddSlotModal

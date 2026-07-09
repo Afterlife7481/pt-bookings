@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const SWIPE_THRESHOLD_PX = 88;
 const SWIPE_VELOCITY = 0.55;
 const MAX_ROTATION_DEG = 9;
-const EXIT_MS = 260;
+const ENTER_MS = 240;
 
 type DragState = {
   pointerId: number;
@@ -44,23 +44,13 @@ export function DaySwipeDeck({
 }) {
   const deckRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const exitingRef = useRef(false);
+  const busyRef = useRef(false);
   const suppressClickRef = useRef(false);
+  const pendingEnterRef = useRef<-1 | 1 | null>(null);
+  const skipTransitionRef = useRef(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const [exiting, setExiting] = useState<"left" | "right" | null>(null);
   const [deckWidth, setDeckWidth] = useState(320);
-
-  const resetDragVisual = useCallback(() => {
-    setDragX(0);
-    setDragging(false);
-    setExiting(null);
-    exitingRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    resetDragVisual();
-  }, [weekStart, selectedDay, resetDragVisual]);
 
   useEffect(() => {
     const node = deckRef.current;
@@ -72,23 +62,56 @@ export function DaySwipeDeck({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const enterDelta = pendingEnterRef.current;
+    pendingEnterRef.current = null;
+
+    if (enterDelta == null) {
+      // Day changed via picker / week buttons — snap with no animation.
+      skipTransitionRef.current = true;
+      setDragX(0);
+      setDragging(false);
+      busyRef.current = false;
+      const id = window.requestAnimationFrame(() => {
+        skipTransitionRef.current = false;
+      });
+      return () => window.cancelAnimationFrame(id);
+    }
+
+    // Content already swapped; ease the new card in from the swipe direction.
+    let enterFrame = 0;
+    const settleFrame = window.requestAnimationFrame(() => {
+      skipTransitionRef.current = false;
+      enterFrame = window.requestAnimationFrame(() => {
+        setDragX(0);
+        busyRef.current = false;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(settleFrame);
+      window.cancelAnimationFrame(enterFrame);
+    };
+  }, [weekStart, selectedDay]);
+
   const commitSwipe = useCallback(
     (delta: -1 | 1) => {
-      if (exitingRef.current) return;
-      exitingRef.current = true;
+      if (busyRef.current) return;
+      busyRef.current = true;
       suppressClickRef.current = true;
-      setExiting(delta > 0 ? "left" : "right");
+      pendingEnterRef.current = delta;
       setDragging(false);
-
-      window.setTimeout(() => {
-        onShiftDay(delta);
-      }, EXIT_MS);
+      // Park the incoming card off-screen before the day content updates,
+      // so the picker/content never flash at the old swipe offset.
+      skipTransitionRef.current = true;
+      setDragX(delta > 0 ? deckWidth * 0.38 : -deckWidth * 0.38);
+      onShiftDay(delta);
     },
-    [onShiftDay],
+    [onShiftDay, deckWidth],
   );
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (exitingRef.current) return;
+    if (busyRef.current) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     dragRef.current = {
@@ -104,7 +127,7 @@ export function DaySwipeDeck({
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId || exitingRef.current) return;
+    if (!drag || drag.pointerId !== event.pointerId || busyRef.current) return;
 
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
@@ -147,7 +170,7 @@ export function DaySwipeDeck({
       /* already released */
     }
 
-    if (drag.axis !== "horizontal" || exitingRef.current) {
+    if (drag.axis !== "horizontal" || busyRef.current) {
       setDragging(false);
       setDragX(0);
       if (drag.axis !== "horizontal") {
@@ -159,10 +182,12 @@ export function DaySwipeDeck({
     const dx = event.clientX - drag.startX;
     const elapsed = Math.max(event.timeStamp - drag.lastT, 8);
     const recentVelocity = (event.clientX - drag.lastX) / elapsed;
-    const overallVelocity = dx / Math.max(event.timeStamp - (drag.lastT - elapsed), 16);
-    const velocity = Math.abs(recentVelocity) > Math.abs(overallVelocity)
-      ? recentVelocity
-      : overallVelocity;
+    const overallVelocity =
+      dx / Math.max(event.timeStamp - (drag.lastT - elapsed), 16);
+    const velocity =
+      Math.abs(recentVelocity) > Math.abs(overallVelocity)
+        ? recentVelocity
+        : overallVelocity;
 
     const shouldSwipe =
       Math.abs(dx) >= SWIPE_THRESHOLD_PX || Math.abs(velocity) >= SWIPE_VELOCITY;
@@ -186,24 +211,18 @@ export function DaySwipeDeck({
     suppressClickRef.current = false;
   }
 
-  const exitX =
-    exiting === "left"
-      ? -(deckWidth + 56)
-      : exiting === "right"
-        ? deckWidth + 56
-        : 0;
-  const x = exiting ? exitX : dragX;
-  const progress = Math.max(-1, Math.min(1, x / Math.max(deckWidth * 0.5, 1)));
+  const progress = Math.max(-1, Math.min(1, dragX / Math.max(deckWidth * 0.5, 1)));
   const rotate = progress * MAX_ROTATION_DEG;
   const peekDelta: -1 | 1 | null =
     Math.abs(progress) < 0.08 ? null : progress < 0 ? 1 : -1;
   const peekScale = 0.94 + Math.min(Math.abs(progress), 1) * 0.06;
 
   const cardStyle: CSSProperties = {
-    transform: `translate3d(${x}px, ${Math.abs(progress) * 4}px, 0) rotate(${rotate}deg)`,
-    transition: dragging
-      ? "none"
-      : `transform ${EXIT_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+    transform: `translate3d(${dragX}px, ${Math.abs(progress) * 4}px, 0) rotate(${rotate}deg)`,
+    transition:
+      dragging || skipTransitionRef.current
+        ? "none"
+        : `transform ${ENTER_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
     willChange: "transform",
   };
 
@@ -235,7 +254,7 @@ export function DaySwipeDeck({
         className={cn(
           "relative z-[1] touch-pan-y rounded-xl border border-slate-200 bg-white shadow-lg",
           dragging && "cursor-grabbing select-none",
-          !dragging && !exiting && "cursor-grab",
+          !dragging && "cursor-grab",
         )}
         style={cardStyle}
         onPointerDown={onPointerDown}

@@ -6,6 +6,7 @@ import {
   ScheduleViewToggle,
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
+import { ApplyTemplateModal } from "@/components/schedule/ScheduleModals";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import type { DashboardClient, TrainerLocation, TrainerSettings } from "../types";
@@ -55,6 +56,7 @@ export function ScheduleTab({
   onRefresh: () => void;
 }) {
   const [viewMode, setViewMode] = useState<ScheduleView>("day");
+  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
@@ -64,11 +66,26 @@ export function ScheduleTab({
     }
   }, [settings]);
 
+  // Only offer apply when the week has no bookings yet (same rule as before).
+  const canApplyTemplate = !scheduleEntries.some((entry) => entry.booking);
+
   return (
     <Card className="!p-0">
       <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
         <h2 className="font-semibold">Weekly schedule</h2>
-        <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
+          {canApplyTemplate ? (
+            <Button
+              variant="secondary"
+              className="shrink-0"
+              disabled={applyingTemplate}
+              onClick={() => setApplyTemplateOpen(true)}
+            >
+              {applyingTemplate ? "Applying…" : "Apply template"}
+            </Button>
+          ) : null}
+        </div>
         {scheduleError && (
           <InlineNotice tone="error" className="flex items-start justify-between gap-3">
             <span>{scheduleError}</span>
@@ -109,9 +126,6 @@ export function ScheduleTab({
         <WeekScheduleCalendar
           weekStart={weekStart}
           entries={scheduleEntries}
-          hasTemplate={hasTemplate}
-          onApplyTemplate={onApplyTemplate}
-          applyingTemplate={applyingTemplate}
           scheduleStartTime={settings.scheduleStartTime}
           scheduleEndTime={settings.scheduleEndTime}
           viewMode={viewMode}
@@ -133,6 +147,20 @@ export function ScheduleTab({
         <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
           Loading schedule…
         </p>
+      )}
+
+      {applyTemplateOpen && (
+        <ApplyTemplateModal
+          hasTemplate={hasTemplate}
+          applying={applyingTemplate}
+          onApply={async () => {
+            const result = await onApplyTemplate();
+            if (result !== false) {
+              setApplyTemplateOpen(false);
+            }
+          }}
+          onClose={() => !applyingTemplate && setApplyTemplateOpen(false)}
+        />
       )}
     </Card>
   );
