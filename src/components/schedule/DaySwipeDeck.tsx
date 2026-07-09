@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 const SWIPE_THRESHOLD_PX = 88;
 const SWIPE_VELOCITY = 0.55;
 const MAX_ROTATION_DEG = 9;
-const EXIT_MS = 200;
-const ENTER_MS = 240;
+const EXIT_MS = 180;
+const ENTER_MS = 220;
 
 type DragState = {
   pointerId: number;
@@ -25,6 +25,8 @@ type DragState = {
   lastT: number;
   axis: "undecided" | "horizontal" | "vertical";
 };
+
+type Phase = "idle" | "dragging" | "exiting" | "entering";
 
 export function DaySwipeDeck({
   weekStart,
@@ -45,13 +47,50 @@ export function DaySwipeDeck({
 }) {
   const deckRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const busyRef = useRef(false);
+  const phaseRef = useRef<Phase>("idle");
   const suppressClickRef = useRef(false);
   const skipTransitionRef = useRef(false);
+  const timersRef = useRef<number[]>([]);
+  const rafRef = useRef<number[]>([]);
   const swipeGenRef = useRef(0);
   const [dragX, setDragX] = useState(0);
-  const [dragging, setDragging] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
   const [deckWidth, setDeckWidth] = useState(320);
+
+  const setPhaseBoth = useCallback((next: Phase) => {
+    phaseRef.current = next;
+    setPhase(next);
+  }, []);
+
+  const clearAnimationHandles = useCallback(() => {
+    for (const id of timersRef.current) window.clearTimeout(id);
+    for (const id of rafRef.current) window.cancelAnimationFrame(id);
+    timersRef.current = [];
+    rafRef.current = [];
+  }, []);
+
+  const queueTimeout = useCallback((fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+    return id;
+  }, []);
+
+  const queueRaf = useCallback((fn: () => void) => {
+    const id = window.requestAnimationFrame(fn);
+    rafRef.current.push(id);
+    return id;
+  }, []);
+
+  const snapFlat = useCallback(() => {
+    clearAnimationHandles();
+    skipTransitionRef.current = true;
+    setDragX(0);
+    setPhaseBoth("idle");
+    dragRef.current = null;
+    queueRaf(() => {
+      skipTransitionRef.current = false;
+    });
+  }, [clearAnimationHandles, queueRaf, setPhaseBoth]);
 
   useEffect(() => {
     const node = deckRef.current;
@@ -63,58 +102,70 @@ export function DaySwipeDeck({
     return () => observer.disconnect();
   }, []);
 
-  // Picker / week-button navigation: snap flat without fighting an in-flight swipe.
+  useEffect(() => () => clearAnimationHandles(), [clearAnimationHandles]);
+
+  // Picker / week-button navigation: snap flat only when not mid-swipe animation.
   useEffect(() => {
-    if (busyRef.current) return;
-    skipTransitionRef.current = true;
-    setDragX(0);
-    setDragging(false);
-    const id = window.requestAnimationFrame(() => {
-      skipTransitionRef.current = false;
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [weekStart, selectedDay]);
+    if (phaseRef.current === "exiting" || phaseRef.current === "entering") {
+      return;
+    }
+    snapFlat();
+  }, [weekStart, selectedDay, snapFlat]);
 
   const commitSwipe = useCallback(
     (delta: -1 | 1) => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-      suppressClickRef.current = true;
-      setDragging(false);
+      if (phaseRef.current === "exiting" || phaseRef.current === "entering") {
+        return;
+      }
 
+      clearAnimationHandles();
       const gen = ++swipeGenRef.current;
-      // Continue in the finger direction: next exits left, previous exits right.
-      const exitX = delta > 0 ? -(deckWidth + 48) : deckWidth + 48;
+      suppressClickRef.current = true;
+      dragRef.current = null;
+      setPhaseBoth("exiting");
+
+      // Finish the current card in the finger direction first.
+      // next exits left; previous exits right.
       skipTransitionRef.current = false;
+      const exitX = delta > 0 ? -(deckWidth + 48) : deckWidth + 48;
       setDragX(exitX);
 
-      // Advance the day immediately so the picker stays in sync.
-      onShiftDay(delta);
-
-      window.setTimeout(() => {
+      queueTimeout(() => {
         if (swipeGenRef.current !== gen) return;
 
-        // Place the new day just off-screen on the arrival edge, then ease in.
-        // next arrives from the right; previous arrives from the left.
+        // Swap day only after exit, so rapid opposite swipes can't desync content.
+        onShiftDay(delta);
+
+        // Park the new card on the arrival edge with no transition, then ease in.
         skipTransitionRef.current = true;
+        setPhaseBoth("entering");
         setDragX(delta > 0 ? deckWidth * 0.34 : -deckWidth * 0.34);
 
-        window.requestAnimationFrame(() => {
+        queueRaf(() => {
           if (swipeGenRef.current !== gen) return;
           skipTransitionRef.current = false;
           setDragX(0);
-          window.setTimeout(() => {
+
+          queueTimeout(() => {
             if (swipeGenRef.current !== gen) return;
-            busyRef.current = false;
+            setPhaseBoth("idle");
+            suppressClickRef.current = false;
           }, ENTER_MS);
         });
       }, EXIT_MS);
     },
-    [onShiftDay, deckWidth],
+    [
+      clearAnimationHandles,
+      deckWidth,
+      onShiftDay,
+      queueRaf,
+      queueTimeout,
+      setPhaseBoth,
+    ],
   );
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (busyRef.current) return;
+    if (phaseRef.current !== "idle") return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     dragRef.current = {
@@ -125,12 +176,12 @@ export function DaySwipeDeck({
       lastT: event.timeStamp,
       axis: "undecided",
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId || busyRef.current) return;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (phaseRef.current !== "idle" && phaseRef.current !== "dragging") return;
 
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
@@ -141,16 +192,16 @@ export function DaySwipeDeck({
         Math.abs(dx) > Math.abs(dy) * 1.2 ? "horizontal" : "vertical";
       if (drag.axis === "vertical") {
         dragRef.current = null;
-        setDragging(false);
+        setPhaseBoth("idle");
         setDragX(0);
-        try {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        } catch {
-          /* already released */
-        }
         return;
       }
-      setDragging(true);
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        /* ignore */
+      }
+      setPhaseBoth("dragging");
       suppressClickRef.current = true;
     }
 
@@ -173,30 +224,26 @@ export function DaySwipeDeck({
       /* already released */
     }
 
-    if (drag.axis !== "horizontal" || busyRef.current) {
-      setDragging(false);
+    if (phaseRef.current === "exiting" || phaseRef.current === "entering") {
+      return;
+    }
+
+    if (drag.axis !== "horizontal") {
+      setPhaseBoth("idle");
       setDragX(0);
-      if (drag.axis !== "horizontal") {
-        suppressClickRef.current = false;
-      }
+      suppressClickRef.current = false;
       return;
     }
 
     const dx = event.clientX - drag.startX;
     const elapsed = Math.max(event.timeStamp - drag.lastT, 8);
     const recentVelocity = (event.clientX - drag.lastX) / elapsed;
-    const overallVelocity =
-      dx / Math.max(event.timeStamp - (drag.lastT - elapsed), 16);
-    const velocity =
-      Math.abs(recentVelocity) > Math.abs(overallVelocity)
-        ? recentVelocity
-        : overallVelocity;
-
     const shouldSwipe =
-      Math.abs(dx) >= SWIPE_THRESHOLD_PX || Math.abs(velocity) >= SWIPE_VELOCITY;
+      Math.abs(dx) >= SWIPE_THRESHOLD_PX ||
+      Math.abs(recentVelocity) >= SWIPE_VELOCITY;
 
     if (!shouldSwipe) {
-      setDragging(false);
+      setPhaseBoth("idle");
       setDragX(0);
       window.setTimeout(() => {
         suppressClickRef.current = false;
@@ -214,7 +261,12 @@ export function DaySwipeDeck({
     suppressClickRef.current = false;
   }
 
-  const progress = Math.max(-1, Math.min(1, dragX / Math.max(deckWidth * 0.5, 1)));
+  const locked = phase === "exiting" || phase === "entering";
+  const dragging = phase === "dragging";
+  const progress = Math.max(
+    -1,
+    Math.min(1, dragX / Math.max(deckWidth * 0.5, 1)),
+  );
   const rotate = progress * MAX_ROTATION_DEG;
   const peekDelta: -1 | 1 | null =
     Math.abs(progress) < 0.08 ? null : progress < 0 ? 1 : -1;
@@ -225,7 +277,7 @@ export function DaySwipeDeck({
     transition:
       dragging || skipTransitionRef.current
         ? "none"
-        : `transform ${ENTER_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        : `transform ${phase === "exiting" ? EXIT_MS : ENTER_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
     willChange: "transform",
   };
 
@@ -256,8 +308,9 @@ export function DaySwipeDeck({
       <div
         className={cn(
           "relative z-[1] overflow-visible touch-pan-y rounded-xl border border-slate-200 bg-white shadow-lg",
+          locked && "pointer-events-none",
           dragging && "cursor-grabbing select-none",
-          !dragging && "cursor-grab",
+          !dragging && !locked && "cursor-grab",
         )}
         style={cardStyle}
         onPointerDown={onPointerDown}
@@ -273,12 +326,9 @@ export function DaySwipeDeck({
           </p>
         </div>
         <div className="relative p-2 sm:p-3">
-          {/* Stamps sit above the schedule grid so they aren't clipped or covered. */}
           <div
             aria-hidden
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-between px-5 transition-opacity duration-100",
-            )}
+            className="pointer-events-none absolute inset-x-0 top-4 z-20 flex justify-between px-5"
           >
             <span
               className={cn(
