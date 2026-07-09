@@ -1,6 +1,7 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { parseSessionPaymentType } from "@/lib/constants";
+import { bookingSessionPriceFromBody } from "@/lib/validation/booking";
 import {
   cancelBookingForTrainer,
   getBookingDetailForTrainer,
@@ -44,7 +45,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     const updates: {
       sessionPaid?: boolean;
       paymentType?: ReturnType<typeof parseSessionPaymentType>;
+      sessionPrice?: number | null;
     } = {};
+
+    if ("sessionPrice" in body) {
+      updates.sessionPrice = bookingSessionPriceFromBody(body.sessionPrice);
+    }
 
     if ("sessionPaid" in body) {
       if (typeof body.sessionPaid !== "boolean") {

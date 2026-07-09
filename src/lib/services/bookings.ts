@@ -129,6 +129,7 @@ export async function createBookingForSlot(params: {
         status: "booked",
         override36h: false,
         isRecurring,
+        sessionPrice: bookingClient.sessionPrice,
         createdAt: ts,
         updatedAt: ts,
       });
@@ -436,6 +437,7 @@ export type TrainerBookingDetail = {
     isRecurring: boolean;
     sessionPaid: boolean;
     paymentType: SessionPaymentType | null;
+    sessionPrice: number | null;
     invoiceSentAt: string | null;
     confirmationSentAt: string | null;
     sessionStartAt: string;
@@ -511,6 +513,7 @@ export async function getBookingDetailForTrainer(
       isRecurring: booking.isRecurring,
       sessionPaid: booking.sessionPaid,
       paymentType: booking.paymentType,
+      sessionPrice: booking.sessionPrice ?? null,
       invoiceSentAt: booking.invoiceSentAt ?? null,
       confirmationSentAt: booking.confirmationSentAt ?? null,
       sessionStartAt: booking.sessionStartAt,
@@ -545,6 +548,7 @@ export async function updateBookingPaymentForTrainer(
   updates: {
     sessionPaid?: boolean;
     paymentType?: SessionPaymentType | null;
+    sessionPrice?: number | null;
   },
 ) {
   const booking = await getBookingForTrainer(trainerId, bookingId);
@@ -553,9 +557,20 @@ export async function updateBookingPaymentForTrainer(
   const patch: {
     sessionPaid?: boolean;
     paymentType?: SessionPaymentType | null;
+    sessionPrice?: number | null;
     invoiceSentAt?: string | null;
     updatedAt: string;
   } = { updatedAt: nowIso() };
+
+  if (updates.sessionPrice !== undefined) {
+    if (
+      updates.sessionPrice != null &&
+      (!Number.isInteger(updates.sessionPrice) || updates.sessionPrice < 0)
+    ) {
+      throw new Error("Session price must be zero or greater");
+    }
+    patch.sessionPrice = updates.sessionPrice;
+  }
 
   if (updates.sessionPaid !== undefined) {
     if (updates.sessionPaid) {
@@ -664,8 +679,9 @@ export async function sendInvoiceForBooking(bookingId: string) {
   });
   if (!client) throw new Error("Client not found");
 
-  if (client.sessionPrice == null) {
-    throw new Error("Set a session price for this client before sending an invoice");
+  const amountPence = booking.sessionPrice ?? client.sessionPrice;
+  if (amountPence == null) {
+    throw new Error("Set a session price for this session before sending an invoice");
   }
 
   const settings = await getTrainerSettings(booking.trainerId);
@@ -686,7 +702,7 @@ export async function sendInvoiceForBooking(bookingId: string) {
     clientName: client.name,
     slotStartAt,
     slotEndAt,
-    amountPence: client.sessionPrice,
+    amountPence,
     paymentDetails,
   });
 

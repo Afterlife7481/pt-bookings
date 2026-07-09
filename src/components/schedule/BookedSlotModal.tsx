@@ -15,7 +15,8 @@ import {
 import { getPaymentStatus } from "@/lib/payments";
 import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import type { ScheduleEntry } from "@/lib/services/schedule-types";
-import { cn, formatSessionPrice } from "@/lib/utils";
+import { SessionPriceEditor } from "@/app/dashboard/components/SessionPriceEditor";
+import { cn, resolveBookingSessionPrice } from "@/lib/utils";
 
 export function BookedSlotModal({
   entry,
@@ -151,6 +152,10 @@ export function BookedSlotModal({
   const isInactive =
     booking?.status === "canceled" || booking?.status === "voided";
   const paymentStatus = booking ? getPaymentStatus(booking) : "unpaid";
+  const effectiveSessionPrice =
+    booking && client
+      ? resolveBookingSessionPrice(booking.sessionPrice, client.sessionPrice)
+      : null;
   const sessionPageHref = bookingId
     ? `/dashboard/sessions/${bookingId}?from=schedule`
     : "/dashboard/sessions";
@@ -196,12 +201,6 @@ export function BookedSlotModal({
                   </span>
                 </p>
               )}
-              <p>
-                <span className="text-slate-500">Price: </span>
-                <span className="font-medium text-slate-900">
-                  {formatSessionPrice(client.sessionPrice)}
-                </span>
-              </p>
               <div className="pt-1">
                 <PaymentStatusBadge
                   sessionPaid={booking.sessionPaid}
@@ -215,6 +214,14 @@ export function BookedSlotModal({
             {!isInactive && (
               <section className="space-y-3 border-t border-slate-100 pt-4">
                 <h3 className="text-sm font-medium text-slate-900">Payment</h3>
+                <SessionPriceEditor
+                  sessionPrice={booking.sessionPrice}
+                  clientDefaultPrice={client.sessionPrice}
+                  disabled={busy}
+                  onSave={async (sessionPrice) => {
+                    await patchUpdates({ sessionPrice });
+                  }}
+                />
                 <div className="flex shrink-0 self-start rounded-lg border border-slate-200 p-0.5">
                   <button
                     type="button"
@@ -278,7 +285,7 @@ export function BookedSlotModal({
                   variant="secondary"
                   disabled={
                     busy ||
-                    client.sessionPrice == null ||
+                    effectiveSessionPrice == null ||
                     !detail.paymentDetailsReady
                   }
                   className="w-full"

@@ -164,6 +164,16 @@ export function sessionPriceToInput(pence: number | null | undefined): string {
   return (pence / 100).toFixed(2).replace(/\.00$/, "");
 }
 
+/** Session price stored on the booking, falling back to the client default. */
+export function resolveBookingSessionPrice(
+  sessionPrice: number | null | undefined,
+  clientDefaultPrice: number | null | undefined,
+): number | null {
+  if (sessionPrice != null) return sessionPrice;
+  if (clientDefaultPrice != null) return clientDefaultPrice;
+  return null;
+}
+
 export function groupSlotsByDay<T extends { startAt: string }>(slots: T[]) {
   const map = new Map<string, T[]>();
 

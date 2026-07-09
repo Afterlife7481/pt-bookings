@@ -14,10 +14,11 @@ import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import { getPaymentStatus } from "@/lib/payments";
 import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
 import { MarkSessionPaidModal } from "./MarkSessionPaidModal";
+import { SessionPriceEditor } from "./SessionPriceEditor";
 import {
   cn,
   formatDurationMinutes,
-  formatSessionPrice,
+  resolveBookingSessionPrice,
 } from "@/lib/utils";
 
 export function TrainerSessionDetail({
@@ -200,6 +201,10 @@ export function TrainerSessionDetail({
         )
       : 60;
   const paymentStatus = getPaymentStatus(booking);
+  const effectiveSessionPrice = resolveBookingSessionPrice(
+    booking.sessionPrice,
+    client.sessionPrice,
+  );
   const clientSessionUrl = booking.sessionUrl;
 
   return (
@@ -290,16 +295,22 @@ export function TrainerSessionDetail({
               <dd>{location.name}</dd>
             </div>
           )}
-          <div>
-            <dt className="text-slate-500">Client session price</dt>
-            <dd>{formatSessionPrice(client.sessionPrice)}</dd>
-          </div>
         </dl>
       </Card>
 
       <Card className="min-w-0">
         <h2 className="font-semibold">Payment</h2>
         <div className="mt-4 space-y-4">
+          <SessionPriceEditor
+            sessionPrice={booking.sessionPrice}
+            clientDefaultPrice={client.sessionPrice}
+            disabled={busy || isInactive}
+            onSave={async (sessionPrice) => {
+              const ok = await patchUpdates({ sessionPrice });
+              if (ok) setSaved(true);
+            }}
+          />
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-900">Payment status</p>
@@ -389,7 +400,7 @@ export function TrainerSessionDetail({
               disabled={
                 busy ||
                 isInactive ||
-                client.sessionPrice == null ||
+                effectiveSessionPrice == null ||
                 !detail.paymentDetailsReady
               }
               className="mt-3 w-full sm:w-auto"
@@ -397,9 +408,9 @@ export function TrainerSessionDetail({
             >
               {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
             </Button>
-            {client.sessionPrice == null && !isInactive && (
+            {effectiveSessionPrice == null && !isInactive && (
               <p className="mt-2 text-sm text-amber-700">
-                Set a session price on the{" "}
+                Set a session price above or on the{" "}
                 <Link
                   href={`/dashboard/clients/${client.id}`}
                   className="underline hover:text-amber-900"
@@ -409,7 +420,7 @@ export function TrainerSessionDetail({
                 before sending an invoice.
               </p>
             )}
-            {client.sessionPrice != null &&
+            {effectiveSessionPrice != null &&
               !detail.paymentDetailsReady &&
               !isInactive && (
                 <p className="mt-2 text-sm text-amber-700">

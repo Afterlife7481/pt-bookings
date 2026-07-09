@@ -221,6 +221,7 @@ export const bookings = pgTable(
     isRecurring: boolean("is_recurring").notNull().default(false),
     sessionPaid: boolean("session_paid").notNull().default(false),
     paymentType: text("payment_type"),
+    sessionPrice: integer("session_price"),
     invoiceSentAt: text("invoice_sent_at"),
     confirmationSentAt: text("confirmation_sent_at"),
     createdAt: text("created_at").notNull(),
