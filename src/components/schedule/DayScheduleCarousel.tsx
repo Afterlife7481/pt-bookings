@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   type ReactNode,
@@ -58,6 +59,8 @@ export function DayScheduleCarousel({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const programmaticScrollRef = useRef(false);
   const edgeHandledRef = useRef(false);
+  const prevWeekStartRef = useRef(weekStart);
+  const weekJustChangedRef = useRef(false);
   const hasWeekEdges = !!onShiftDay;
 
   const slides = useMemo((): CarouselSlide[] => {
@@ -75,6 +78,27 @@ export function DayScheduleCarousel({
     ];
   }, [hasWeekEdges]);
 
+  const jumpToDay = useCallback(
+    (dayOfWeek: number) => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+
+      const index = dayToSlideIndex(dayOfWeek, hasWeekEdges);
+      const slide = scroller.children[index] as HTMLElement | undefined;
+      if (!slide) return;
+
+      programmaticScrollRef.current = true;
+      const previousBehavior = scroller.style.scrollBehavior;
+      scroller.style.scrollBehavior = "auto";
+      scroller.scrollLeft = slide.offsetLeft;
+      scroller.style.scrollBehavior = previousBehavior;
+      window.setTimeout(() => {
+        programmaticScrollRef.current = false;
+      }, 0);
+    },
+    [hasWeekEdges],
+  );
+
   const scrollToDay = useCallback(
     (dayOfWeek: number, behavior: ScrollBehavior = "smooth") => {
       const scroller = scrollerRef.current;
@@ -85,7 +109,10 @@ export function DayScheduleCarousel({
       if (!slide) return;
 
       programmaticScrollRef.current = true;
+      const previousBehavior = scroller.style.scrollBehavior;
+      scroller.style.scrollBehavior = "auto";
       scroller.scrollTo({ left: slide.offsetLeft, behavior });
+      scroller.style.scrollBehavior = previousBehavior;
       window.setTimeout(() => {
         programmaticScrollRef.current = false;
       }, behavior === "smooth" ? 320 : 0);
@@ -115,10 +142,30 @@ export function DayScheduleCarousel({
     }
   }, [onSelectDay, onShiftDay, selectedDay, slides]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (prevWeekStartRef.current === weekStart) return;
+
+    prevWeekStartRef.current = weekStart;
+    weekJustChangedRef.current = true;
     edgeHandledRef.current = false;
-    scrollToDay(selectedDay, "auto");
-  }, [weekStart, selectedDay, scrollToDay]);
+    jumpToDay(selectedDay);
+  }, [weekStart, selectedDay, jumpToDay]);
+
+  useEffect(() => {
+    if (weekJustChangedRef.current) {
+      weekJustChangedRef.current = false;
+      return;
+    }
+
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const index = dayToSlideIndex(selectedDay, hasWeekEdges);
+    const slide = scroller.children[index] as HTMLElement | undefined;
+    if (slide && Math.abs(slide.offsetLeft - scroller.scrollLeft) < 2) return;
+
+    scrollToDay(selectedDay, "smooth");
+  }, [hasWeekEdges, scrollToDay, selectedDay]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -150,7 +197,7 @@ export function DayScheduleCarousel({
     <div className={cn(className)}>
       <div
         ref={scrollerRef}
-        className="day-schedule-carousel__track flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth"
+        className="day-schedule-carousel__track flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
         aria-label="Daily schedule"
         aria-roledescription="carousel"
       >

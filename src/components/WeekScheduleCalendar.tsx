@@ -410,6 +410,8 @@ export function WeekScheduleCalendar({
 
     shiftingRef.current = true;
     pendingWeekDayRef.current = next.dayOfWeek;
+    selectedDayRef.current = next.dayOfWeek;
+    setSelectedDay(next.dayOfWeek);
     onChangeWeekRef.current(next.weekDelta);
   }, []);
 
