@@ -80,6 +80,26 @@ export const locations = pgTable("locations", {
   createdAt: text("created_at").notNull(),
 });
 
+export const trainerHolidays = pgTable(
+  "trainer_holidays",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    startAt: text("start_at").notNull(),
+    endAt: text("end_at").notNull(),
+    label: text("label"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerStartIdx: index("trainer_holidays_trainer_start_idx").on(
+      table.trainerId,
+      table.startAt,
+    ),
+  }),
+);
+
 export const trainerPaymentMethods = pgTable(
   "trainer_payment_methods",
   {
@@ -380,6 +400,7 @@ export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Location = typeof locations.$inferSelect;
+export type TrainerHoliday = typeof trainerHolidays.$inferSelect;
 export type TrainerPaymentMethod = typeof trainerPaymentMethods.$inferSelect;
 export type ClientLocation = typeof clientLocations.$inferSelect;
 export type WeeklyTemplate = typeof weeklyTemplates.$inferSelect;

@@ -70,6 +70,8 @@ type WeeklyHourGridProps = {
   viewportHeight?: number;
   /** When true, the day column gets a diagonal hatch (e.g. dates before today). */
   isPastDay?: (dayOfWeek: number) => boolean;
+  /** When true, the day column is marked unavailable (e.g. holiday). */
+  isUnavailableDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is highlighted as today. */
   isToday?: (dayOfWeek: number) => boolean;
 };
@@ -88,6 +90,7 @@ export function WeeklyHourGrid({
   splitDayHeaderRows = false,
   viewportHeight,
   isPastDay,
+  isUnavailableDay,
   isToday,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
@@ -159,6 +162,25 @@ export function WeeklyHourGrid({
           gridTemplateRows: gridRowTemplate,
         }}
       >
+        {isUnavailableDay
+          ? columns.map((day, dayIndex) => {
+              if (!isUnavailableDay(day.value) || isPastDay?.(day.value)) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={`unavailable-${day.value}`}
+                  aria-hidden
+                  className="pointer-events-none holiday-hatch"
+                  style={{
+                    gridColumn: dayIndex + 2,
+                    gridRow: `1 / span ${totalGridRows}`,
+                  }}
+                />
+              );
+            })
+          : null}
         {isPastDay
           ? columns.map((day, dayIndex) => {
               if (!isPastDay(day.value)) return null;
@@ -203,6 +225,8 @@ export function WeeklyHourGrid({
         {columns.map((day, dayIndex) => {
           const header = getDayHeader(day);
           const pastDay = isPastDay?.(day.value) ?? false;
+          const unavailableDay =
+            !pastDay && (isUnavailableDay?.(day.value) ?? false);
           const todayDay = isToday?.(day.value) ?? false;
 
           if (splitDayHeaderRows) {
@@ -215,7 +239,7 @@ export function WeeklyHourGrid({
                   todayDay
                     ? "border-sky-700 bg-slate-900"
                     : "border-slate-200",
-                  !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
+                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-amber-50/70" : "bg-slate-50"),
                 )}
               >
                 <div

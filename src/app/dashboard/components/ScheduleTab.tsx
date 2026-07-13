@@ -8,7 +8,8 @@ import {
 } from "@/components/ScheduleViewToggle";
 import { ApplyTemplateModal } from "@/components/schedule/ScheduleModals";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
-import type { ScheduleEntry } from "@/lib/services/schedule";
+import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
+import type { ApplyTemplateOutcome } from "../hooks/useSchedulePage";
 import type { DashboardClient, TrainerLocation, TrainerSettings } from "../types";
 
 export function ScheduleTab({
@@ -16,6 +17,7 @@ export function ScheduleTab({
   weekStart,
   scheduleRange,
   scheduleEntries,
+  scheduleHolidays,
   hasTemplate,
   clients,
   trainerLocations,
@@ -35,6 +37,7 @@ export function ScheduleTab({
   weekStart: string;
   scheduleRange: { weekStart: string; weekEnd: string };
   scheduleEntries: ScheduleEntry[];
+  scheduleHolidays: ScheduleHoliday[];
   hasTemplate: boolean;
   clients: DashboardClient[];
   trainerLocations: TrainerLocation[];
@@ -43,7 +46,7 @@ export function ScheduleTab({
   onDismissError: () => void;
   onChangeWeek: (delta: number) => void;
   onGoToThisWeek: () => void;
-  onApplyTemplate: () => Promise<boolean>;
+  onApplyTemplate: () => Promise<ApplyTemplateOutcome>;
   onAddSlot: (
     dayOfWeek: number,
     startTime: string,
@@ -57,6 +60,9 @@ export function ScheduleTab({
 }) {
   const [viewMode, setViewMode] = useState<ScheduleView>("day");
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const [applyTemplateNotice, setApplyTemplateNotice] = useState<ApplyTemplateOutcome | null>(
+    null,
+  );
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
@@ -86,6 +92,44 @@ export function ScheduleTab({
             </Button>
           ) : null}
         </div>
+        {applyTemplateNotice?.ok && applyTemplateNotice.conflicts.length > 0 && (
+          <InlineNotice tone="warning" className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-amber-950">
+                  Template applied with {applyTemplateNotice.conflicts.length}{" "}
+                  skipped slot
+                  {applyTemplateNotice.conflicts.length === 1 ? "" : "s"} due to
+                  time off.
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950/90">
+                  {applyTemplateNotice.conflicts.map((conflict) => (
+                    <li key={conflict}>{conflict}</li>
+                  ))}
+                </ul>
+                {applyTemplateNotice.recommendations.length > 0 ? (
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-amber-950">
+                      What you can do
+                    </p>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-amber-950/90">
+                      {applyTemplateNotice.recommendations.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-amber-900 underline"
+                onClick={() => setApplyTemplateNotice(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </InlineNotice>
+        )}
         {scheduleError && (
           <InlineNotice tone="error" className="flex items-start justify-between gap-3">
             <span>{scheduleError}</span>
@@ -126,6 +170,7 @@ export function ScheduleTab({
         <WeekScheduleCalendar
           weekStart={weekStart}
           entries={scheduleEntries}
+          holidays={scheduleHolidays}
           scheduleStartTime={settings.scheduleStartTime}
           scheduleEndTime={settings.scheduleEndTime}
           viewMode={viewMode}
@@ -155,8 +200,13 @@ export function ScheduleTab({
           applying={applyingTemplate}
           onApply={async () => {
             const result = await onApplyTemplate();
-            if (result !== false) {
+            if (result.ok) {
               setApplyTemplateOpen(false);
+              if (result.conflicts.length > 0) {
+                setApplyTemplateNotice(result);
+              } else {
+                setApplyTemplateNotice(null);
+              }
             }
           }}
           onClose={() => !applyingTemplate && setApplyTemplateOpen(false)}

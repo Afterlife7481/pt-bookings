@@ -35,6 +35,10 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           href="/dashboard/settings/templates"
           title="Weekly template"
         />
+        <SettingsRowLink
+          href="/dashboard/settings/holidays"
+          title="Time off"
+        />
       </SettingsGroup>
 
       <SettingsGroup>

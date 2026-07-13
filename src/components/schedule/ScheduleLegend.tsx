@@ -17,6 +17,10 @@ export function ScheduleLegend({ className }: { className?: string }) {
       swatch: "past-day-hatch border border-red-200",
       label: "Past day",
     },
+    {
+      swatch: "holiday-hatch border border-amber-200",
+      label: "Time off / unavailable",
+    },
   ] as const;
 
   return (

@@ -40,7 +40,12 @@ import {
   scheduleGridTimeLabel,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
-import type { ScheduleEntry } from "@/lib/services/schedule";
+import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
+import {
+  dayOverlapsHoliday,
+  slotTimeOverlapsHoliday,
+} from "@/lib/holidays-utils";
+import { defaultSlotEndTime } from "@/lib/constants";
 import {
   scheduleGridContentHeight,
   useScheduleViewportHeight,
@@ -49,11 +54,14 @@ import {
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
 
+type HolidayOption = ScheduleHoliday;
+
 function DayScheduleGrid({
   weekStart,
   selectedDay,
   timeRows,
   entries,
+  holidays,
   editable,
   busyKey,
   selectedOpenSlot,
@@ -65,6 +73,7 @@ function DayScheduleGrid({
   selectedDay: number;
   timeRows: string[];
   entries: ScheduleEntry[];
+  holidays: HolidayOption[];
   editable: boolean;
   busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
@@ -75,6 +84,8 @@ function DayScheduleGrid({
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
   const isPastDay = isPastWeekDay(weekStart, selectedDay);
+  const isUnavailableDay =
+    !isPastDay && !!dayOverlapsHoliday(weekStart, selectedDay, holidays);
   const minRowRem = 2.75;
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
@@ -102,12 +113,26 @@ function DayScheduleGrid({
           className="pointer-events-none past-day-hatch"
           style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
         />
+      ) : isUnavailableDay ? (
+        <div
+          aria-hidden
+          className="pointer-events-none holiday-hatch"
+          style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
+        />
       ) : null}
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
         const match = findEntryForScheduleRow(entries, dateKey, rowTime);
         const addKey = `add-${selectedDay}-${rowTime}`;
-        const canAdd = editable && onRequestAdd && !match;
+        const blockedByHoliday = slotTimeOverlapsHoliday(
+          weekStart,
+          selectedDay,
+          rowTime,
+          defaultSlotEndTime(rowTime),
+          holidays,
+        );
+        const canAdd =
+          editable && onRequestAdd && !match && !isPastDay && !blockedByHoliday;
 
         return (
           <Fragment key={rowTime}>
@@ -173,10 +198,12 @@ function DayScheduleGrid({
 function DayPicker({
   weekStart,
   selectedDay,
+  holidays,
   onSelectDay,
 }: {
   weekStart: string;
   selectedDay: number;
+  holidays: HolidayOption[];
   onSelectDay: (day: number) => void;
 }) {
   return (
@@ -184,6 +211,8 @@ function DayPicker({
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
         const isPast = isPastWeekDay(weekStart, day.value);
+        const isUnavailable =
+          !isPast && !!dayOverlapsHoliday(weekStart, day.value, holidays);
 
         return (
           <button
@@ -196,7 +225,9 @@ function DayPicker({
                 ? "border-slate-900 bg-slate-900 text-white"
                 : isPast
                   ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
-                  : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
+                  : isUnavailable
+                    ? "holiday-hatch border-amber-200 text-amber-950 active:bg-amber-50/70"
+                    : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
             )}
           >
             <span className="text-[10px] font-semibold sm:text-xs">{day.label}</span>
@@ -219,6 +250,7 @@ function WeekGrid({
   weekStart,
   timeRows,
   entries,
+  holidays,
   editable,
   busyKey,
   selectedOpenSlot,
@@ -230,6 +262,7 @@ function WeekGrid({
   weekStart: string;
   timeRows: string[];
   entries: ScheduleEntry[];
+  holidays: HolidayOption[];
   editable: boolean;
   busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
@@ -250,6 +283,10 @@ function WeekGrid({
       className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
       isPastDay={(dayOfWeek) => isPastWeekDay(weekStart, dayOfWeek)}
+      isUnavailableDay={(dayOfWeek) =>
+        !isPastWeekDay(weekStart, dayOfWeek) &&
+        !!dayOverlapsHoliday(weekStart, dayOfWeek, holidays)
+      }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
@@ -282,21 +319,31 @@ function WeekGrid({
         }
 
         if (editable && onRequestAdd) {
-          return (
-            <button
-              type="button"
-              disabled={!!busyKey}
-              onClick={() => onRequestAdd(dayOfWeek, rowTime)}
-              title={`Add slot at ${rowTime}`}
-              className={cn(
-                "flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600",
-                compact ? "text-[10px]" : "text-[10px]",
-                busyKey === `add-${dayOfWeek}-${rowTime}` && "opacity-50",
-              )}
-            >
-              {compact ? "+" : "+ Add"}
-            </button>
+          const pastDay = isPastWeekDay(weekStart, dayOfWeek);
+          const blockedByHoliday = slotTimeOverlapsHoliday(
+            weekStart,
+            dayOfWeek,
+            rowTime,
+            defaultSlotEndTime(rowTime),
+            holidays,
           );
+          if (!pastDay && !blockedByHoliday) {
+            return (
+              <button
+                type="button"
+                disabled={!!busyKey}
+                onClick={() => onRequestAdd(dayOfWeek, rowTime)}
+                title={`Add slot at ${rowTime}`}
+                className={cn(
+                  "flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600",
+                  compact ? "text-[10px]" : "text-[10px]",
+                  busyKey === `add-${dayOfWeek}-${rowTime}` && "opacity-50",
+                )}
+              >
+                {compact ? "+" : "+ Add"}
+              </button>
+            );
+          }
         }
 
         return <div className="h-full" />;
@@ -308,6 +355,7 @@ function WeekGrid({
 export function WeekScheduleCalendar({
   weekStart,
   entries,
+  holidays = [],
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
   viewMode,
@@ -323,6 +371,7 @@ export function WeekScheduleCalendar({
 }: {
   weekStart: string;
   entries: ScheduleEntry[];
+  holidays?: ScheduleHoliday[];
   scheduleStartTime?: string;
   scheduleEndTime?: string;
   viewMode: ScheduleView;
@@ -499,6 +548,7 @@ export function WeekScheduleCalendar({
             <DayPicker
               weekStart={weekStart}
               selectedDay={selectedDay}
+              holidays={holidays}
               onSelectDay={setSelectedDay}
             />
           </div>
@@ -516,6 +566,7 @@ export function WeekScheduleCalendar({
                   selectedDay={dayOfWeek}
                   timeRows={timeRows}
                   entries={entries}
+                  holidays={holidays}
                   editable={editable}
                   busyKey={busyKey}
                   selectedOpenSlot={selectedOpenSlot}
@@ -533,6 +584,7 @@ export function WeekScheduleCalendar({
             weekStart={weekStart}
             timeRows={timeRows}
             entries={entries}
+            holidays={holidays}
             editable={editable}
             busyKey={busyKey}
             selectedOpenSlot={selectedOpenSlot}

@@ -80,3 +80,11 @@ export type LocationRow = {
   address: string | null;
   createdAt: string;
 };
+
+export type HolidayRow = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  label: string | null;
+  createdAt: string;
+};

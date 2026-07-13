@@ -36,6 +36,7 @@ export async function wipeTestDatabase() {
       weekly_templates,
       client_locations,
       locations,
+      trainer_holidays,
       trainer_payment_methods,
       clients,
       trainer_sessions,

@@ -27,6 +27,10 @@ import {
 import { createBookingForSlot } from "./bookings";
 import { assertTrainerLocation } from "./locations";
 import {
+  assertSlotNotDuringHoliday,
+  listHolidaysOverlappingRange,
+} from "./holidays";
+import {
   buildEligibleCountIndex,
   buildEligibleClientsBySlotId,
   clearExpiredSlotHolds,
@@ -51,6 +55,13 @@ async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   return !!row;
 }
 
+export type ScheduleHoliday = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  label: string | null;
+};
+
 export async function getWeekSchedule(
   trainerId: string,
   weekStart: string,
@@ -60,6 +71,7 @@ export async function getWeekSchedule(
   entries: ScheduleEntry[];
   weekApplied: boolean;
   lockHours: number;
+  holidays: ScheduleHoliday[];
 }> {
   await clearExpiredSlotHolds(trainerId);
 
@@ -204,6 +216,11 @@ export async function getWeekSchedule(
   });
 
   const weekApplied = await isWeekScheduleApplied(trainerId, weekStart);
+  const holidays = await listHolidaysOverlappingRange(
+    trainerId,
+    startAtMin,
+    startAtMax,
+  );
 
   return {
     weekStart: formatDate(start),
@@ -211,6 +228,12 @@ export async function getWeekSchedule(
     entries,
     weekApplied,
     lockHours: settings.lastMinuteOfferLockHours,
+    holidays: holidays.map((holiday) => ({
+      id: holiday.id,
+      startAt: holiday.startAt,
+      endAt: holiday.endAt,
+      label: holiday.label,
+    })),
   };
 }
 
@@ -264,11 +287,21 @@ export async function addScheduleSlot(
   );
   const startAt = parseTimeOnDate(formatDate(slotDate), startTime);
   const endAt = parseTimeOnDate(formatDate(slotDate), effectiveEndTime);
+  const startAtStr = toLocalDateTimeString(startAt);
+  const endAtStr = toLocalDateTimeString(endAt);
+
+  const weekEnd = addDays(weekDate, 7);
+  const holidays = await listHolidaysOverlappingRange(
+    trainerId,
+    `${formatDate(weekDate)}T00:00:00`,
+    `${formatDate(weekEnd)}T00:00:00`,
+  );
+  assertSlotNotDuringHoliday(startAtStr, endAtStr, holidays);
 
   const existing = await db.query.slots.findFirst({
     where: and(
       eq(slots.trainerId, trainerId),
-      eq(slots.startAt, toLocalDateTimeString(startAt)),
+      eq(slots.startAt, startAtStr),
     ),
   });
   if (existing) {
@@ -280,8 +313,8 @@ export async function addScheduleSlot(
     id: slotId,
     trainerId,
     appliedWeekId: applied.id,
-    startAt: toLocalDateTimeString(startAt),
-    endAt: toLocalDateTimeString(endAt),
+    startAt: startAtStr,
+    endAt: endAtStr,
     status: "available",
     locationId,
     createdAt: nowIso(),

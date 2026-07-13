@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
-import type { ScheduleEntry } from "@/lib/services/schedule";
+import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
 import type {
   DashboardClient,
   TrainerLocation,
   TrainerSettings,
 } from "../types";
 
+export type ApplyTemplateOutcome = {
+  ok: boolean;
+  conflicts: string[];
+  recommendations: string[];
+  slotsCreated: number;
+};
+
 export function useSchedulePage() {
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [scheduleHolidays, setScheduleHolidays] = useState<ScheduleHoliday[]>([]);
   const [scheduleRange, setScheduleRange] = useState({ weekStart: "", weekEnd: "" });
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [clients, setClients] = useState<DashboardClient[]>([]);
@@ -28,6 +36,7 @@ export function useSchedulePage() {
         entries: ScheduleEntry[];
         weekStart: string;
         weekEnd: string;
+        holidays: ScheduleHoliday[];
       }>(`/api/schedule?weekStart=${activeWeek}`),
       fetchJson<TrainerSettings>("/api/settings"),
       fetchJson<TrainerLocation[]>("/api/locations"),
@@ -35,6 +44,7 @@ export function useSchedulePage() {
     setClients(c);
     setHasTemplate(t.template !== null);
     setScheduleEntries(sched.entries);
+    setScheduleHolidays(sched.holidays ?? []);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
     setSettings(sett);
     setTrainerLocations(Array.isArray(locs) ? locs : []);
@@ -62,11 +72,15 @@ export function useSchedulePage() {
     }
   }
 
-  async function applyTemplateToCurrentWeek() {
+  async function applyTemplateToCurrentWeek(): Promise<ApplyTemplateOutcome> {
     setApplyingTemplate(true);
     setScheduleError(null);
     try {
-      await fetchJson("/api/templates", {
+      const result = await fetchJson<{
+        slotsCreated: number;
+        conflicts: string[];
+        recommendations: string[];
+      }>("/api/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,12 +89,22 @@ export function useSchedulePage() {
         }),
       });
       await refresh();
-      return true;
+      return {
+        ok: true,
+        conflicts: result.conflicts ?? [],
+        recommendations: result.recommendations ?? [],
+        slotsCreated: result.slotsCreated ?? 0,
+      };
     } catch (e) {
       setScheduleError(
         e instanceof ApiError ? e.message : "Failed to apply template",
       );
-      return false;
+      return {
+        ok: false,
+        conflicts: [],
+        recommendations: [],
+        slotsCreated: 0,
+      };
     } finally {
       setApplyingTemplate(false);
     }
@@ -138,6 +162,7 @@ export function useSchedulePage() {
   return {
     weekStart,
     scheduleEntries,
+    scheduleHolidays,
     scheduleRange,
     applyingTemplate,
     clients,

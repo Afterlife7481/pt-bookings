@@ -32,6 +32,14 @@ import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
 import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations";
 import { getTrainerSettings } from "./settings";
+import {
+  listHolidaysOverlappingRange,
+  slotRangeOverlapsAnyHoliday,
+} from "./holidays";
+import {
+  HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS,
+  holidayDisplayName,
+} from "@/lib/holidays-utils";
 
 const WEEKLY_TEMPLATE_NAME = "Weekly template";
 
@@ -41,6 +49,7 @@ export type ApplyTemplateResult = {
   slotsCreated: number;
   recurringBooked: number;
   conflicts: string[];
+  recommendations: string[];
 };
 
 export type TrainerTemplate = {
@@ -304,7 +313,14 @@ export async function applyTemplateToWeek(
     slotsCreated: 0,
     recurringBooked: 0,
     conflicts: [],
+    recommendations: [],
   };
+
+  const holidays = await listHolidaysOverlappingRange(
+    template.trainerId,
+    startAtMin,
+    startAtMax,
+  );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -356,6 +372,20 @@ export async function applyTemplateToWeek(
     const endAtStr = toLocalDateTimeString(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
+
+    const holiday = slotRangeOverlapsAnyHoliday(startAtStr, endAtStr, holidays);
+    if (holiday) {
+      const dayLabel = slotDate.toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+      result.conflicts.push(
+        `Skipped ${dayLabel} ${ts.startTime}–${ts.endTime} (${holidayDisplayName(holiday)})`,
+      );
+      continue;
+    }
+
     const slotKey = recurringSlotKey(ts.dayOfWeek, ts.startTime);
     const matchingPref = prefBySlotKey.get(slotKey);
     const locationId = matchingPref?.locationId ?? ts.locationId;
@@ -396,6 +426,10 @@ export async function applyTemplateToWeek(
       locationValidation: "trainer",
     });
     result.recurringBooked++;
+  }
+
+  if (result.conflicts.length > 0) {
+    result.recommendations = [...HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS];
   }
 
   return result;
