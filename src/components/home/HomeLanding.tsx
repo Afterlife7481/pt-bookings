@@ -1,30 +1,57 @@
 import Link from "next/link";
 import { SwipeCarousel, type SwipeCarouselItem } from "./SwipeCarousel";
 
+const STORIES: SwipeCarouselItem[] = [
+  {
+    id: "james",
+    eyebrow: "James · gym & park",
+    title: "Recurring roster, last-minute saves",
+    body: "James trains at a city gym on Tuesday and Thursday mornings, and in the park on Saturdays. His eight regulars are on fixed slots every week. When someone cancels Thursday at 7am, he sends a last-minute offer to clients who opted in — Sarah claims it before he finishes his coffee.",
+  },
+  {
+    id: "priya",
+    eyebrow: "Priya · studio & home visits",
+    title: "Regulars plus drop-ins on open slots",
+    body: "Priya splits the week between a studio and home visits. Tom has the same Wednesday slot every week without a single WhatsApp thread. Emma, a drop-in client, spots a gap on Priya’s portal and books a one-off session herself — no back-and-forth.",
+  },
+  {
+    id: "marcus",
+    eyebrow: "Marcus · mixed diary",
+    title: "Rules that fit how he works",
+    body: "Marcus blocks admin time, sets a 24-hour cancellation cut-off, and lets clients rebook within a two-week window. Some slots are locked to recurring clients; others stay open for anyone on the app. His diary reflects his terms — not the other way around.",
+  },
+];
+
 const FEATURES: SwipeCarouselItem[] = [
   {
-    id: "schedule",
-    eyebrow: "Schedule",
-    title: "Your week on a 30-minute grid",
-    body: "Build a weekly template once, then fill each week with recurring clients and open slots in a few taps.",
+    id: "slots",
+    eyebrow: "Your slots",
+    title: "Recurring, one-off, or open",
+    body: "Attribute a slot to a specific client on a recurring basis — every Tuesday at 6pm — or hold it for a single session. Leave it empty and any client on the app can book it through their portal.",
+  },
+  {
+    id: "locations",
+    eyebrow: "Locations",
+    title: "One place or many",
+    body: "Gym floor, private studio, park, home visit — each slot lives at a location. Clients only see openings where they’re allowed to train, so you’re never double-booked across sites.",
+  },
+  {
+    id: "fill-ins",
+    eyebrow: "Fill-ins",
+    title: "Empty slots, smart alerts",
+    body: "When a session frees up, send a timed offer to clients who have opted in for that slot. First to accept locks it in — your diary stays full without a group chat blast.",
   },
   {
     id: "portal",
     eyebrow: "Client portal",
-    title: "Personal links, no client accounts",
-    body: "Share a private link. Clients book, reschedule, and cancel within your rules — without passwords.",
+    title: "Book, cancel, rebook",
+    body: "Share a personal link — no client account needed. They book open slots, cancel within your rules, and move sessions to times that still fit their locations and booking window.",
   },
   {
-    id: "last-minute",
-    eyebrow: "Fill-ins",
-    title: "Last-minute offers that lock the slot",
-    body: "When a session frees up, send a timed offer to an opted-in client and keep the diary tidy.",
-  },
-  {
-    id: "changes",
-    eyebrow: "Changes",
-    title: "Clients move sessions themselves",
-    body: "A guided change flow shows only slots that fit their locations and booking window.",
+    id: "flexibility",
+    eyebrow: "Your terms",
+    title: "Flexibility built in",
+    body: "Set booking windows, cancellation cut-offs, enabled locations per client, session prices, and last-minute preferences. The app adapts to how you operate — not a rigid template.",
   },
 ];
 
@@ -93,26 +120,69 @@ export function HomeLanding() {
         <div className="home-hero__content">
           <p className="home-brand home-animate home-animate--1">PT Bookings</p>
           <h1 className="home-headline home-animate home-animate--2">
-            Run your PT diary without the admin drag
+            The diary app for personal trainers with real schedules
           </h1>
           <p className="home-lede home-animate home-animate--3">
-            Schedule sessions, share client links, and fill last-minute gaps —
-            built for trainers who work from their phone.
+            Perfect if you work from one or multiple locations, with a mix of
+            regular clients and drop-ins. Manage your slots, fill the gaps, and
+            let clients book on your terms — mostly from your phone.
           </p>
           <div className="home-cta home-animate home-animate--4">
             <Link href="/login" className="home-cta__primary">
               Trainer sign in
             </Link>
-            <Link href="/info" className="home-cta__secondary">
-              How it works
-            </Link>
+            <a href="#who-its-for" className="home-cta__secondary">
+              Who it&apos;s for
+            </a>
           </div>
         </div>
       </section>
 
+      <section id="who-its-for" className="home-section home-audience">
+        <div className="home-section__intro">
+          <h2 className="home-section__title">Who this is for</h2>
+          <p className="home-section__copy">
+            PT Bookings is for personal trainers who run their own diary — not
+            big-box gym software with features you&apos;ll never use. It was
+            designed to help you manage your slots: assign them to clients on a
+            recurring basis or as a one-off, leave them open for anyone to book,
+            or ping opted-in clients when something opens up.
+          </p>
+        </div>
+        <ul className="home-audience__highlights">
+          <li>
+            <strong>One location or several</strong> — gym, studio, park, home
+            visits, all in one week view.
+          </li>
+          <li>
+            <strong>Regulars and drop-ins</strong> — fixed recurring slots for
+            your core clients, open gaps for one-off bookings.
+          </li>
+          <li>
+            <strong>Clients who help themselves</strong> — book, cancel, and
+            rebook within the rules you set.
+          </li>
+          <li>
+            <strong>Your terms, your operations</strong> — booking windows,
+            cancellation cut-offs, prices, and last-minute preferences.
+          </li>
+        </ul>
+      </section>
+
+      <section className="home-section home-section--muted">
+        <div className="home-section__intro">
+          <h2 className="home-section__title">A week in the life</h2>
+          <p className="home-section__copy">
+            Trainers like you — mixed locations, mixed clients, same admin
+            headaches. Here&apos;s how they use it.
+          </p>
+        </div>
+        <SwipeCarousel items={STORIES} label="Trainer stories" />
+      </section>
+
       <section className="home-section">
         <div className="home-section__intro">
-          <h2 className="home-section__title">Built for how you actually train</h2>
+          <h2 className="home-section__title">How slots actually work</h2>
           <p className="home-section__copy">
             Swipe through the pieces that keep your week moving.
           </p>
@@ -120,7 +190,20 @@ export function HomeLanding() {
         <SwipeCarousel items={FEATURES} label="Product features" />
       </section>
 
-      <section className="home-section home-section--muted">
+      <section className="home-section home-section--muted home-prose">
+        <div className="home-section__intro">
+          <h2 className="home-section__title">Clients stay in their lane</h2>
+          <p className="home-section__copy">
+            Each client gets a personal portal link — no app install, no password.
+            They see their upcoming sessions, book open slots that match their
+            locations, cancel within your deadline, and rebook into times that
+            still fit your booking window. You approve the rules once; they handle
+            the day-to-day moves themselves.
+          </p>
+        </div>
+      </section>
+
+      <section className="home-section">
         <div className="home-section__intro">
           <h2 className="home-section__title">Get set up in three moves</h2>
           <p className="home-section__copy">
@@ -134,8 +217,9 @@ export function HomeLanding() {
         <p className="home-footer-cta__brand">PT Bookings</p>
         <h2 className="home-footer-cta__title">Ready when your next client texts</h2>
         <p className="home-footer-cta__copy">
-          Clients use the personal link you send them — no app install, no
-          account for them to manage.
+          Set up your locations, lay out your week, and share portal links.
+          Recurring clients land on their slots; drop-ins fill the rest — on
+          your terms.
         </p>
         <Link href="/login" className="home-cta__primary">
           Create your trainer account

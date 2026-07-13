@@ -6,7 +6,7 @@ import { buildPageMetadata, homePageJsonLd } from "@/lib/seo";
 export const metadata: Metadata = buildPageMetadata({
   title: "Personal Trainer Scheduling Software UK — Free to Start",
   description:
-    "PT Bookings is free scheduling software for UK personal trainers. Manage recurring clients, send client portal links, fill last-minute slots, and track session payments.",
+    "Scheduling for UK personal trainers at one or many locations. Manage recurring and drop-in clients, open slots, last-minute alerts, and flexible booking rules — free to start.",
   path: "/",
 });
 
