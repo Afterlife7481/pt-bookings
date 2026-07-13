@@ -34,11 +34,12 @@ import { assertTrainerLocation, getEnabledClientLocationIds } from "./locations"
 import { getTrainerSettings } from "./settings";
 import {
   listHolidaysOverlappingRange,
-  slotRangeOverlapsAnyHoliday,
 } from "./holidays";
 import {
   HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS,
   holidayDisplayName,
+  parseHolidayRangesForLookup,
+  findOverlappingHolidayParsed,
 } from "@/lib/holidays-utils";
 
 const WEEKLY_TEMPLATE_NAME = "Weekly template";
@@ -297,18 +298,40 @@ export async function applyTemplateToWeek(
     );
   }
 
-  const tSlots = await db
-    .select()
-    .from(templateSlots)
-    .where(eq(templateSlots.templateId, templateId));
-
-  const prefs = await db
-    .select()
-    .from(recurringPreferences)
-    .where(eq(recurringPreferences.trainerId, template.trainerId));
+  const [tSlots, prefs, holidays, appliedWeek, existingWeekSlots] =
+    await Promise.all([
+      db
+        .select()
+        .from(templateSlots)
+        .where(eq(templateSlots.templateId, templateId)),
+      db
+        .select({
+          pref: recurringPreferences,
+          clientName: clients.name,
+        })
+        .from(recurringPreferences)
+        .innerJoin(clients, eq(recurringPreferences.clientId, clients.id))
+        .where(eq(recurringPreferences.trainerId, template.trainerId)),
+      listHolidaysOverlappingRange(
+        template.trainerId,
+        startAtMin,
+        startAtMax,
+      ),
+      getOrCreateAppliedWeek(template.trainerId, weekStart),
+      db
+        .select({ startAt: slots.startAt })
+        .from(slots)
+        .where(
+          and(
+            eq(slots.trainerId, template.trainerId),
+            gte(slots.startAt, startAtMin),
+            lt(slots.startAt, startAtMax),
+          ),
+        ),
+    ]);
 
   const result: ApplyTemplateResult = {
-    appliedWeekId: "",
+    appliedWeekId: appliedWeek.id,
     weekStart,
     slotsCreated: 0,
     recurringBooked: 0,
@@ -316,33 +339,18 @@ export async function applyTemplateToWeek(
     recommendations: [],
   };
 
-  const holidays = await listHolidaysOverlappingRange(
-    template.trainerId,
-    startAtMin,
-    startAtMax,
-  );
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const appliedWeek = await getOrCreateAppliedWeek(template.trainerId, weekStart);
-  result.appliedWeekId = appliedWeek.id;
-
-  const existingWeekSlots = await db
-    .select({ startAt: slots.startAt })
-    .from(slots)
-    .where(
-      and(
-        eq(slots.trainerId, template.trainerId),
-        gte(slots.startAt, startAtMin),
-        lt(slots.startAt, startAtMax),
-      ),
-    );
   const existingStartAt = new Set(existingWeekSlots.map((row) => row.startAt));
 
   const prefBySlotKey = new Map(
-    prefs.map((pref) => [recurringSlotKey(pref.dayOfWeek, pref.startTime), pref]),
+    prefs.map((row) => [
+      recurringSlotKey(row.pref.dayOfWeek, row.pref.startTime),
+      row,
+    ]),
   );
+  const parsedHolidays = parseHolidayRangesForLookup(holidays);
 
   type SlotInsert = {
     id: string;
@@ -373,22 +381,28 @@ export async function applyTemplateToWeek(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
 
-    const holiday = slotRangeOverlapsAnyHoliday(startAtStr, endAtStr, holidays);
+    const holiday = findOverlappingHolidayParsed(
+      parseLocalDateTime(startAtStr).getTime(),
+      parseLocalDateTime(endAtStr).getTime(),
+      parsedHolidays,
+    );
+    const slotKey = recurringSlotKey(ts.dayOfWeek, ts.startTime);
+    const matchingPref = prefBySlotKey.get(slotKey);
     if (holiday) {
-      const dayLabel = slotDate.toLocaleDateString("en-GB", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      });
-      result.conflicts.push(
-        `Skipped ${dayLabel} ${ts.startTime}–${ts.endTime} (${holidayDisplayName(holiday)})`,
-      );
+      if (matchingPref) {
+        const dayLabel = slotDate.toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
+        result.conflicts.push(
+          `Could not book recurring session for ${matchingPref.clientName}: ${dayLabel} ${ts.startTime}–${ts.endTime} (${holidayDisplayName(holiday)})`,
+        );
+      }
       continue;
     }
 
-    const slotKey = recurringSlotKey(ts.dayOfWeek, ts.startTime);
-    const matchingPref = prefBySlotKey.get(slotKey);
-    const locationId = matchingPref?.locationId ?? ts.locationId;
+    const locationId = matchingPref?.pref.locationId ?? ts.locationId;
     const slotId = nanoid();
 
     slotsToInsert.push({
@@ -414,13 +428,15 @@ export async function applyTemplateToWeek(
   }
 
   for (const pref of prefs) {
-    const slotId = createdSlotByKey.get(`${pref.dayOfWeek}-${pref.startTime}`);
+    const slotId = createdSlotByKey.get(
+      `${pref.pref.dayOfWeek}-${pref.pref.startTime}`,
+    );
     if (!slotId) continue;
 
     await createBookingForSlot({
       slotId,
-      clientId: pref.clientId,
-      trainerId: pref.trainerId,
+      clientId: pref.pref.clientId,
+      trainerId: pref.pref.trainerId,
       isRecurring: true,
       sendConfirmation: false,
       locationValidation: "trainer",

@@ -5,6 +5,8 @@ import {
   applyTemplateToWeek,
   saveTrainerTemplate,
 } from "@/lib/services/templates";
+import { setRecurringPreferences } from "@/lib/services/clients";
+import { setClientLocations } from "@/lib/services/locations";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID } from "@/lib/constants";
 
@@ -21,7 +23,7 @@ describe("template apply with holidays", () => {
     vi.useRealTimers();
   });
 
-  it("skips template slots that overlap time off and reports conflicts", async () => {
+  it("skips open template slots during time off without reporting conflicts", async () => {
     const fixtures = await seedTestFixtures();
 
     await createHoliday(DEFAULT_TRAINER_ID, {
@@ -52,7 +54,44 @@ describe("template apply with holidays", () => {
     );
 
     expect(result.slotsCreated).toBe(1);
+    expect(result.conflicts).toHaveLength(0);
+    expect(result.recommendations).toHaveLength(0);
+  });
+
+  it("reports conflicts only for recurring sessions blocked by time off", async () => {
+    const fixtures = await seedTestFixtures();
+
+    await createHoliday(DEFAULT_TRAINER_ID, {
+      label: "Summer break",
+      startAt: "2026-07-01T08:00:00",
+      endAt: "2026-07-01T18:00:00",
+    });
+
+    const templateId = await saveTrainerTemplate(DEFAULT_TRAINER_ID, [
+      {
+        dayOfWeek: 3,
+        startTime: "11:00",
+        endTime: "12:00",
+        locationId: fixtures.locationId,
+      },
+    ]);
+
+    await setClientLocations(DEFAULT_TRAINER_ID, fixtures.clientId, [
+      fixtures.locationId,
+    ]);
+    await setRecurringPreferences(fixtures.clientId, DEFAULT_TRAINER_ID, [
+      { dayOfWeek: 3, startTime: "11:00" },
+    ]);
+
+    const result = await applyTemplateToWeek(
+      templateId,
+      WEEK_START,
+      DEFAULT_TRAINER_ID,
+    );
+
+    expect(result.slotsCreated).toBe(0);
     expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]).toContain(fixtures.clientName);
     expect(result.conflicts[0]).toContain("Summer break");
     expect(result.recommendations.length).toBeGreaterThan(0);
   });

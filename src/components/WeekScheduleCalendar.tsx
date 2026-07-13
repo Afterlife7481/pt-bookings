@@ -42,10 +42,9 @@ import {
 } from "@/lib/schedule-grid";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
 import {
-  dayOverlapsHoliday,
-  slotTimeOverlapsHoliday,
+  buildHolidayScheduleIndex,
+  type HolidayScheduleIndex,
 } from "@/lib/holidays-utils";
-import { defaultSlotEndTime } from "@/lib/constants";
 import {
   scheduleGridContentHeight,
   useScheduleViewportHeight,
@@ -54,14 +53,12 @@ import {
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
 
-type HolidayOption = ScheduleHoliday;
-
 function DayScheduleGrid({
   weekStart,
   selectedDay,
   timeRows,
   entries,
-  holidays,
+  holidayIndex,
   editable,
   busyKey,
   selectedOpenSlot,
@@ -73,7 +70,7 @@ function DayScheduleGrid({
   selectedDay: number;
   timeRows: string[];
   entries: ScheduleEntry[];
-  holidays: HolidayOption[];
+  holidayIndex: HolidayScheduleIndex;
   editable: boolean;
   busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
@@ -85,7 +82,7 @@ function DayScheduleGrid({
   const fitViewport = viewportHeight != null;
   const isPastDay = isPastWeekDay(weekStart, selectedDay);
   const isUnavailableDay =
-    !isPastDay && !!dayOverlapsHoliday(weekStart, selectedDay, holidays);
+    !isPastDay && holidayIndex.unavailableDays.has(selectedDay);
   const minRowRem = 2.75;
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
@@ -124,12 +121,8 @@ function DayScheduleGrid({
         const gridRow = rowIndex + 1;
         const match = findEntryForScheduleRow(entries, dateKey, rowTime);
         const addKey = `add-${selectedDay}-${rowTime}`;
-        const blockedByHoliday = slotTimeOverlapsHoliday(
-          weekStart,
-          selectedDay,
-          rowTime,
-          defaultSlotEndTime(rowTime),
-          holidays,
+        const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
+          `${selectedDay}-${rowTime}`,
         );
         const canAdd =
           editable && onRequestAdd && !match && !isPastDay && !blockedByHoliday;
@@ -198,12 +191,12 @@ function DayScheduleGrid({
 function DayPicker({
   weekStart,
   selectedDay,
-  holidays,
+  holidayIndex,
   onSelectDay,
 }: {
   weekStart: string;
   selectedDay: number;
-  holidays: HolidayOption[];
+  holidayIndex: HolidayScheduleIndex;
   onSelectDay: (day: number) => void;
 }) {
   return (
@@ -212,7 +205,7 @@ function DayPicker({
         const isSelected = selectedDay === day.value;
         const isPast = isPastWeekDay(weekStart, day.value);
         const isUnavailable =
-          !isPast && !!dayOverlapsHoliday(weekStart, day.value, holidays);
+          !isPast && holidayIndex.unavailableDays.has(day.value);
 
         return (
           <button
@@ -250,7 +243,7 @@ function WeekGrid({
   weekStart,
   timeRows,
   entries,
-  holidays,
+  holidayIndex,
   editable,
   busyKey,
   selectedOpenSlot,
@@ -262,7 +255,7 @@ function WeekGrid({
   weekStart: string;
   timeRows: string[];
   entries: ScheduleEntry[];
-  holidays: HolidayOption[];
+  holidayIndex: HolidayScheduleIndex;
   editable: boolean;
   busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
@@ -285,7 +278,7 @@ function WeekGrid({
       isPastDay={(dayOfWeek) => isPastWeekDay(weekStart, dayOfWeek)}
       isUnavailableDay={(dayOfWeek) =>
         !isPastWeekDay(weekStart, dayOfWeek) &&
-        !!dayOverlapsHoliday(weekStart, dayOfWeek, holidays)
+        holidayIndex.unavailableDays.has(dayOfWeek)
       }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
       getDayHeader={(day) => ({
@@ -320,12 +313,8 @@ function WeekGrid({
 
         if (editable && onRequestAdd) {
           const pastDay = isPastWeekDay(weekStart, dayOfWeek);
-          const blockedByHoliday = slotTimeOverlapsHoliday(
-            weekStart,
-            dayOfWeek,
-            rowTime,
-            defaultSlotEndTime(rowTime),
-            holidays,
+          const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
+            `${dayOfWeek}-${rowTime}`,
           );
           if (!pastDay && !blockedByHoliday) {
             return (
@@ -396,6 +385,10 @@ export function WeekScheduleCalendar({
   const timeRows = useMemo(
     () => timeRowsInScheduleRange(scheduleStartTime, scheduleEndTime),
     [scheduleStartTime, scheduleEndTime],
+  );
+  const holidayIndex = useMemo(
+    () => buildHolidayScheduleIndex(weekStart, holidays, timeRows),
+    [weekStart, holidays, timeRows],
   );
   const editable = !!(onAddSlot || onRemoveSlot || onAllocateSlot);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -548,7 +541,7 @@ export function WeekScheduleCalendar({
             <DayPicker
               weekStart={weekStart}
               selectedDay={selectedDay}
-              holidays={holidays}
+              holidayIndex={holidayIndex}
               onSelectDay={setSelectedDay}
             />
           </div>
@@ -566,7 +559,7 @@ export function WeekScheduleCalendar({
                   selectedDay={dayOfWeek}
                   timeRows={timeRows}
                   entries={entries}
-                  holidays={holidays}
+                  holidayIndex={holidayIndex}
                   editable={editable}
                   busyKey={busyKey}
                   selectedOpenSlot={selectedOpenSlot}
@@ -584,7 +577,7 @@ export function WeekScheduleCalendar({
             weekStart={weekStart}
             timeRows={timeRows}
             entries={entries}
-            holidays={holidays}
+            holidayIndex={holidayIndex}
             editable={editable}
             busyKey={busyKey}
             selectedOpenSlot={selectedOpenSlot}

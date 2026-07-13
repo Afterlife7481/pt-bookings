@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHolidayScheduleIndex,
   datetimeRangesOverlap,
   dayOverlapsHoliday,
   normalizeHolidayDateTime,
@@ -60,5 +61,24 @@ describe("holidays-utils", () => {
         holidays,
       ),
     ).toBeNull();
+  });
+
+  it("builds a reusable holiday schedule index", () => {
+    const holidays = [
+      {
+        startAt: "2026-08-05T00:00:00",
+        endAt: "2026-08-06T00:00:00",
+        label: "Day off",
+      },
+    ];
+
+    const index = buildHolidayScheduleIndex("2026-08-03", holidays, [
+      "09:00",
+      "10:00",
+    ]);
+
+    expect(index.unavailableDays.has(3)).toBe(true);
+    expect(index.blockedSlotKeys.has("3-09:00")).toBe(true);
+    expect(index.blockedSlotKeys.has("1-09:00")).toBe(false);
   });
 });

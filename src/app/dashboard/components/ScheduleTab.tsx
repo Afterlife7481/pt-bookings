@@ -97,10 +97,10 @@ export function ScheduleTab({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-amber-950">
-                  Template applied with {applyTemplateNotice.conflicts.length}{" "}
-                  skipped slot
-                  {applyTemplateNotice.conflicts.length === 1 ? "" : "s"} due to
-                  time off.
+                  Template applied, but {applyTemplateNotice.conflicts.length}{" "}
+                  recurring session
+                  {applyTemplateNotice.conflicts.length === 1 ? "" : "s"} could
+                  not be booked due to time off.
                 </p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950/90">
                   {applyTemplateNotice.conflicts.map((conflict) => (

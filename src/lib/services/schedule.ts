@@ -76,33 +76,37 @@ export async function getWeekSchedule(
   await clearExpiredSlotHolds(trainerId);
 
   const db = getDb();
-  const settings = await getTrainerSettings(trainerId);
-  const prefIndex = await buildEligibleCountIndex(trainerId);
   const start = parseDateOnly(weekStart);
   const end = addDays(start, 7);
 
   const startAtMin = `${formatDate(start)}T00:00:00`;
   const startAtMax = `${formatDate(end)}T00:00:00`;
 
-  const rows = await db
-    .select({
-      slot: slots,
-      booking: bookings,
-      client: clients,
-      location: locations,
-    })
-    .from(slots)
-    .leftJoin(bookings, eq(bookings.slotId, slots.id))
-    .leftJoin(clients, eq(bookings.clientId, clients.id))
-    .leftJoin(locations, eq(slots.locationId, locations.id))
-    .where(
-      and(
-        eq(slots.trainerId, trainerId),
-        gte(slots.startAt, startAtMin),
-        lt(slots.startAt, startAtMax),
-      ),
-    )
-    .orderBy(asc(slots.startAt));
+  const [settings, prefIndex, holidays, weekApplied, rows] = await Promise.all([
+    getTrainerSettings(trainerId),
+    buildEligibleCountIndex(trainerId),
+    listHolidaysOverlappingRange(trainerId, startAtMin, startAtMax),
+    isWeekScheduleApplied(trainerId, weekStart),
+    db
+      .select({
+        slot: slots,
+        booking: bookings,
+        client: clients,
+        location: locations,
+      })
+      .from(slots)
+      .leftJoin(bookings, eq(bookings.slotId, slots.id))
+      .leftJoin(clients, eq(bookings.clientId, clients.id))
+      .leftJoin(locations, eq(slots.locationId, locations.id))
+      .where(
+        and(
+          eq(slots.trainerId, trainerId),
+          gte(slots.startAt, startAtMin),
+          lt(slots.startAt, startAtMax),
+        ),
+      )
+      .orderBy(asc(slots.startAt)),
+  ]);
 
   const filteredRows = rows.filter(
     (row) => !row.booking || !isInactiveBookingStatus(row.booking.status),
@@ -215,13 +219,6 @@ export async function getWeekSchedule(
     };
   });
 
-  const weekApplied = await isWeekScheduleApplied(trainerId, weekStart);
-  const holidays = await listHolidaysOverlappingRange(
-    trainerId,
-    startAtMin,
-    startAtMax,
-  );
-
   return {
     weekStart: formatDate(start),
     weekEnd: formatDate(addDays(start, 6)),
@@ -290,11 +287,10 @@ export async function addScheduleSlot(
   const startAtStr = toLocalDateTimeString(startAt);
   const endAtStr = toLocalDateTimeString(endAt);
 
-  const weekEnd = addDays(weekDate, 7);
   const holidays = await listHolidaysOverlappingRange(
     trainerId,
-    `${formatDate(weekDate)}T00:00:00`,
-    `${formatDate(weekEnd)}T00:00:00`,
+    `${formatDate(slotDate)}T00:00:00`,
+    `${formatDate(addDays(slotDate, 1))}T00:00:00`,
   );
   assertSlotNotDuringHoliday(startAtStr, endAtStr, holidays);
 
