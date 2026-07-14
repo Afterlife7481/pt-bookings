@@ -5,7 +5,7 @@ import { getBookingCalendarPayload } from "@/lib/services/booking-calendar";
 import { getTrainerById } from "@/lib/services/trainers";
 import { getTrainerSettings } from "@/lib/services/settings";
 import { Card, Badge, Button } from "@/components/ui";
-import { AddToCalendarLinks } from "@/components/AddToCalendarLinks";
+import { AddToCalendarButton } from "@/components/AddToCalendarButton";
 import { formatSlot, formatDurationMinutes } from "@/lib/utils";
 import { isWithinBookingDeadline, isInactiveBookingStatus, parseLocalDateTime } from "@/lib/constants";
 import { ChangeSessionFlow } from "@/components/ChangeSessionFlow";
@@ -112,10 +112,10 @@ export default async function SessionPage({
             ) : null}
           </div>
           {!isInactive && calendar ? (
-            <AddToCalendarLinks
+            <AddToCalendarButton
               className="mt-4"
-              icsHref={`/s/${token}/calendar.ics`}
-              googleCalendarUrl={calendar.googleCalendarUrl}
+              options={calendar.options}
+              sessionLabel={formatSlot(sessionStartAt, sessionEndAt)}
             />
           ) : null}
           <div className="mt-4 flex flex-wrap gap-2">

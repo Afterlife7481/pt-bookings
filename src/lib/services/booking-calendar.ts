@@ -1,16 +1,15 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, clients, locations, slots, trainers } from "@/lib/db/schema";
+import { bookingUrl, bookingCalendarUrl, DEFAULT_TIMEZONE, isInactiveBookingStatus } from "@/lib/constants";
 import {
-  bookingUrl,
-  DEFAULT_TIMEZONE,
-  isInactiveBookingStatus,
-} from "@/lib/constants";
-import {
+  buildCalendarExportOptions,
   buildGoogleCalendarUrl,
   buildIcsCalendar,
+  buildOutlookCalendarUrl,
   calendarSequenceFromUpdatedAt,
   type CalendarEventInput,
+  type CalendarExportOption,
 } from "@/lib/calendar/ics";
 import { getTrainerSettings } from "./settings";
 
@@ -18,6 +17,8 @@ export type BookingCalendarPayload = {
   filename: string;
   ics: string;
   googleCalendarUrl: string;
+  outlookCalendarUrl: string;
+  options: CalendarExportOption[];
   event: CalendarEventInput;
 };
 
@@ -93,6 +94,13 @@ export async function getBookingCalendarPayload(
     filename: calendarFilename(startAt),
     ics: buildIcsCalendar([event]),
     googleCalendarUrl: buildGoogleCalendarUrl(event),
+    outlookCalendarUrl: buildOutlookCalendarUrl(event),
+    options: buildCalendarExportOptions({
+      event,
+      icsHref: bookingCalendarUrl(booking.token),
+      googleCalendarUrl: buildGoogleCalendarUrl(event),
+      outlookCalendarUrl: buildOutlookCalendarUrl(event),
+    }),
     event,
   };
 }

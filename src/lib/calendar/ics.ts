@@ -141,6 +141,69 @@ export function buildGoogleCalendarUrl(event: CalendarEventInput): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+export function buildOutlookCalendarUrl(event: CalendarEventInput): string {
+  const start = wallClockToUtcDate(event.startAt, event.timeZone);
+  const end = wallClockToUtcDate(event.endAt, event.timeZone);
+  const params = new URLSearchParams({
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: event.title,
+    body: event.description,
+    startdt: start.toISOString(),
+    enddt: end.toISOString(),
+  });
+  if (event.location?.trim()) {
+    params.set("location", event.location.trim());
+  }
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
+export type CalendarExportOption = {
+  id: string;
+  name: string;
+  hint: string;
+  href: string;
+  external: boolean;
+};
+
+export function buildCalendarExportOptions(params: {
+  event: CalendarEventInput;
+  icsHref: string;
+  googleCalendarUrl: string;
+  outlookCalendarUrl: string;
+}): CalendarExportOption[] {
+  return [
+    {
+      id: "apple",
+      name: "Apple Calendar",
+      hint: "Best for iPhone, iPad, and Mac",
+      href: params.icsHref,
+      external: false,
+    },
+    {
+      id: "google",
+      name: "Google Calendar",
+      hint: "Best for Android and Gmail",
+      href: params.googleCalendarUrl,
+      external: true,
+    },
+    {
+      id: "outlook",
+      name: "Outlook",
+      hint: "Outlook.com or Microsoft 365 in your browser",
+      href: params.outlookCalendarUrl,
+      external: true,
+    },
+    {
+      id: "other",
+      name: "Other calendar app",
+      hint: "Downloads a file — choose your app when prompted",
+      href: params.icsHref,
+      external: false,
+    },
+  ];
+}
+
 export function calendarSequenceFromUpdatedAt(updatedAt: string): number {
   return Math.floor(parseLocalDateTime(updatedAt).getTime() / 1000);
 }

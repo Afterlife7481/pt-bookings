@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildGoogleCalendarUrl,
   buildIcsCalendar,
+  buildOutlookCalendarUrl,
   escapeIcsText,
   icsCompactLocalDateTime,
   wallClockToUtcDate,
@@ -56,6 +57,23 @@ describe("ics", () => {
     expect(url).toContain("calendar.google.com");
     expect(url).toContain("action=TEMPLATE");
     expect(url).toContain("text=PT+session");
+    expect(url).toContain("location=Studio");
+  });
+
+  it("builds an Outlook Calendar URL", () => {
+    const url = buildOutlookCalendarUrl({
+      uid: "abc@ptbookings",
+      title: "PT session",
+      description: "Details",
+      startAt: "2026-01-15T09:00:00",
+      endAt: "2026-01-15T10:00:00",
+      timeZone: "Europe/London",
+      location: "Studio",
+    });
+
+    expect(url).toContain("outlook.live.com");
+    expect(url).toContain("subject=PT+session");
+    expect(url).toContain("startdt=");
     expect(url).toContain("location=Studio");
   });
 
