@@ -159,8 +159,8 @@ function DayScheduleGrid({
                 <button
                   type="button"
                   onClick={() => onRequestAdd(selectedDay, rowTime)}
-                  aria-label={`Add session at ${rowTime}`}
-                  title={`Add session at ${rowTime}`}
+                  aria-label={`Add a slot at ${rowTime}`}
+                  title={`Add a slot at ${rowTime}`}
                   className="h-full min-h-0 w-full rounded-lg transition hover:bg-slate-50 active:bg-slate-100"
                 />
               ) : (
@@ -172,7 +172,7 @@ function DayScheduleGrid({
       })}
       <div
         style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
-        className="relative z-[5] min-h-0"
+        className="pointer-events-none relative z-[5] min-h-0"
       >
         <TimedSlotOverlay
           scheduleStartTime={scheduleStartTime}
@@ -335,8 +335,8 @@ function WeekGrid({
             <button
               type="button"
               onClick={() => onRequestAdd(dayOfWeek, rowTime)}
-              aria-label={`Add session at ${rowTime}`}
-              title={`Add session at ${rowTime}`}
+              aria-label={`Add a slot at ${rowTime}`}
+              title={`Add a slot at ${rowTime}`}
               className="h-full w-full rounded transition hover:bg-slate-50"
             />
           );
@@ -590,7 +590,7 @@ export function WeekScheduleCalendar({
             disabled={!!busyKey}
             onClick={openAddSession}
           >
-            Add session
+            Add a slot
           </Button>
         </div>
       ) : null}
@@ -660,7 +660,7 @@ export function WeekScheduleCalendar({
       >
         {editable ? (
           <p className="mb-2 text-xs text-slate-500">
-            Tap empty space or Add session to create a slot · tap slots to manage
+            Tap empty space or Add a slot · tap slots to manage
           </p>
         ) : null}
         <ScheduleLegend />

@@ -399,10 +399,10 @@ export function TemplateWeekCalendar({
             disabled={disabled}
             onClick={openAddSession}
           >
-            Add session
+            Add a slot
           </Button>
           <p className="text-xs text-slate-500">
-            Tap empty space or Add session to create a slot
+            Tap empty space or Add a slot
           </p>
         </div>
       ) : null}
@@ -426,8 +426,8 @@ export function TemplateWeekCalendar({
               <button
                 type="button"
                 onClick={() => openCell(dayOfWeek, rowTime, null)}
-                aria-label={`Add session at ${rowTime}`}
-                title={`Add session at ${rowTime}`}
+                aria-label={`Add a slot at ${rowTime}`}
+                title={`Add a slot at ${rowTime}`}
                 className="h-full w-full rounded transition hover:bg-slate-50"
               />
             );

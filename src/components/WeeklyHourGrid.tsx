@@ -78,7 +78,8 @@ type WeeklyHourGridProps = {
   isToday?: (dayOfWeek: number) => boolean;
   /**
    * Optional timed overlay for each day column (absolute-positioned sessions).
-   * Rendered above empty cells; use pointer-events carefully inside.
+   * Wrapper uses pointer-events-none so empty cells stay clickable; slot
+   * content should set pointer-events-auto.
    */
   renderDayOverlay?: (dayOfWeek: number) => ReactNode;
 };
@@ -383,7 +384,7 @@ export function WeeklyHourGrid({
                   gridColumn: dayIndex + 2,
                   gridRow: `${bodyRowOffset} / span ${rows.length}`,
                 }}
-                className="relative z-[5] min-h-0 min-w-0"
+                className="pointer-events-none relative z-[5] min-h-0 min-w-0"
               >
                 {renderDayOverlay(day.value)}
               </div>

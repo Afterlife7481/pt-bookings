@@ -74,7 +74,7 @@ async function assertNoOverlappingSlot(
   if (!other) return;
 
   throw new Error(
-    `This session overlaps an existing slot (${formatSlotLabel(other.startAt, other.endAt)}). Choose a different time.`,
+    `This slot overlaps an existing slot (${formatSlotLabel(other.startAt, other.endAt)}). Choose a different time.`,
   );
 }
 

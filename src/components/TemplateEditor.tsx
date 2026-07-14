@@ -219,8 +219,8 @@ export function TemplateEditorForm({
         </div>
         <p className="mb-3 text-sm text-slate-500">
           Tap empty space or{" "}
-          <span className="font-medium text-slate-700">Add session</span> to
-          create a slot. Sessions cannot overlap.
+          <span className="font-medium text-slate-700">Add a slot</span>.
+          Slots cannot overlap.
         </p>
         {locations.length === 0 && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
