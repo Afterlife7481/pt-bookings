@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
 import { getBookingByToken } from "@/lib/services/bookings";
+import { getBookingCalendarPayload } from "@/lib/services/booking-calendar";
+import { getTrainerById } from "@/lib/services/trainers";
 import { getTrainerSettings } from "@/lib/services/settings";
 import { Card, Badge, Button } from "@/components/ui";
+import { AddToCalendarLinks } from "@/components/AddToCalendarLinks";
 import { formatSlot, formatDurationMinutes } from "@/lib/utils";
 import { isWithinBookingDeadline, isInactiveBookingStatus, parseLocalDateTime } from "@/lib/constants";
 import { ChangeSessionFlow } from "@/components/ChangeSessionFlow";
@@ -40,7 +43,13 @@ export default async function SessionPage({
         )
       : 60;
 
-  const trainerSettings = await getTrainerSettings(booking.trainerId);
+  const [trainerSettings, trainer, calendar] = await Promise.all([
+    getTrainerSettings(booking.trainerId),
+    getTrainerById(booking.trainerId),
+    !isInactiveBookingStatus(booking.status)
+      ? getBookingCalendarPayload(token)
+      : Promise.resolve(null),
+  ]);
   const blockedByDeadline = slot
     ? isWithinBookingDeadline(
         slot.startAt,
@@ -91,10 +100,25 @@ export default async function SessionPage({
               <span className="font-medium">Duration:</span>{" "}
               {formatDurationMinutes(durationMinutes)}
             </p>
-            <p><span className="font-medium">Trainer:</span> Alex Trainer</p>
+            <p>
+              <span className="font-medium">Trainer:</span>{" "}
+              {trainer?.name ?? "Your trainer"}
+            </p>
+            {calendar?.event.location ? (
+              <p>
+                <span className="font-medium">Location:</span>{" "}
+                {calendar.event.location}
+              </p>
+            ) : null}
           </div>
+          {!isInactive && calendar ? (
+            <AddToCalendarLinks
+              className="mt-4"
+              icsHref={`/s/${token}/calendar.ics`}
+              googleCalendarUrl={calendar.googleCalendarUrl}
+            />
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button disabled variant="secondary">Add to calendar (soon)</Button>
             <Button disabled variant="secondary">Pay (soon)</Button>
           </div>
           {!isChanging && !isInactive && (

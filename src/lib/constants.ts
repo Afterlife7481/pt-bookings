@@ -268,6 +268,10 @@ export function bookingUrl(token: string): string {
   return `${appBaseUrl()}/s/${token}`;
 }
 
+export function bookingCalendarUrl(token: string): string {
+  return `${appBaseUrl()}/s/${token}/calendar.ics`;
+}
+
 export function interestUrl(token: string): string {
   return `${appBaseUrl()}/interest/${token}`;
 }

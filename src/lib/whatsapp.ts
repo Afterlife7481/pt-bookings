@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { whatsappMessages } from "@/lib/db/schema";
 import {
   bookingUrl,
+  bookingCalendarUrl,
   formatSlotLabel,
   interestUrl,
   nowIso,
@@ -58,7 +59,8 @@ export async function sendWhatsAppConfirmation(params: {
   clientName: string;
 }) {
   const link = bookingUrl(params.bookingToken);
-  const body = `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+  const calendarLink = bookingCalendarUrl(params.bookingToken);
+  const body = `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}\nAdd to calendar: ${calendarLink}`;
 
   console.log(`[WhatsApp → ${params.phone}] ${body}`);
 
