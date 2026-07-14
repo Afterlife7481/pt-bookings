@@ -52,6 +52,7 @@ import {
   scheduleGridContentHeight,
   useScheduleViewportHeight,
 } from "@/components/schedule/useScheduleViewportHeight";
+import { Button } from "@/components/ui";
 
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
@@ -65,9 +66,7 @@ function DayScheduleGrid({
   entries,
   holidayIndex,
   editable,
-  busyKey,
   selectedOpenSlot,
-  onRequestAdd,
   onOpenSlot,
   viewportHeight,
 }: {
@@ -79,9 +78,7 @@ function DayScheduleGrid({
   entries: ScheduleEntry[];
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
-  busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
-  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   viewportHeight?: number;
 }) {
@@ -120,16 +117,9 @@ function DayScheduleGrid({
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
         const occupied = displayRowHasEntry(entries, dateKey, rowTime);
-        const addKey = `add-${selectedDay}-${rowTime}`;
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${selectedDay}-${rowTime}`,
         );
-        const canAdd =
-          editable &&
-          onRequestAdd &&
-          !occupied &&
-          !isPastDay &&
-          !blockedByHoliday;
 
         return (
           <Fragment key={rowTime}>
@@ -151,19 +141,7 @@ function DayScheduleGrid({
                 !isPastDay && "bg-white",
               )}
             >
-              {canAdd ? (
-                <button
-                  type="button"
-                  disabled={!!busyKey}
-                  onClick={() => onRequestAdd(selectedDay, rowTime)}
-                  className={cn(
-                    "flex h-full min-h-0 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition active:border-slate-400 active:bg-slate-50",
-                    busyKey === addKey && "opacity-50",
-                  )}
-                >
-                  + Add slot
-                </button>
-              ) : blockedByHoliday && !occupied ? (
+              {blockedByHoliday && !occupied ? (
                 <div
                   aria-hidden
                   className="holiday-hatch h-full min-h-0 rounded-lg"
@@ -271,9 +249,7 @@ function WeekGrid({
   entries,
   holidayIndex,
   editable,
-  busyKey,
   selectedOpenSlot,
-  onRequestAdd,
   onOpenSlot,
   compact = false,
   viewportHeight,
@@ -285,9 +261,7 @@ function WeekGrid({
   entries: ScheduleEntry[];
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
-  busyKey: string | null;
   selectedOpenSlot: ScheduleEntry | null;
-  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   compact?: boolean;
   viewportHeight?: number;
@@ -324,27 +298,6 @@ function WeekGrid({
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${dayOfWeek}-${rowTime}`,
         );
-
-        if (editable && onRequestAdd) {
-          const pastDay = isPastWeekDay(weekStart, dayOfWeek);
-          if (!pastDay && !blockedByHoliday && !occupied) {
-            return (
-              <button
-                type="button"
-                disabled={!!busyKey}
-                onClick={() => onRequestAdd(dayOfWeek, rowTime)}
-                title={`Add slot at ${rowTime}`}
-                className={cn(
-                  "flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600",
-                  "text-[10px]",
-                  busyKey === `add-${dayOfWeek}-${rowTime}` && "opacity-50",
-                )}
-              >
-                {compact ? "+" : "+ Add"}
-              </button>
-            );
-          }
-        }
 
         if (blockedByHoliday && !occupied) {
           return (
@@ -522,9 +475,9 @@ export function WeekScheduleCalendar({
     locationId: string,
     endTime: string,
     startTime: string,
+    dayOfWeek: number,
   ) {
     if (!pendingAdd || !onAddSlot || busyKey) return;
-    const { dayOfWeek } = pendingAdd;
     const key = `add-${dayOfWeek}-${startTime}`;
     setBusyKey(key);
     try {
@@ -554,9 +507,12 @@ export function WeekScheduleCalendar({
     }
   }
 
-  function requestAdd(dayOfWeek: number, startTime: string) {
+  function openAddSession() {
     if (!onAddSlot || busyKey) return;
-    setPendingAdd({ dayOfWeek, startTime });
+    setPendingAdd({
+      dayOfWeek: selectedDay,
+      startTime: scheduleStartTime,
+    });
   }
 
   async function handleRemove(slotId: string) {
@@ -589,6 +545,18 @@ export function WeekScheduleCalendar({
 
   return (
     <div>
+      {editable && onAddSlot ? (
+        <div className="mb-3 flex flex-wrap items-center gap-3 px-4 sm:mb-4 sm:px-5">
+          <Button
+            variant="secondary"
+            disabled={!!busyKey}
+            onClick={openAddSession}
+          >
+            Add session
+          </Button>
+        </div>
+      ) : null}
+
       {viewMode === "day" ? (
         <div className="px-4 sm:px-5">
           <div className="mb-4">
@@ -617,9 +585,7 @@ export function WeekScheduleCalendar({
                   entries={entries}
                   holidayIndex={holidayIndex}
                   editable={editable}
-                  busyKey={busyKey}
                   selectedOpenSlot={selectedOpenSlot}
-                  onRequestAdd={onAddSlot ? requestAdd : undefined}
                   onOpenSlot={openSlotActions}
                   viewportHeight={gridViewportHeight}
                 />
@@ -637,9 +603,7 @@ export function WeekScheduleCalendar({
             entries={entries}
             holidayIndex={holidayIndex}
             editable={editable}
-            busyKey={busyKey}
             selectedOpenSlot={selectedOpenSlot}
-            onRequestAdd={onAddSlot ? requestAdd : undefined}
             onOpenSlot={openSlotActions}
             compact={useCompactWeekGrid}
             viewportHeight={gridViewportHeight}
@@ -654,15 +618,11 @@ export function WeekScheduleCalendar({
           viewMode === "week" ? "mt-6" : "mt-4",
         )}
       >
-        {editable && (
+        {editable ? (
           <p className="mb-2 text-xs text-slate-500">
-            {viewMode === "day"
-              ? "Tap + to add slots · tap slots to manage"
-              : useCompactWeekGrid
-                ? "Tap + to add · tap slots to manage"
-                : "Click empty cells to add · click slots to manage"}
+            Tap a booked or open slot to manage it
           </p>
-        )}
+        ) : null}
         <ScheduleLegend />
       </div>
 

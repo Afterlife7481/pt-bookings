@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { LocationSelect } from "@/components/LocationSelect";
 import { SheetModal } from "@/components/SheetModal";
 import { OpenSlotLastMinuteSection } from "@/components/OpenSlotLastMinuteSection";
+import { DAY_OPTIONS } from "@/lib/schedule-grid";
 import {
   assertValidScheduleSlotTimes,
   defaultSlotEndTime,
@@ -28,7 +29,7 @@ export type ScheduleTemplateOption = { id: string; name: string };
 
 export function AddSlotModal({
   weekStart,
-  dayOfWeek,
+  dayOfWeek: initialDayOfWeek,
   startTime: initialStartTime,
   locations,
   onConfirm,
@@ -43,10 +44,12 @@ export function AddSlotModal({
     locationId: string,
     endTime: string,
     startTime: string,
+    dayOfWeek: number,
   ) => Promise<void>;
   onClose: () => void;
   busy: boolean;
 }) {
+  const [dayOfWeek, setDayOfWeek] = useState(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(defaultSlotEndTime(initialStartTime));
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
@@ -58,10 +61,11 @@ export function AddSlotModal({
   );
 
   useEffect(() => {
+    setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
     setEndTime(defaultSlotEndTime(initialStartTime));
     setError(null);
-  }, [initialStartTime]);
+  }, [initialDayOfWeek, initialStartTime]);
 
   const durationMinutes =
     startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
@@ -74,7 +78,7 @@ export function AddSlotModal({
     try {
       assertValidScheduleSlotTimes(startTime, endTime);
       setError(null);
-      void onConfirm(locationId, endTime, startTime);
+      void onConfirm(locationId, endTime, startTime, dayOfWeek);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid times");
     }
@@ -96,6 +100,24 @@ export function AddSlotModal({
       }
     >
       <div className="mt-4 space-y-4">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-slate-600">Day</span>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            value={dayOfWeek}
+            onChange={(e) => {
+              setDayOfWeek(Number(e.target.value));
+              setError(null);
+            }}
+            disabled={busy}
+          >
+            {DAY_OPTIONS.map((day) => (
+              <option key={day.value} value={day.value}>
+                {day.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex flex-wrap gap-4">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Start</span>
