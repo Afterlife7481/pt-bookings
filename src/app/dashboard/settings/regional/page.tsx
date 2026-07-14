@@ -15,7 +15,7 @@ export default function RegionalSettingsPage() {
   return (
     <SettingsPageLayout
       title="Regional settings"
-      description="Time zone for WhatsApp timestamps and times shown in your dashboard."
+      description="Time zone for feed timestamps and times shown in your dashboard."
       backHref={back.backHref}
       backLabel={back.backLabel}
     >

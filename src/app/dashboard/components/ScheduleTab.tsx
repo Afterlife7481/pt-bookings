@@ -100,7 +100,11 @@ export function ScheduleTab({
                   Template applied, but {applyTemplateNotice.conflicts.length}{" "}
                   recurring session
                   {applyTemplateNotice.conflicts.length === 1 ? "" : "s"} could
-                  not be booked due to time off.
+                  not be booked due to time off. Each clash was added to your{" "}
+                  <a href="/dashboard/feed" className="underline">
+                    Feed
+                  </a>{" "}
+                  — notify clients from there.
                 </p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950/90">
                   {applyTemplateNotice.conflicts.map((conflict) => (

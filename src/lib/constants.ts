@@ -272,6 +272,10 @@ export function interestUrl(token: string): string {
   return `${appBaseUrl()}/interest/${token}`;
 }
 
+export function conflictUrl(token: string): string {
+  return `${appBaseUrl()}/conflict/${token}`;
+}
+
 export const DEFAULT_SCHEDULE_START = "07:00";
 export const DEFAULT_SCHEDULE_END = "21:00";
 export const DEFAULT_SCHEDULE_DEFAULT_VIEW = "day" as const;

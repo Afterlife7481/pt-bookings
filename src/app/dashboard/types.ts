@@ -50,7 +50,7 @@ export const MENU_ITEMS = [
   { label: "Schedule", href: "/dashboard/schedule" },
   { label: "Clients", href: "/dashboard/clients" },
   { label: "Sessions", href: "/dashboard/sessions" },
-  { label: "WhatsApp", href: "/dashboard/whatsapp" },
+  { label: "Feed", href: "/dashboard/feed" },
   { label: "Settings", href: "/dashboard/settings" },
   { label: "Getting started guide", href: "/dashboard/settings/getting-started" },
   { label: "Install on your phone", href: "/dashboard/settings/install" },

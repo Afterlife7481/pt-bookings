@@ -4,6 +4,7 @@ import {
   clients,
   locations,
   trainerHolidays,
+  scheduleConflictAlerts,
   trainerPaymentMethods,
   clientLocations,
   weeklyTemplates,
@@ -67,6 +68,28 @@ export const trainerHolidaysRelations = relations(trainerHolidays, ({ one }) => 
     references: [trainers.id],
   }),
 }));
+
+export const scheduleConflictAlertsRelations = relations(
+  scheduleConflictAlerts,
+  ({ one }) => ({
+    trainer: one(trainers, {
+      fields: [scheduleConflictAlerts.trainerId],
+      references: [trainers.id],
+    }),
+    client: one(clients, {
+      fields: [scheduleConflictAlerts.clientId],
+      references: [clients.id],
+    }),
+    location: one(locations, {
+      fields: [scheduleConflictAlerts.locationId],
+      references: [locations.id],
+    }),
+    holiday: one(trainerHolidays, {
+      fields: [scheduleConflictAlerts.holidayId],
+      references: [trainerHolidays.id],
+    }),
+  }),
+);
 
 export const clientLocationsRelations = relations(clientLocations, ({ one }) => ({
   client: one(clients, {

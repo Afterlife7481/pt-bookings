@@ -217,7 +217,7 @@ export default function ClientDetailPage() {
     const data = await res.json();
     setBusyBookingId(null);
     if (!res.ok) {
-      setBookingActionError(data.error ?? "Failed to send WhatsApp");
+      setBookingActionError(data.error ?? "Failed to send message");
       return;
     }
     await loadClient();
@@ -637,7 +637,7 @@ export default function ClientDetailPage() {
                     disabled={busyBookingId === b.id}
                     onClick={() => sendSessionWhatsApp(b.id)}
                   >
-                    {busyBookingId === b.id ? "Sending…" : "Send WhatsApp"}
+                    {busyBookingId === b.id ? "Sending…" : "Send message"}
                   </Button>
                   <Button
                     variant="danger"

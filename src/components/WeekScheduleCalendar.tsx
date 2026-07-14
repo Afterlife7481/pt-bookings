@@ -81,8 +81,6 @@ function DayScheduleGrid({
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
   const isPastDay = isPastWeekDay(weekStart, selectedDay);
-  const isUnavailableDay =
-    !isPastDay && holidayIndex.unavailableDays.has(selectedDay);
   const minRowRem = 2.75;
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
@@ -108,12 +106,6 @@ function DayScheduleGrid({
         <div
           aria-hidden
           className="pointer-events-none past-day-hatch"
-          style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
-        />
-      ) : isUnavailableDay ? (
-        <div
-          aria-hidden
-          className="pointer-events-none holiday-hatch"
           style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
         />
       ) : null}
@@ -176,6 +168,12 @@ function DayScheduleGrid({
                   >
                     + Add slot
                   </button>
+                ) : blockedByHoliday ? (
+                  <div
+                    aria-hidden
+                    className="holiday-hatch h-full min-h-0 rounded-lg"
+                    title="Time off"
+                  />
                 ) : (
                   <div className="h-full min-h-0" />
                 )}
@@ -204,8 +202,12 @@ function DayPicker({
       {WEEK_DAYS.map((day) => {
         const isSelected = selectedDay === day.value;
         const isPast = isPastWeekDay(weekStart, day.value);
-        const isUnavailable =
+        const isFullDayOff =
           !isPast && holidayIndex.unavailableDays.has(day.value);
+        const isPartialDayOff =
+          !isPast &&
+          !isFullDayOff &&
+          holidayIndex.partialHolidayDays.has(day.value);
 
         return (
           <button
@@ -218,9 +220,11 @@ function DayPicker({
                 ? "border-slate-900 bg-slate-900 text-white"
                 : isPast
                   ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
-                  : isUnavailable
+                  : isFullDayOff
                     ? "holiday-hatch border-amber-200 text-amber-950 active:bg-amber-50/70"
-                    : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
+                    : isPartialDayOff
+                      ? "border-amber-300 bg-amber-50/50 text-amber-950 active:bg-amber-50"
+                      : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
             )}
           >
             <span className="text-[10px] font-semibold sm:text-xs">{day.label}</span>
@@ -280,6 +284,11 @@ function WeekGrid({
         !isPastWeekDay(weekStart, dayOfWeek) &&
         holidayIndex.unavailableDays.has(dayOfWeek)
       }
+      isPartialHolidayDay={(dayOfWeek) =>
+        !isPastWeekDay(weekStart, dayOfWeek) &&
+        !holidayIndex.unavailableDays.has(dayOfWeek) &&
+        holidayIndex.partialHolidayDays.has(dayOfWeek)
+      }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
@@ -311,11 +320,12 @@ function WeekGrid({
           };
         }
 
+        const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
+          `${dayOfWeek}-${rowTime}`,
+        );
+
         if (editable && onRequestAdd) {
           const pastDay = isPastWeekDay(weekStart, dayOfWeek);
-          const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
-            `${dayOfWeek}-${rowTime}`,
-          );
           if (!pastDay && !blockedByHoliday) {
             return (
               <button
@@ -333,6 +343,16 @@ function WeekGrid({
               </button>
             );
           }
+        }
+
+        if (blockedByHoliday) {
+          return (
+            <div
+              aria-hidden
+              className="holiday-hatch h-full rounded"
+              title="Time off"
+            />
+          );
         }
 
         return <div className="h-full" />;

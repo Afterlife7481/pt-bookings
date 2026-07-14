@@ -47,9 +47,12 @@ export function datetimeRangesOverlap(
 type ParsedHolidayRange = HolidayPeriod & {
   startMs: number;
   endMs: number;
+  id?: string;
 };
 
-function parseHolidayRanges(holidays: HolidayPeriod[]): ParsedHolidayRange[] {
+function parseHolidayRanges(
+  holidays: (HolidayPeriod & { id?: string })[],
+): ParsedHolidayRange[] {
   return holidays.map((holiday) => ({
     ...holiday,
     startMs: parseLocalDateTime(holiday.startAt).getTime(),
@@ -80,9 +83,29 @@ export function findOverlappingHoliday(
 }
 
 export function parseHolidayRangesForLookup(
-  holidays: HolidayPeriod[],
+  holidays: (HolidayPeriod & { id?: string })[],
 ): ParsedHolidayRange[] {
   return parseHolidayRanges(holidays);
+}
+
+export function findOverlappingHolidayParsedRecord(
+  slotStartMs: number,
+  slotEndMs: number,
+  parsedHolidays: ParsedHolidayRange[],
+): ParsedHolidayRange | null {
+  for (const holiday of parsedHolidays) {
+    if (
+      rangesOverlapMs(
+        slotStartMs,
+        slotEndMs,
+        holiday.startMs,
+        holiday.endMs,
+      )
+    ) {
+      return holiday;
+    }
+  }
+  return null;
 }
 
 export function findOverlappingHolidayParsed(
@@ -173,14 +196,26 @@ export function holidayDisplayName(holiday: HolidayPeriod): string {
 }
 
 export type HolidayScheduleIndex = {
+  /** Days fully covered by time off (entire 00:00–24:00). */
   unavailableDays: ReadonlySet<number>;
+  /** Days with partial time off (some slots blocked, not the whole day). */
+  partialHolidayDays: ReadonlySet<number>;
   blockedSlotKeys: ReadonlySet<string>;
 };
 
 const EMPTY_HOLIDAY_INDEX: HolidayScheduleIndex = {
   unavailableDays: new Set(),
+  partialHolidayDays: new Set(),
   blockedSlotKeys: new Set(),
 };
+
+function holidayFullyCoversDay(
+  holiday: ParsedHolidayRange,
+  dayStartMs: number,
+  dayEndMs: number,
+): boolean {
+  return holiday.startMs <= dayStartMs && holiday.endMs >= dayEndMs;
+}
 
 /** Precompute day/cell overlap once per week instead of on every grid render. */
 export function buildHolidayScheduleIndex(
@@ -192,6 +227,7 @@ export function buildHolidayScheduleIndex(
 
   const parsed = parseHolidayRanges(holidays);
   const unavailableDays = new Set<number>();
+  const partialHolidayDays = new Set<number>();
   const blockedSlotKeys = new Set<string>();
   const monday = parseDateOnly(weekStart);
 
@@ -203,10 +239,14 @@ export function buildHolidayScheduleIndex(
       `${formatDate(addDays(day, 1))}T00:00:00`,
     ).getTime();
 
-    const dayUnavailable = parsed.some((holiday) =>
+    const overlapping = parsed.filter((holiday) =>
       rangesOverlapMs(dayStartMs, dayEndMs, holiday.startMs, holiday.endMs),
     );
-    if (dayUnavailable) unavailableDays.add(dayOfWeek);
+    if (overlapping.some((holiday) => holidayFullyCoversDay(holiday, dayStartMs, dayEndMs))) {
+      unavailableDays.add(dayOfWeek);
+    } else if (overlapping.length > 0) {
+      partialHolidayDays.add(dayOfWeek);
+    }
 
     for (const startTime of timeRows) {
       const slotStart = toLocalDateTimeString(
@@ -224,5 +264,5 @@ export function buildHolidayScheduleIndex(
     }
   }
 
-  return { unavailableDays, blockedSlotKeys };
+  return { unavailableDays, partialHolidayDays, blockedSlotKeys };
 }

@@ -100,6 +100,49 @@ export const trainerHolidays = pgTable(
   }),
 );
 
+export const scheduleConflictAlerts = pgTable(
+  "schedule_conflict_alerts",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    weekStart: text("week_start").notNull(),
+    dayOfWeek: integer("day_of_week").notNull(),
+    startTime: text("start_time").notNull(),
+    endTime: text("end_time").notNull(),
+    locationId: text("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    locationName: text("location_name"),
+    holidayId: text("holiday_id").references(() => trainerHolidays.id, {
+      onDelete: "set null",
+    }),
+    holidayLabel: text("holiday_label"),
+    slotLabel: text("slot_label").notNull(),
+    status: text("status", {
+      enum: ["open", "notified", "acknowledged"],
+    })
+      .notNull()
+      .default("open"),
+    acknowledgmentToken: text("acknowledgment_token").notNull().unique(),
+    notifiedAt: text("notified_at"),
+    acknowledgedAt: text("acknowledged_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerIdx: index("schedule_conflict_alerts_trainer_idx").on(
+      table.trainerId,
+    ),
+    tokenIdx: index("schedule_conflict_alerts_token_idx").on(
+      table.acknowledgmentToken,
+    ),
+  }),
+);
+
 export const trainerPaymentMethods = pgTable(
   "trainer_payment_methods",
   {
@@ -383,6 +426,8 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
       "last_minute_declined",
       "session_canceled",
       "session_changed",
+      "template_conflict",
+      "template_conflict_ack",
     ],
   }).notNull(),
   recipient: text("recipient", { enum: ["client", "trainer"] })
@@ -401,6 +446,7 @@ export type TrainerSession = typeof trainerSessions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type Location = typeof locations.$inferSelect;
 export type TrainerHoliday = typeof trainerHolidays.$inferSelect;
+export type ScheduleConflictAlert = typeof scheduleConflictAlerts.$inferSelect;
 export type TrainerPaymentMethod = typeof trainerPaymentMethods.$inferSelect;
 export type ClientLocation = typeof clientLocations.$inferSelect;
 export type WeeklyTemplate = typeof weeklyTemplates.$inferSelect;

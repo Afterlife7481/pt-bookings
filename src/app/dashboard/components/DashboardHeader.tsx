@@ -11,7 +11,7 @@ const MAIN_MENU_HREFS = new Set([
   "/dashboard/schedule",
   "/dashboard/clients",
   "/dashboard/sessions",
-  "/dashboard/whatsapp",
+  "/dashboard/feed",
 ]);
 
 const MENU_ANIMATION_MS = 280;

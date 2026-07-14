@@ -78,7 +78,30 @@ describe("holidays-utils", () => {
     ]);
 
     expect(index.unavailableDays.has(3)).toBe(true);
+    expect(index.partialHolidayDays.has(3)).toBe(false);
     expect(index.blockedSlotKeys.has("3-09:00")).toBe(true);
     expect(index.blockedSlotKeys.has("1-09:00")).toBe(false);
+  });
+
+  it("marks partial-day holidays at slot level only", () => {
+    const holidays = [
+      {
+        startAt: "2026-08-05T12:00:00",
+        endAt: "2026-08-05T18:00:00",
+        label: "Half day",
+      },
+    ];
+
+    const index = buildHolidayScheduleIndex("2026-08-03", holidays, [
+      "09:00",
+      "10:00",
+      "12:00",
+      "13:00",
+    ]);
+
+    expect(index.unavailableDays.has(3)).toBe(false);
+    expect(index.partialHolidayDays.has(3)).toBe(true);
+    expect(index.blockedSlotKeys.has("3-09:00")).toBe(false);
+    expect(index.blockedSlotKeys.has("3-12:00")).toBe(true);
   });
 });

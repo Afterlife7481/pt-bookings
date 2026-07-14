@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchJson } from "@/lib/api/fetch-json";
-import type { TrainerSettings, WhatsAppRow } from "../types";
+import type { FeedEntry } from "@/lib/services/feed";
+import type { TrainerSettings } from "../types";
 
-export function useWhatsAppPage() {
-  const [messages, setMessages] = useState<WhatsAppRow[]>([]);
+export function useFeedPage() {
+  const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [wa, sett] = await Promise.all([
-      fetchJson<WhatsAppRow[]>("/api/whatsapp"),
+    const [feed, sett] = await Promise.all([
+      fetchJson<FeedEntry[]>("/api/feed"),
       fetchJson<TrainerSettings>("/api/settings"),
     ]);
-    setMessages(wa);
+    setEntries(feed);
     setSettings(sett);
     setLoading(false);
   }, []);
@@ -21,5 +22,5 @@ export function useWhatsAppPage() {
     refresh().catch(() => setLoading(false));
   }, [refresh]);
 
-  return { messages, settings, loading, refresh };
+  return { entries, settings, loading, refresh };
 }

@@ -382,7 +382,7 @@ export function TrainerSessionDetail({
 
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-500">
-              Sends a WhatsApp with the session amount and your bank payment
+              Sends a message with the session amount and your bank payment
               details from Settings.
             </p>
             {booking.invoiceSentAt && (
@@ -453,7 +453,7 @@ export function TrainerSessionDetail({
                   disabled
                   className="w-full sm:w-auto"
                 >
-                  Send WhatsApp confirmation
+                  Send confirmation
                 </Button>
                 <Button
                   variant="danger"
@@ -480,7 +480,7 @@ export function TrainerSessionDetail({
                   className="w-full sm:w-auto"
                   onClick={() => runAction("send_confirmation")}
                 >
-                  Send WhatsApp confirmation
+                  Send confirmation
                 </Button>
                 <Button
                   variant="danger"
@@ -515,7 +515,7 @@ export function TrainerSessionDetail({
           <p className="mt-3 text-sm text-slate-500">
             {isPast
               ? "This session has already taken place. Use Payment above to record payment or send an invoice. Void only if the session should not count (e.g. booked in error)."
-              : "Use Change slot to move this session. The client is notified by WhatsApp when the time changes."}
+              : "Use Change slot to move this session. The client is notified when the time changes."}
           </p>
         </Card>
       )}

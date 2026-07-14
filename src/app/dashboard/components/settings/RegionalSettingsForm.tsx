@@ -49,7 +49,7 @@ export function RegionalSettingsForm({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-slate-700">Time zone</span>
         <span className="text-xs text-slate-500">
-          Used for WhatsApp message timestamps and other times shown in your
+          Used for feed timestamps and other times shown in your
           dashboard.
         </span>
         <select

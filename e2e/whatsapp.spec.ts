@@ -33,7 +33,7 @@ async function waitForScheduleReady(page: Page) {
   ).toBeVisible();
 }
 
-test.describe("WhatsApp tab", () => {
+test.describe("Feed tab", () => {
   test("shows a booking confirmation after allocating a session", async ({
     page,
   }) => {
@@ -62,8 +62,8 @@ test.describe("WhatsApp tab", () => {
       page.getByRole("link", { name: fixtures.clientName }),
     ).toBeVisible();
 
-    await page.goto("/dashboard/whatsapp");
-    await expect(page.getByText("Loading messages…")).toBeHidden({
+    await page.goto("/dashboard/feed");
+    await expect(page.getByText("Loading feed…")).toBeHidden({
       timeout: 15_000,
     });
 
@@ -71,5 +71,6 @@ test.describe("WhatsApp tab", () => {
     await expect(confirmations.first()).toBeVisible();
     await expect(confirmations).not.toHaveCount(0);
     await expect(page.getByText(/session is booked for/i).first()).toBeVisible();
+    await expect(page.getByText("WhatsApp").first()).toBeVisible();
   });
 });

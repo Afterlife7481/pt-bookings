@@ -70,8 +70,10 @@ type WeeklyHourGridProps = {
   viewportHeight?: number;
   /** When true, the day column gets a diagonal hatch (e.g. dates before today). */
   isPastDay?: (dayOfWeek: number) => boolean;
-  /** When true, the day column is marked unavailable (e.g. holiday). */
+  /** When true, the day column is marked unavailable (e.g. full-day holiday). */
   isUnavailableDay?: (dayOfWeek: number) => boolean;
+  /** When true, the day has partial time off (header hint only). */
+  isPartialHolidayDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is highlighted as today. */
   isToday?: (dayOfWeek: number) => boolean;
 };
@@ -91,6 +93,7 @@ export function WeeklyHourGrid({
   viewportHeight,
   isPastDay,
   isUnavailableDay,
+  isPartialHolidayDay,
   isToday,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
@@ -227,6 +230,10 @@ export function WeeklyHourGrid({
           const pastDay = isPastDay?.(day.value) ?? false;
           const unavailableDay =
             !pastDay && (isUnavailableDay?.(day.value) ?? false);
+          const partialHolidayDay =
+            !pastDay &&
+            !unavailableDay &&
+            (isPartialHolidayDay?.(day.value) ?? false);
           const todayDay = isToday?.(day.value) ?? false;
 
           if (splitDayHeaderRows) {
@@ -239,7 +246,7 @@ export function WeeklyHourGrid({
                   todayDay
                     ? "border-sky-700 bg-slate-900"
                     : "border-slate-200",
-                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-amber-50/70" : "bg-slate-50"),
+                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-amber-50/70" : partialHolidayDay ? "bg-amber-50/40" : "bg-slate-50"),
                 )}
               >
                 <div

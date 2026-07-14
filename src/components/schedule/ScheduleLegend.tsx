@@ -19,7 +19,7 @@ export function ScheduleLegend({ className }: { className?: string }) {
     },
     {
       swatch: "holiday-hatch border border-amber-200",
-      label: "Time off / unavailable",
+      label: "Time off (blocked slots)",
     },
   ] as const;
 

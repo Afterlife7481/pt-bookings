@@ -22,7 +22,9 @@ type WhatsAppMessageType =
   | "last_minute_accepted"
   | "last_minute_declined"
   | "session_canceled"
-  | "session_changed";
+  | "session_changed"
+  | "template_conflict"
+  | "template_conflict_ack";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -250,6 +252,63 @@ export async function sendWhatsAppInvoice(params: {
     clientId: params.clientId,
     phone: params.phone,
     messageType: "invoice",
+    body,
+  });
+}
+
+export async function sendWhatsAppTemplateConflictToClient(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  body: string;
+}) {
+  console.log(`[WhatsApp → ${params.phone}] ${params.body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "template_conflict",
+    body: params.body,
+  });
+}
+
+export async function sendWhatsAppTemplateConflictAckToTrainer(params: {
+  trainerId: string;
+  clientId: string;
+  clientName: string;
+  trainerEmail: string;
+  body: string;
+}) {
+  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${params.body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.trainerEmail,
+    messageType: "template_conflict_ack",
+    recipient: "trainer",
+    body: params.body,
+  });
+}
+
+export async function sendWhatsAppTemplateConflictAckToClient(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  slotLabel: string;
+}) {
+  const body = `Thanks ${params.clientName}! We have recorded your acknowledgement for the schedule change (${params.slotLabel}).`;
+
+  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+
+  await logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "template_conflict_ack",
     body,
   });
 }

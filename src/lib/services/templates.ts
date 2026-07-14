@@ -39,8 +39,12 @@ import {
   HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS,
   holidayDisplayName,
   parseHolidayRangesForLookup,
-  findOverlappingHolidayParsed,
+  findOverlappingHolidayParsedRecord,
 } from "@/lib/holidays-utils";
+import {
+  createTemplateConflictAlerts,
+  type TemplateConflictInput,
+} from "@/lib/services/template-conflicts";
 
 const WEEKLY_TEMPLATE_NAME = "Weekly template";
 
@@ -298,7 +302,7 @@ export async function applyTemplateToWeek(
     );
   }
 
-  const [tSlots, prefs, holidays, appliedWeek, existingWeekSlots] =
+  const [tSlots, prefs, holidays, appliedWeek, existingWeekSlots, trainerLocations] =
     await Promise.all([
       db
         .select()
@@ -308,9 +312,11 @@ export async function applyTemplateToWeek(
         .select({
           pref: recurringPreferences,
           clientName: clients.name,
+          prefLocationName: locations.name,
         })
         .from(recurringPreferences)
         .innerJoin(clients, eq(recurringPreferences.clientId, clients.id))
+        .leftJoin(locations, eq(recurringPreferences.locationId, locations.id))
         .where(eq(recurringPreferences.trainerId, template.trainerId)),
       listHolidaysOverlappingRange(
         template.trainerId,
@@ -328,7 +334,15 @@ export async function applyTemplateToWeek(
             lt(slots.startAt, startAtMax),
           ),
         ),
+      db
+        .select({ id: locations.id, name: locations.name })
+        .from(locations)
+        .where(eq(locations.trainerId, template.trainerId)),
     ]);
+
+  const locationNameById = new Map(
+    trainerLocations.map((row) => [row.id, row.name]),
+  );
 
   const result: ApplyTemplateResult = {
     appliedWeekId: appliedWeek.id,
@@ -365,6 +379,7 @@ export async function applyTemplateToWeek(
 
   const slotsToInsert: SlotInsert[] = [];
   const createdSlotByKey = new Map<string, string>();
+  const conflictRecords: TemplateConflictInput[] = [];
 
   for (const ts of tSlots) {
     const slotDate = addDays(
@@ -381,7 +396,7 @@ export async function applyTemplateToWeek(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
 
-    const holiday = findOverlappingHolidayParsed(
+    const holiday = findOverlappingHolidayParsedRecord(
       parseLocalDateTime(startAtStr).getTime(),
       parseLocalDateTime(endAtStr).getTime(),
       parsedHolidays,
@@ -398,6 +413,23 @@ export async function applyTemplateToWeek(
         result.conflicts.push(
           `Could not book recurring session for ${matchingPref.clientName}: ${dayLabel} ${ts.startTime}–${ts.endTime} (${holidayDisplayName(holiday)})`,
         );
+        const locationId = matchingPref.pref.locationId ?? ts.locationId;
+        const locationName =
+          matchingPref.prefLocationName ??
+          (locationId ? locationNameById.get(locationId) ?? null : null);
+        conflictRecords.push({
+          trainerId: template.trainerId,
+          clientId: matchingPref.pref.clientId,
+          clientName: matchingPref.clientName,
+          weekStart,
+          dayOfWeek: ts.dayOfWeek,
+          startTime: ts.startTime,
+          endTime: ts.endTime,
+          locationId,
+          locationName,
+          holidayId: holiday.id ?? null,
+          holidayLabel: holidayDisplayName(holiday),
+        });
       }
       continue;
     }
@@ -446,6 +478,7 @@ export async function applyTemplateToWeek(
 
   if (result.conflicts.length > 0) {
     result.recommendations = [...HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS];
+    await createTemplateConflictAlerts(conflictRecords);
   }
 
   return result;
