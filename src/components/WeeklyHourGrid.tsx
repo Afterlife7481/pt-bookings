@@ -76,6 +76,11 @@ type WeeklyHourGridProps = {
   isPartialHolidayDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is highlighted as today. */
   isToday?: (dayOfWeek: number) => boolean;
+  /**
+   * Optional timed overlay for each day column (absolute-positioned sessions).
+   * Rendered above empty cells; use pointer-events carefully inside.
+   */
+  renderDayOverlay?: (dayOfWeek: number) => ReactNode;
 };
 
 export function WeeklyHourGrid({
@@ -95,6 +100,7 @@ export function WeeklyHourGrid({
   isUnavailableDay,
   isPartialHolidayDay,
   isToday,
+  renderDayOverlay,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
   const rows = timeRows ?? (hours ?? []).map((hour) => hourToStartTime(hour));
@@ -369,6 +375,20 @@ export function WeeklyHourGrid({
             </Fragment>
           );
         })}
+        {renderDayOverlay
+          ? columns.map((day, dayIndex) => (
+              <div
+                key={`overlay-${day.value}`}
+                style={{
+                  gridColumn: dayIndex + 2,
+                  gridRow: `${bodyRowOffset} / span ${rows.length}`,
+                }}
+                className="relative z-[5] min-h-0 min-w-0"
+              >
+                {renderDayOverlay(day.value)}
+              </div>
+            ))
+          : null}
       </div>
     </div>
   );

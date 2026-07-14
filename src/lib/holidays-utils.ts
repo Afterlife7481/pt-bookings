@@ -1,11 +1,12 @@
 import {
   addDays,
-  defaultSlotEndTime,
+  addMinutesToTime,
   formatDate,
   parseDateOnly,
   parseLocalDateTime,
   parseTimeOnDate,
   toLocalDateTimeString,
+  SCHEDULE_DISPLAY_STEP_MINUTES,
 } from "@/lib/constants";
 
 export type HolidayPeriod = {
@@ -253,7 +254,10 @@ export function buildHolidayScheduleIndex(
         parseTimeOnDate(formatDate(day), startTime),
       );
       const slotEnd = toLocalDateTimeString(
-        parseTimeOnDate(formatDate(day), defaultSlotEndTime(startTime)),
+        parseTimeOnDate(
+          formatDate(day),
+          addMinutesToTime(startTime, SCHEDULE_DISPLAY_STEP_MINUTES),
+        ),
       );
       const slotStartMs = parseLocalDateTime(slotStart).getTime();
       const slotEndMs = parseLocalDateTime(slotEnd).getTime();

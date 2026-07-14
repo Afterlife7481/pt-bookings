@@ -1,11 +1,20 @@
 export const SESSION_DURATION_MINUTES = 60;
 
-/** Slot start/end times must fall on this grid (e.g. 09:00, 09:30). */
-export const SCHEDULE_TIME_STEP_MINUTES = 30;
+/**
+ * Allowed snap for booking start/end times (e.g. 14:15, 50-minute sessions).
+ * Display grids use {@link SCHEDULE_DISPLAY_STEP_MINUTES} and stay coarser.
+ */
+export const SCHEDULE_BOOKING_STEP_MINUTES = 5;
 
-/** HTML time input step attribute (seconds). */
+/** @deprecated Prefer SCHEDULE_BOOKING_STEP_MINUTES — kept as the booking snap alias. */
+export const SCHEDULE_TIME_STEP_MINUTES = SCHEDULE_BOOKING_STEP_MINUTES;
+
+/** Visual schedule row size (labels / click targets), independent of booking snap. */
+export const SCHEDULE_DISPLAY_STEP_MINUTES = 30;
+
+/** HTML time input step attribute (seconds) — always matches booking snap. */
 export const SCHEDULE_TIME_INPUT_STEP_SECONDS =
-  SCHEDULE_TIME_STEP_MINUTES * 60;
+  SCHEDULE_BOOKING_STEP_MINUTES * 60;
 export const DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS = 2;
 export const MIN_CLIENT_BOOKING_WINDOW_WEEKS = 1;
 export const MAX_CLIENT_BOOKING_WINDOW_WEEKS = 52;
@@ -327,7 +336,7 @@ export function assertValidTimeRange(startTime: string, endTime: string) {
 
 export function isScheduleTimeAligned(
   time: string,
-  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+  stepMinutes = SCHEDULE_BOOKING_STEP_MINUTES,
 ): boolean {
   return parseTimeToMinutes(time) % stepMinutes === 0;
 }
@@ -336,12 +345,12 @@ export function assertValidScheduleSlotTimes(startTime: string, endTime: string)
   assertValidTimeRange(startTime, endTime);
   if (!isScheduleTimeAligned(startTime)) {
     throw new Error(
-      "Start time must use 30-minute increments (for example 09:00 or 09:30, not 09:45).",
+      "Start time must use 5-minute increments (for example 09:00, 09:15, or 14:15).",
     );
   }
   if (!isScheduleTimeAligned(endTime)) {
     throw new Error(
-      "End time must use 30-minute increments (for example 10:00 or 10:30, not 10:15).",
+      "End time must use 5-minute increments (for example 09:50, 10:00, or 10:05).",
     );
   }
 }

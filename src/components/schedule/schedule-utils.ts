@@ -147,6 +147,26 @@ export function findEntryForScheduleRow(
   };
 }
 
+/** True when any session overlaps this display row (for hiding +Add). */
+export function displayRowHasEntry(
+  entries: ScheduleEntry[],
+  dateKey: string,
+  rowTime: string,
+): boolean {
+  return entries.some(
+    (e) =>
+      dateKeyFromStartAt(e.startAt) === dateKey &&
+      slotCoversGridRow(entryStartTime(e), entryEndTime(e), rowTime),
+  );
+}
+
+export function entriesForDate(
+  entries: ScheduleEntry[],
+  dateKey: string,
+): ScheduleEntry[] {
+  return entries.filter((e) => dateKeyFromStartAt(e.startAt) === dateKey);
+}
+
 export function entryRowSpan(entry: ScheduleEntry): number {
   return slotGridRowSpan(entryStartTime(entry), entryEndTime(entry));
 }

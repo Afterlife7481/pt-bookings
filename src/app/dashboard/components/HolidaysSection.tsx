@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import { SCHEDULE_TIME_INPUT_STEP_SECONDS } from "@/lib/constants";
 import { formatHolidayRange } from "@/lib/holidays-utils";
 import type { HolidayRow } from "../types";
 
@@ -150,6 +151,7 @@ export function HolidaysSection({
                       <span className="text-xs text-slate-500">Starts</span>
                       <input
                         type="datetime-local"
+                        step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                         className="rounded-lg border border-slate-300 px-3 py-1.5"
                         value={editStartAt}
                         onChange={(e) => setEditStartAt(e.target.value)}
@@ -160,6 +162,7 @@ export function HolidaysSection({
                       <span className="text-xs text-slate-500">Ends</span>
                       <input
                         type="datetime-local"
+                        step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                         className="rounded-lg border border-slate-300 px-3 py-1.5"
                         value={editEndAt}
                         onChange={(e) => setEditEndAt(e.target.value)}
@@ -238,6 +241,7 @@ export function HolidaysSection({
             <span className="text-slate-600">Starts</span>
             <input
               type="datetime-local"
+              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
               className="rounded-lg border border-slate-300 px-3 py-2"
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
@@ -248,6 +252,7 @@ export function HolidaysSection({
             <span className="text-slate-600">Ends</span>
             <input
               type="datetime-local"
+              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
               className="rounded-lg border border-slate-300 px-3 py-2"
               value={endAt}
               onChange={(e) => setEndAt(e.target.value)}

@@ -6,7 +6,7 @@ const FEATURES = [
   {
     title: "Weekly schedule that runs itself",
     description:
-      "Build a template once, apply it each week, and auto-book recurring clients on your 30-minute grid.",
+      "Build a template once, apply it each week, and auto-book recurring clients on your schedule.",
     image:
       "https://images.unsplash.com/photo-1758875570137-8691b7c55033?auto=format&fit=crop&w=800&q=80",
     imageAlt: "Personal trainer planning a session with a client on a tablet",

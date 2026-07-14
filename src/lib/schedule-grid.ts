@@ -1,11 +1,14 @@
 /** Monday-first day columns for weekly grids. */
 import {
+  SCHEDULE_BOOKING_STEP_MINUTES,
+  SCHEDULE_DISPLAY_STEP_MINUTES,
   SCHEDULE_TIME_STEP_MINUTES,
   formatMinutesAsTime,
   parseTimeToMinutes,
 } from "@/lib/constants";
 
 export { SCHEDULE_TIME_STEP_MINUTES as SCHEDULE_GRID_STEP_MINUTES };
+export { SCHEDULE_DISPLAY_STEP_MINUTES, SCHEDULE_BOOKING_STEP_MINUTES };
 
 export const WEEK_DAYS = [
   { value: 1, label: "Mon", longLabel: "Monday" },
@@ -72,10 +75,11 @@ export function dayHeaderShort(day: WeekDayColumn): { primary: string } {
   return { primary: day.label };
 }
 
+/** Display rows for schedule labels / click targets (default: 30-minute). */
 export function timeRowsInScheduleRange(
   startTime: string,
   endTime: string,
-  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+  stepMinutes = SCHEDULE_DISPLAY_STEP_MINUTES,
 ): string[] {
   const startMin = parseTimeToMinutes(startTime);
   const endMin = parseTimeToMinutes(endTime);
@@ -87,27 +91,53 @@ export function timeRowsInScheduleRange(
   return rows;
 }
 
+/**
+ * Row span on the display grid. Prefer {@link slotOffsetInRange} for fine-grained
+ * sessions that do not land on display row boundaries.
+ */
 export function slotGridRowSpan(
   startTime: string,
   endTime: string,
-  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+  stepMinutes = SCHEDULE_DISPLAY_STEP_MINUTES,
 ): number {
   const duration = parseTimeToMinutes(endTime) - parseTimeToMinutes(startTime);
   if (duration <= 0) return 1;
-  return Math.max(1, duration / stepMinutes);
+  return Math.max(1, Math.ceil(duration / stepMinutes));
 }
 
 export function slotCoversGridRow(
   startTime: string,
   endTime: string,
   rowTime: string,
-  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+  stepMinutes = SCHEDULE_DISPLAY_STEP_MINUTES,
 ): boolean {
   const rowStart = parseTimeToMinutes(rowTime);
   const rowEnd = rowStart + stepMinutes;
   const slotStart = parseTimeToMinutes(startTime);
   const slotEnd = parseTimeToMinutes(endTime);
   return slotStart < rowEnd && rowStart < slotEnd;
+}
+
+/** Place a slot inside a schedule time range as CSS percent offsets. */
+export function slotOffsetInRange(
+  rangeStart: string,
+  rangeEnd: string,
+  slotStart: string,
+  slotEnd: string,
+): { topPercent: number; heightPercent: number } | null {
+  const rangeStartMin = parseTimeToMinutes(rangeStart);
+  const rangeEndMin = parseTimeToMinutes(rangeEnd);
+  const rangeMinutes = rangeEndMin - rangeStartMin;
+  if (rangeMinutes <= 0) return null;
+
+  const start = Math.max(parseTimeToMinutes(slotStart), rangeStartMin);
+  const end = Math.min(parseTimeToMinutes(slotEnd), rangeEndMin);
+  if (end <= start) return null;
+
+  return {
+    topPercent: ((start - rangeStartMin) / rangeMinutes) * 100,
+    heightPercent: ((end - start) / rangeMinutes) * 100,
+  };
 }
 
 export function scheduleGridTimeLabel(

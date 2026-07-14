@@ -27,12 +27,15 @@ import {
   dayNumberForWeekDay,
   dayShortDate,
   defaultSelectedDay,
-  entryRowSpan,
-  findEntryForScheduleRow,
+  displayRowHasEntry,
+  entriesForDate,
+  entryEndTime,
+  entryStartTime,
   isPastWeekDay,
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
+import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/constants";
 import {
@@ -57,6 +60,8 @@ function DayScheduleGrid({
   weekStart,
   selectedDay,
   timeRows,
+  scheduleStartTime,
+  scheduleEndTime,
   entries,
   holidayIndex,
   editable,
@@ -69,6 +74,8 @@ function DayScheduleGrid({
   weekStart: string;
   selectedDay: number;
   timeRows: string[];
+  scheduleStartTime: string;
+  scheduleEndTime: string;
   entries: ScheduleEntry[];
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
@@ -89,6 +96,7 @@ function DayScheduleGrid({
     fitViewport && viewportHeight != null
       ? scheduleGridContentHeight(viewportHeight, timeRows.length, minRowRem)
       : undefined;
+  const dayEntries = entriesForDate(entries, dateKey);
 
   return (
     <div
@@ -111,13 +119,17 @@ function DayScheduleGrid({
       ) : null}
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
-        const match = findEntryForScheduleRow(entries, dateKey, rowTime);
+        const occupied = displayRowHasEntry(entries, dateKey, rowTime);
         const addKey = `add-${selectedDay}-${rowTime}`;
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${selectedDay}-${rowTime}`,
         );
         const canAdd =
-          editable && onRequestAdd && !match && !isPastDay && !blockedByHoliday;
+          editable &&
+          onRequestAdd &&
+          !occupied &&
+          !isPastDay &&
+          !blockedByHoliday;
 
         return (
           <Fragment key={rowTime}>
@@ -131,57 +143,65 @@ function DayScheduleGrid({
               {scheduleGridTimeLabel(rowTime, false)}
             </div>
 
-            {match && !match.isStart ? null : (
-              <div
-                style={{
-                  gridColumn: 2,
-                  gridRow:
-                    match && match.isStart
-                      ? `${gridRow} / span ${entryRowSpan(match.entry)}`
-                      : gridRow,
-                }}
-                className={cn(
-                  "relative z-[1] min-h-0 p-0.5",
-                  rowIndex > 0 && "border-t border-slate-100",
-                  match && match.isStart && "relative z-10",
-                  !isPastDay && "bg-white",
-                )}
-              >
-                {match ? (
-                  <ScheduleCell
-                    entry={match.entry}
-                    editable={editable}
-                    onOpen={editable ? onOpenSlot : undefined}
-                    selected={selectedOpenSlot?.slotId === match.entry.slotId}
-                    mobile
-                    onPastDay={isPastDay}
-                  />
-                ) : canAdd ? (
-                  <button
-                    type="button"
-                    disabled={!!busyKey}
-                    onClick={() => onRequestAdd(selectedDay, rowTime)}
-                    className={cn(
-                      "flex h-full min-h-0 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition active:border-slate-400 active:bg-slate-50",
-                      busyKey === addKey && "opacity-50",
-                    )}
-                  >
-                    + Add slot
-                  </button>
-                ) : blockedByHoliday ? (
-                  <div
-                    aria-hidden
-                    className="holiday-hatch h-full min-h-0 rounded-lg"
-                    title="Time off"
-                  />
-                ) : (
-                  <div className="h-full min-h-0" />
-                )}
-              </div>
-            )}
+            <div
+              style={{ gridColumn: 2, gridRow }}
+              className={cn(
+                "relative z-[1] min-h-0 p-0.5",
+                rowIndex > 0 && "border-t border-slate-100",
+                !isPastDay && "bg-white",
+              )}
+            >
+              {canAdd ? (
+                <button
+                  type="button"
+                  disabled={!!busyKey}
+                  onClick={() => onRequestAdd(selectedDay, rowTime)}
+                  className={cn(
+                    "flex h-full min-h-0 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 transition active:border-slate-400 active:bg-slate-50",
+                    busyKey === addKey && "opacity-50",
+                  )}
+                >
+                  + Add slot
+                </button>
+              ) : blockedByHoliday && !occupied ? (
+                <div
+                  aria-hidden
+                  className="holiday-hatch h-full min-h-0 rounded-lg"
+                  title="Time off"
+                />
+              ) : (
+                <div className="h-full min-h-0" />
+              )}
+            </div>
           </Fragment>
         );
       })}
+      <div
+        style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
+        className="relative z-[5] min-h-0"
+      >
+        <TimedSlotOverlay
+          scheduleStartTime={scheduleStartTime}
+          scheduleEndTime={scheduleEndTime}
+          items={dayEntries.map((entry) => ({
+            key: entry.slotId,
+            startTime: entryStartTime(entry),
+            endTime: entryEndTime(entry),
+            content: (
+              <div className="h-full min-h-0 p-0.5">
+                <ScheduleCell
+                  entry={entry}
+                  editable={editable}
+                  onOpen={editable ? onOpenSlot : undefined}
+                  selected={selectedOpenSlot?.slotId === entry.slotId}
+                  mobile
+                  onPastDay={isPastDay}
+                />
+              </div>
+            ),
+          }))}
+        />
+      </div>
       </div>
     </div>
   );
@@ -246,6 +266,8 @@ function DayPicker({
 function WeekGrid({
   weekStart,
   timeRows,
+  scheduleStartTime,
+  scheduleEndTime,
   entries,
   holidayIndex,
   editable,
@@ -258,6 +280,8 @@ function WeekGrid({
 }: {
   weekStart: string;
   timeRows: string[];
+  scheduleStartTime: string;
+  scheduleEndTime: string;
   entries: ScheduleEntry[];
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
@@ -296,37 +320,14 @@ function WeekGrid({
       })}
       renderCell={(dayOfWeek, rowTime) => {
         const dateKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
-        const match = findEntryForScheduleRow(entries, dateKey, rowTime);
-
-        if (match && !match.isStart) {
-          return { covered: true };
-        }
-
-        const entry = match?.entry ?? null;
-
-        if (entry) {
-          return {
-            rowSpan: entryRowSpan(entry),
-            content: (
-              <ScheduleCell
-                entry={entry}
-                editable={editable}
-                onOpen={editable ? onOpenSlot : undefined}
-                selected={selectedOpenSlot?.slotId === entry.slotId}
-                compact={denseCells}
-                onPastDay={isPastWeekDay(weekStart, dayOfWeek)}
-              />
-            ),
-          };
-        }
-
+        const occupied = displayRowHasEntry(entries, dateKey, rowTime);
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${dayOfWeek}-${rowTime}`,
         );
 
         if (editable && onRequestAdd) {
           const pastDay = isPastWeekDay(weekStart, dayOfWeek);
-          if (!pastDay && !blockedByHoliday) {
+          if (!pastDay && !blockedByHoliday && !occupied) {
             return (
               <button
                 type="button"
@@ -335,7 +336,7 @@ function WeekGrid({
                 title={`Add slot at ${rowTime}`}
                 className={cn(
                   "flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600",
-                  compact ? "text-[10px]" : "text-[10px]",
+                  "text-[10px]",
                   busyKey === `add-${dayOfWeek}-${rowTime}` && "opacity-50",
                 )}
               >
@@ -345,7 +346,7 @@ function WeekGrid({
           }
         }
 
-        if (blockedByHoliday) {
+        if (blockedByHoliday && !occupied) {
           return (
             <div
               aria-hidden
@@ -356,6 +357,35 @@ function WeekGrid({
         }
 
         return <div className="h-full" />;
+      }}
+      renderDayOverlay={(dayOfWeek) => {
+        const dateKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
+        const dayEntries = entriesForDate(entries, dateKey);
+        const pastDay = isPastWeekDay(weekStart, dayOfWeek);
+
+        return (
+          <TimedSlotOverlay
+            scheduleStartTime={scheduleStartTime}
+            scheduleEndTime={scheduleEndTime}
+            items={dayEntries.map((entry) => ({
+              key: entry.slotId,
+              startTime: entryStartTime(entry),
+              endTime: entryEndTime(entry),
+              content: (
+                <div className={cn("h-full min-h-0", denseCells ? "p-0" : "p-0.5")}>
+                  <ScheduleCell
+                    entry={entry}
+                    editable={editable}
+                    onOpen={editable ? onOpenSlot : undefined}
+                    selected={selectedOpenSlot?.slotId === entry.slotId}
+                    compact={denseCells}
+                    onPastDay={pastDay}
+                  />
+                </div>
+              ),
+            }))}
+          />
+        );
       }}
     />
   );
@@ -488,9 +518,13 @@ export function WeekScheduleCalendar({
     await onRefresh?.();
   }
 
-  async function handleConfirmAdd(locationId: string, endTime: string) {
+  async function handleConfirmAdd(
+    locationId: string,
+    endTime: string,
+    startTime: string,
+  ) {
     if (!pendingAdd || !onAddSlot || busyKey) return;
-    const { dayOfWeek, startTime } = pendingAdd;
+    const { dayOfWeek } = pendingAdd;
     const key = `add-${dayOfWeek}-${startTime}`;
     setBusyKey(key);
     try {
@@ -578,6 +612,8 @@ export function WeekScheduleCalendar({
                   weekStart={weekStart}
                   selectedDay={dayOfWeek}
                   timeRows={timeRows}
+                  scheduleStartTime={scheduleStartTime}
+                  scheduleEndTime={scheduleEndTime}
                   entries={entries}
                   holidayIndex={holidayIndex}
                   editable={editable}
@@ -596,6 +632,8 @@ export function WeekScheduleCalendar({
           <WeekGrid
             weekStart={weekStart}
             timeRows={timeRows}
+            scheduleStartTime={scheduleStartTime}
+            scheduleEndTime={scheduleEndTime}
             entries={entries}
             holidayIndex={holidayIndex}
             editable={editable}

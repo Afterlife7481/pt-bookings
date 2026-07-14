@@ -14,13 +14,12 @@ import { cn, formatDurationMinutes } from "@/lib/utils";
 import {
   dayHeaderShort,
   dayOfWeekLabel,
-  hourToStartTime,
   slotCoversGridRow,
-  slotGridRowSpan,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { SheetModal } from "@/components/SheetModal";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
+import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { Button } from "@/components/ui";
 
 export type TemplateDraftSlot = {
@@ -148,7 +147,8 @@ function TemplateSlotModal({
           </p>
         )}
         <p className="text-xs text-slate-500">
-          Times must be in 30-minute steps (for example 09:00, 09:30, 10:00).
+          Times use 5-minute steps (for example 14:15–15:05 for a 50-minute
+          session).
         </p>
 
         <div className="space-y-2">
@@ -315,36 +315,11 @@ export function TemplateWeekCalendar({
         getDayHeader={dayHeaderShort}
         renderCell={(dayOfWeek, rowTime) => {
           const covering = slotAtRow(dayOfWeek, rowTime);
-          if (covering && covering.startTime !== rowTime) {
-            return { covered: true };
-          }
-
-          const slot = covering;
           const canInteract =
-            !readOnly && !disabled && (slot || locations.length > 0);
+            !readOnly && !disabled && (covering || locations.length > 0);
 
-          if (slot) {
-            const rowSpan = slotGridRowSpan(slot.startTime, slot.endTime);
-            return {
-              rowSpan,
-              content: (
-                <button
-                  type="button"
-                  disabled={!canInteract}
-                  onClick={() => openCell(dayOfWeek, rowTime, slot)}
-                  title={`${dayOfWeekLabel(dayOfWeek)} ${formatTimeRange(slot.startTime, slot.endTime)} · ${slot.locationName}`}
-                  className={cn(
-                    "flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded border border-green-200 bg-green-50 px-1 py-1 text-center transition",
-                    canInteract && "hover:border-green-300 hover:bg-green-100",
-                    !canInteract && "cursor-default",
-                  )}
-                >
-                  <span className="w-full min-w-0 truncate px-0.5 text-[9px] font-medium leading-tight text-green-800">
-                    {slot.locationName}
-                  </span>
-                </button>
-              ),
-            };
+          if (covering) {
+            return <div className="h-full" />;
           }
 
           if (canInteract) {
@@ -362,6 +337,43 @@ export function TemplateWeekCalendar({
 
           return (
             <div className="h-full rounded border border-transparent bg-slate-50/40" />
+          );
+        }}
+        renderDayOverlay={(dayOfWeek) => {
+          const daySlots = slots.filter((s) => s.dayOfWeek === dayOfWeek);
+          return (
+            <TimedSlotOverlay
+              scheduleStartTime={scheduleStartTime}
+              scheduleEndTime={scheduleEndTime}
+              items={daySlots.map((slot) => {
+                const canInteract = !readOnly && !disabled;
+                return {
+                  key: slotKey(slot.dayOfWeek, slot.startTime),
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                  content: (
+                    <button
+                      type="button"
+                      disabled={!canInteract}
+                      onClick={() =>
+                        openCell(dayOfWeek, slot.startTime, slot)
+                      }
+                      title={`${dayOfWeekLabel(dayOfWeek)} ${formatTimeRange(slot.startTime, slot.endTime)} · ${slot.locationName}`}
+                      className={cn(
+                        "flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded border border-green-200 bg-green-50 px-1 py-1 text-center transition",
+                        canInteract &&
+                          "hover:border-green-300 hover:bg-green-100",
+                        !canInteract && "cursor-default",
+                      )}
+                    >
+                      <span className="w-full min-w-0 truncate px-0.5 text-[9px] font-medium leading-tight text-green-800">
+                        {slot.locationName}
+                      </span>
+                    </button>
+                  ),
+                };
+              })}
+            />
           );
         }}
       />

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, InlineNotice } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
+import { SCHEDULE_TIME_INPUT_STEP_SECONDS } from "@/lib/constants";
 import type { TrainerSettings } from "../../types";
 
 function SegmentedControl<T extends string>({
@@ -101,6 +102,7 @@ export function ScheduleSettingsForm({
               <span className="text-slate-600">Start</span>
               <input
                 type="time"
+                step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                 className="rounded-lg border border-slate-300 px-3 py-2"
                 value={scheduleStartTime}
                 onChange={(e) => setScheduleStartTime(e.target.value)}
@@ -111,6 +113,7 @@ export function ScheduleSettingsForm({
               <span className="text-slate-600">End</span>
               <input
                 type="time"
+                step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                 className="rounded-lg border border-slate-300 px-3 py-2"
                 value={scheduleEndTime}
                 onChange={(e) => setScheduleEndTime(e.target.value)}

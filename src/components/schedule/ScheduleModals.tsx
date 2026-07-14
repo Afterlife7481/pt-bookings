@@ -29,7 +29,7 @@ export type ScheduleTemplateOption = { id: string; name: string };
 export function AddSlotModal({
   weekStart,
   dayOfWeek,
-  startTime,
+  startTime: initialStartTime,
   locations,
   onConfirm,
   onClose,
@@ -39,32 +39,42 @@ export function AddSlotModal({
   dayOfWeek: number;
   startTime: string;
   locations: ScheduleLocationOption[];
-  onConfirm: (locationId: string, endTime: string) => Promise<void>;
+  onConfirm: (
+    locationId: string,
+    endTime: string,
+    startTime: string,
+  ) => Promise<void>;
   onClose: () => void;
   busy: boolean;
 }) {
-  const [endTime, setEndTime] = useState(defaultSlotEndTime(startTime));
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endTime, setEndTime] = useState(defaultSlotEndTime(initialStartTime));
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const slotDate = formatDate(dateForWeekDay(weekStart, dayOfWeek));
-  const slotLabel = formatSlotLabel(`${slotDate}T${startTime}:00`, `${slotDate}T${endTime}:00`);
+  const slotLabel = formatSlotLabel(
+    `${slotDate}T${startTime}:00`,
+    `${slotDate}T${endTime}:00`,
+  );
 
   useEffect(() => {
-    setEndTime(defaultSlotEndTime(startTime));
+    setStartTime(initialStartTime);
+    setEndTime(defaultSlotEndTime(initialStartTime));
     setError(null);
-  }, [startTime]);
+  }, [initialStartTime]);
 
   const durationMinutes =
     startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
   const timesAligned =
     isScheduleTimeAligned(startTime) && isScheduleTimeAligned(endTime);
-  const durationValid = durationMinutes != null && durationMinutes > 0 && timesAligned;
+  const durationValid =
+    durationMinutes != null && durationMinutes > 0 && timesAligned;
 
   function handleConfirm() {
     try {
       assertValidScheduleSlotTimes(startTime, endTime);
       setError(null);
-      void onConfirm(locationId, endTime);
+      void onConfirm(locationId, endTime, startTime);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid times");
     }
@@ -94,8 +104,14 @@ export function AddSlotModal({
               step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
               className="rounded-lg border border-slate-300 px-3 py-2"
               value={startTime}
-              readOnly
-              disabled
+              onChange={(e) => {
+                const nextStart = e.target.value;
+                setStartTime(nextStart);
+                setEndTime(defaultSlotEndTime(nextStart));
+                setError(null);
+              }}
+              disabled={busy}
+              required
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -115,7 +131,8 @@ export function AddSlotModal({
           </label>
         </div>
         <p className="text-xs text-slate-500">
-          End time must use 30-minute steps (for example 10:00 or 10:30).
+          Times use 5-minute steps (for example 14:15–15:05 for a 50-minute
+          session).
         </p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <LocationSelect

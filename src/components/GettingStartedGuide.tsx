@@ -24,7 +24,7 @@ export function GettingStartedGuide() {
             Settings → Weekly template
           </Link>
           , lay out the slots you offer in a typical week (each with a time and
-          location, on 30-minute steps).{" "}
+          location, on 5-minute steps).{" "}
           <strong className="text-slate-800">
             This is the backbone of the whole app.
           </strong>{" "}

@@ -11,10 +11,10 @@ import {
   dayHeaderInitial,
   recurringSlotKey,
   slotCoversGridRow,
-  slotGridRowSpan,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
+import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 
 type Preference = { dayOfWeek: number; startTime: string };
 
@@ -406,41 +406,51 @@ export function LastMinutePreferencesForm({
               viewportHeight={gridViewportHeight}
               className={WEEK_GRID_EDGE_CLASS}
               getDayHeader={dayHeaderInitial}
-            renderCell={(dayOfWeek, rowTime) => {
-              const match = templateSlotAtRow(
-                templateSlots,
-                dayOfWeek,
-                rowTime,
-              );
-
-              if (!match) {
-                return <div className="h-full bg-white" />;
-              }
-
-              if (!match.isStart) {
-                return { covered: true };
-              }
-
-              const { slot } = match;
-              const selected = selectedKeys.has(
-                recurringSlotKey(dayOfWeek, slot.startTime),
-              );
-              const label = formatTimeRange(slot.startTime, slot.endTime);
-
-              return {
-                rowSpan: slotGridRowSpan(slot.startTime, slot.endTime),
-                content: (
-                  <LastMinutePreferenceCell
-                    locationName={slot.locationName}
-                    selected={selected}
-                    disabled={saveStatus === "saving"}
-                    onToggle={() => toggleSlot(dayOfWeek, slot.startTime)}
-                    title={`${dayOfWeekLabel(dayOfWeek)} ${label} · ${slot.locationName}`}
+              renderCell={(dayOfWeek, rowTime) => {
+                const match = templateSlotAtRow(
+                  templateSlots,
+                  dayOfWeek,
+                  rowTime,
+                );
+                if (!match) {
+                  return <div className="h-full bg-white" />;
+                }
+                return <div className="h-full" />;
+              }}
+              renderDayOverlay={(dayOfWeek) => {
+                const daySlots = templateSlots.filter(
+                  (slot) => slot.dayOfWeek === dayOfWeek,
+                );
+                return (
+                  <TimedSlotOverlay
+                    scheduleStartTime={scheduleStartTime}
+                    scheduleEndTime={scheduleEndTime}
+                    items={daySlots.map((slot) => {
+                      const selected = selectedKeys.has(
+                        recurringSlotKey(dayOfWeek, slot.startTime),
+                      );
+                      const label = formatTimeRange(slot.startTime, slot.endTime);
+                      return {
+                        key: recurringSlotKey(dayOfWeek, slot.startTime),
+                        startTime: slot.startTime,
+                        endTime: slot.endTime,
+                        content: (
+                          <LastMinutePreferenceCell
+                            locationName={slot.locationName}
+                            selected={selected}
+                            disabled={saveStatus === "saving"}
+                            onToggle={() =>
+                              toggleSlot(dayOfWeek, slot.startTime)
+                            }
+                            title={`${dayOfWeekLabel(dayOfWeek)} ${label} · ${slot.locationName}`}
+                          />
+                        ),
+                      };
+                    })}
                   />
-                ),
-              };
-            }}
-          />
+                );
+              }}
+            />
           </div>
 
           <div ref={gridFooterRef} className="space-y-4 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
