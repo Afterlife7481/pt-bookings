@@ -218,8 +218,9 @@ export function TemplateEditorForm({
           )}
         </div>
         <p className="mb-3 text-sm text-slate-500">
-          Click <span className="font-medium text-slate-700">+</span> to add a
-          slot.
+          Tap empty space or{" "}
+          <span className="font-medium text-slate-700">Add session</span> to
+          create a slot. Sessions cannot overlap.
         </p>
         {locations.length === 0 && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">

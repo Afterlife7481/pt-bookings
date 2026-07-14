@@ -7,11 +7,12 @@ import {
   assertValidScheduleSlotTimes,
   defaultSlotEndTime,
   formatTimeRange,
-  SCHEDULE_TIME_INPUT_STEP_SECONDS,
   slotDurationMinutes,
+  timeRangesOverlap,
 } from "@/lib/constants";
 import { cn, formatDurationMinutes } from "@/lib/utils";
 import {
+  DAY_OPTIONS,
   dayHeaderShort,
   dayOfWeekLabel,
   slotCoversGridRow,
@@ -20,6 +21,7 @@ import {
 import { SheetModal } from "@/components/SheetModal";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
+import { TimeSelect5Min } from "@/components/TimeSelect5Min";
 import { Button } from "@/components/ui";
 
 export type TemplateDraftSlot = {
@@ -43,19 +45,54 @@ function slotKey(dayOfWeek: number, startTime: string) {
   return `${dayOfWeek}-${startTime}`;
 }
 
+function findOverlappingTemplateSlot(
+  slots: TemplateDraftSlot[],
+  dayOfWeek: number,
+  startTime: string,
+  endTime: string,
+  exclude: { dayOfWeek: number; startTime: string } | null,
+): TemplateDraftSlot | null {
+  return (
+    slots.find((slot) => {
+      if (
+        exclude &&
+        slot.dayOfWeek === exclude.dayOfWeek &&
+        slot.startTime === exclude.startTime
+      ) {
+        return false;
+      }
+      if (slot.dayOfWeek !== dayOfWeek) return false;
+      return timeRangesOverlap(
+        startTime,
+        endTime,
+        slot.startTime,
+        slot.endTime,
+      );
+    }) ?? null
+  );
+}
+
 function TemplateSlotModal({
   pending,
   locations,
+  slots,
   onSave,
   onRemove,
   onClose,
 }: {
   pending: PendingCell;
   locations: LocationOption[];
-  onSave: (startTime: string, endTime: string, locationId: string) => void;
+  slots: TemplateDraftSlot[];
+  onSave: (
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    locationId: string,
+  ) => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
+  const [dayOfWeek, setDayOfWeek] = useState(pending.dayOfWeek);
   const [startTime, setStartTime] = useState(pending.startTime);
   const [endTime, setEndTime] = useState(pending.endTime);
   const [locationId, setLocationId] = useState(
@@ -64,6 +101,7 @@ function TemplateSlotModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setDayOfWeek(pending.dayOfWeek);
     setStartTime(pending.startTime);
     setEndTime(pending.endTime);
     setLocationId(pending.existing?.locationId ?? locations[0]?.id ?? "");
@@ -71,9 +109,7 @@ function TemplateSlotModal({
   }, [pending, locations]);
 
   const duration =
-    startTime && endTime
-      ? slotDurationMinutes(startTime, endTime)
-      : null;
+    startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
 
   function handleSave() {
     try {
@@ -82,8 +118,26 @@ function TemplateSlotModal({
         setError("Choose a location");
         return;
       }
+      const overlap = findOverlappingTemplateSlot(
+        slots,
+        dayOfWeek,
+        startTime,
+        endTime,
+        pending.existing
+          ? {
+              dayOfWeek: pending.existing.dayOfWeek,
+              startTime: pending.existing.startTime,
+            }
+          : null,
+      );
+      if (overlap) {
+        setError(
+          `This overlaps another template slot (${formatTimeRange(overlap.startTime, overlap.endTime)}). Choose a different time.`,
+        );
+        return;
+      }
       setError(null);
-      onSave(startTime, endTime, locationId);
+      onSave(dayOfWeek, startTime, endTime, locationId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid times");
     }
@@ -92,7 +146,7 @@ function TemplateSlotModal({
   return (
     <SheetModal
       title={pending.existing ? "Edit template slot" : "Add template slot"}
-      subtitle={`${dayOfWeekLabel(pending.dayOfWeek)} · plan start and end times`}
+      subtitle={`${dayOfWeekLabel(dayOfWeek)} · plan start and end times`}
       onClose={onClose}
       footer={
         <>
@@ -116,27 +170,47 @@ function TemplateSlotModal({
       }
     >
       <div className="mt-4 space-y-4">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-slate-600">Day</span>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2"
+            value={dayOfWeek}
+            onChange={(e) => {
+              setDayOfWeek(Number(e.target.value));
+              setError(null);
+            }}
+          >
+            {DAY_OPTIONS.map((day) => (
+              <option key={day.value} value={day.value}>
+                {day.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Start</span>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+            <TimeSelect5Min
+              aria-label="Start time"
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              required
+              onChange={(next) => {
+                setStartTime(next);
+                if (!pending.existing) {
+                  setEndTime(defaultSlotEndTime(next));
+                }
+                setError(null);
+              }}
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">End</span>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+            <TimeSelect5Min
+              aria-label="End time"
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              required
+              onChange={(next) => {
+                setEndTime(next);
+                setError(null);
+              }}
             />
           </label>
         </div>
@@ -230,8 +304,8 @@ export function TemplateWeekCalendar({
       <>
         <div className="px-4 sm:px-5">
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-            Add at least one training location under Settings to enable the +
-            buttons on this calendar.
+            Add at least one training location under Settings before you can
+            add template slots.
           </div>
         </div>
         <WeeklyHourGrid
@@ -249,7 +323,7 @@ export function TemplateWeekCalendar({
 
   function upsertSlot(
     dayOfWeek: number,
-    previousStartTime: string | null,
+    previous: { dayOfWeek: number; startTime: string } | null,
     startTime: string,
     endTime: string,
     locationId: string,
@@ -258,7 +332,11 @@ export function TemplateWeekCalendar({
     const locationName =
       locations.find((l) => l.id === locationId)?.name ?? "Unknown";
     const next = slots.filter((s) => {
-      if (previousStartTime && s.dayOfWeek === dayOfWeek && s.startTime === previousStartTime) {
+      if (
+        previous &&
+        s.dayOfWeek === previous.dayOfWeek &&
+        s.startTime === previous.startTime
+      ) {
         return false;
       }
       return slotKey(s.dayOfWeek, s.startTime) !== slotKey(dayOfWeek, startTime);
@@ -289,11 +367,16 @@ export function TemplateWeekCalendar({
     const defaultStart = existing?.startTime ?? rowTime;
     const defaultEnd = existing?.endTime ?? defaultSlotEndTime(defaultStart);
     setPending({
-      dayOfWeek,
+      dayOfWeek: existing?.dayOfWeek ?? dayOfWeek,
       startTime: defaultStart,
       endTime: defaultEnd,
       existing,
     });
+  }
+
+  function openAddSession() {
+    if (readOnly || disabled || locations.length === 0) return;
+    openCell(1, scheduleStartTime, null);
   }
 
   function slotAtRow(dayOfWeek: number, rowTime: string) {
@@ -308,6 +391,22 @@ export function TemplateWeekCalendar({
 
   return (
     <>
+      {!readOnly && locations.length > 0 ? (
+        <div className="mb-3 flex flex-wrap items-center gap-3 px-4 sm:px-5">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={disabled}
+            onClick={openAddSession}
+          >
+            Add session
+          </Button>
+          <p className="text-xs text-slate-500">
+            Tap empty space or Add session to create a slot
+          </p>
+        </div>
+      ) : null}
+
       <WeeklyHourGrid
         timeRows={timeRows}
         variant="compact"
@@ -315,23 +414,22 @@ export function TemplateWeekCalendar({
         getDayHeader={dayHeaderShort}
         renderCell={(dayOfWeek, rowTime) => {
           const covering = slotAtRow(dayOfWeek, rowTime);
-          const canInteract =
-            !readOnly && !disabled && (covering || locations.length > 0);
+          const canAdd =
+            !readOnly && !disabled && !covering && locations.length > 0;
 
           if (covering) {
             return <div className="h-full" />;
           }
 
-          if (canInteract) {
+          if (canAdd) {
             return (
               <button
                 type="button"
                 onClick={() => openCell(dayOfWeek, rowTime, null)}
-                title={`Add slot at ${rowTime}`}
-                className="flex h-full w-full items-center justify-center rounded border border-dashed border-slate-200 bg-white text-[10px] font-medium text-slate-400 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-600"
-              >
-                +
-              </button>
+                aria-label={`Add session at ${rowTime}`}
+                title={`Add session at ${rowTime}`}
+                className="h-full w-full rounded transition hover:bg-slate-50"
+              />
             );
           }
 
@@ -382,10 +480,16 @@ export function TemplateWeekCalendar({
         <TemplateSlotModal
           pending={pending}
           locations={locations}
-          onSave={(startTime, endTime, locationId) =>
+          slots={slots}
+          onSave={(dayOfWeek, startTime, endTime, locationId) =>
             upsertSlot(
-              pending.dayOfWeek,
-              pending.existing?.startTime ?? null,
+              dayOfWeek,
+              pending.existing
+                ? {
+                    dayOfWeek: pending.existing.dayOfWeek,
+                    startTime: pending.existing.startTime,
+                  }
+                : null,
               startTime,
               endTime,
               locationId,
@@ -393,7 +497,7 @@ export function TemplateWeekCalendar({
           }
           onRemove={() => {
             if (pending.existing) {
-              removeSlot(pending.dayOfWeek, pending.existing.startTime);
+              removeSlot(pending.existing.dayOfWeek, pending.existing.startTime);
             }
           }}
           onClose={() => setPending(null)}

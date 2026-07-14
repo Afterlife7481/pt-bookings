@@ -67,6 +67,7 @@ function DayScheduleGrid({
   holidayIndex,
   editable,
   selectedOpenSlot,
+  onRequestAdd,
   onOpenSlot,
   viewportHeight,
 }: {
@@ -79,6 +80,7 @@ function DayScheduleGrid({
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
   selectedOpenSlot: ScheduleEntry | null;
+  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   viewportHeight?: number;
 }) {
@@ -120,6 +122,12 @@ function DayScheduleGrid({
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${selectedDay}-${rowTime}`,
         );
+        const canAdd =
+          editable &&
+          onRequestAdd &&
+          !occupied &&
+          !isPastDay &&
+          !blockedByHoliday;
 
         return (
           <Fragment key={rowTime}>
@@ -146,6 +154,14 @@ function DayScheduleGrid({
                   aria-hidden
                   className="holiday-hatch h-full min-h-0 rounded-lg"
                   title="Time off"
+                />
+              ) : canAdd ? (
+                <button
+                  type="button"
+                  onClick={() => onRequestAdd(selectedDay, rowTime)}
+                  aria-label={`Add session at ${rowTime}`}
+                  title={`Add session at ${rowTime}`}
+                  className="h-full min-h-0 w-full rounded-lg transition hover:bg-slate-50 active:bg-slate-100"
                 />
               ) : (
                 <div className="h-full min-h-0" />
@@ -250,6 +266,7 @@ function WeekGrid({
   holidayIndex,
   editable,
   selectedOpenSlot,
+  onRequestAdd,
   onOpenSlot,
   compact = false,
   viewportHeight,
@@ -262,6 +279,7 @@ function WeekGrid({
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
   selectedOpenSlot: ScheduleEntry | null;
+  onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   compact?: boolean;
   viewportHeight?: number;
@@ -298,6 +316,9 @@ function WeekGrid({
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${dayOfWeek}-${rowTime}`,
         );
+        const pastDay = isPastWeekDay(weekStart, dayOfWeek);
+        const canAdd =
+          editable && onRequestAdd && !pastDay && !blockedByHoliday && !occupied;
 
         if (blockedByHoliday && !occupied) {
           return (
@@ -305,6 +326,18 @@ function WeekGrid({
               aria-hidden
               className="holiday-hatch h-full rounded"
               title="Time off"
+            />
+          );
+        }
+
+        if (canAdd) {
+          return (
+            <button
+              type="button"
+              onClick={() => onRequestAdd(dayOfWeek, rowTime)}
+              aria-label={`Add session at ${rowTime}`}
+              title={`Add session at ${rowTime}`}
+              className="h-full w-full rounded transition hover:bg-slate-50"
             />
           );
         }
@@ -515,6 +548,11 @@ export function WeekScheduleCalendar({
     });
   }
 
+  function requestAdd(dayOfWeek: number, startTime: string) {
+    if (!onAddSlot || busyKey) return;
+    setPendingAdd({ dayOfWeek, startTime });
+  }
+
   async function handleRemove(slotId: string) {
     if (!onRemoveSlot || busyKey) return;
     setBusyKey(`remove-${slotId}`);
@@ -586,6 +624,7 @@ export function WeekScheduleCalendar({
                   holidayIndex={holidayIndex}
                   editable={editable}
                   selectedOpenSlot={selectedOpenSlot}
+                  onRequestAdd={onAddSlot ? requestAdd : undefined}
                   onOpenSlot={openSlotActions}
                   viewportHeight={gridViewportHeight}
                 />
@@ -604,6 +643,7 @@ export function WeekScheduleCalendar({
             holidayIndex={holidayIndex}
             editable={editable}
             selectedOpenSlot={selectedOpenSlot}
+            onRequestAdd={onAddSlot ? requestAdd : undefined}
             onOpenSlot={openSlotActions}
             compact={useCompactWeekGrid}
             viewportHeight={gridViewportHeight}
@@ -620,7 +660,7 @@ export function WeekScheduleCalendar({
       >
         {editable ? (
           <p className="mb-2 text-xs text-slate-500">
-            Tap a booked or open slot to manage it
+            Tap empty space or Add session to create a slot · tap slots to manage
           </p>
         ) : null}
         <ScheduleLegend />

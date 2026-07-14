@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, asc, inArray } from "drizzle-orm";
+import { eq, and, gte, gt, lt, asc, inArray, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import {
@@ -16,6 +16,7 @@ import {
   assertValidScheduleSlotTimes,
   defaultSlotEndTime,
   formatDate,
+  formatSlotLabel,
   isInactiveBookingStatus,
   nowIso,
   parseDateOnly,
@@ -43,6 +44,39 @@ export type {
   ScheduleLastMinuteOffer,
 } from "./schedule-types";
 export { hasActiveLastMinuteOffer } from "./schedule-types";
+
+async function assertNoOverlappingSlot(
+  trainerId: string,
+  startAt: string,
+  endAt: string,
+  excludeSlotId?: string,
+) {
+  const db = getDb();
+  const conditions = [
+    eq(slots.trainerId, trainerId),
+    lt(slots.startAt, endAt),
+    gt(slots.endAt, startAt),
+  ];
+  if (excludeSlotId) {
+    conditions.push(ne(slots.id, excludeSlotId));
+  }
+
+  const overlapping = await db
+    .select({
+      startAt: slots.startAt,
+      endAt: slots.endAt,
+    })
+    .from(slots)
+    .where(and(...conditions))
+    .limit(1);
+
+  const other = overlapping[0];
+  if (!other) return;
+
+  throw new Error(
+    `This session overlaps an existing slot (${formatSlotLabel(other.startAt, other.endAt)}). Choose a different time.`,
+  );
+}
 
 async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   const db = getDb();
@@ -303,6 +337,8 @@ export async function addScheduleSlot(
   if (existing) {
     throw new Error("A slot already exists at this time.");
   }
+
+  await assertNoOverlappingSlot(trainerId, startAtStr, endAtStr);
 
   const slotId = nanoid();
   await db.insert(slots).values({

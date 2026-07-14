@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { LocationSelect } from "@/components/LocationSelect";
 import { SheetModal } from "@/components/SheetModal";
 import { OpenSlotLastMinuteSection } from "@/components/OpenSlotLastMinuteSection";
+import { TimeSelect5Min } from "@/components/TimeSelect5Min";
 import { DAY_OPTIONS } from "@/lib/schedule-grid";
 import {
   assertValidScheduleSlotTimes,
@@ -12,7 +13,6 @@ import {
   formatDate,
   formatSlotLabel,
   isScheduleTimeAligned,
-  SCHEDULE_TIME_INPUT_STEP_SECONDS,
   slotDurationMinutes,
 } from "@/lib/constants";
 import type { ScheduleEntry } from "@/lib/services/schedule-types";
@@ -78,7 +78,11 @@ export function AddSlotModal({
     try {
       assertValidScheduleSlotTimes(startTime, endTime);
       setError(null);
-      void onConfirm(locationId, endTime, startTime, dayOfWeek);
+      void onConfirm(locationId, endTime, startTime, dayOfWeek).catch(
+        (e: unknown) => {
+          setError(e instanceof Error ? e.message : "Failed to add slot");
+        },
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid times");
     }
@@ -121,34 +125,27 @@ export function AddSlotModal({
         <div className="flex flex-wrap gap-4">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Start</span>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+            <TimeSelect5Min
+              aria-label="Start time"
               value={startTime}
-              onChange={(e) => {
-                const nextStart = e.target.value;
+              disabled={busy}
+              onChange={(nextStart) => {
                 setStartTime(nextStart);
                 setEndTime(defaultSlotEndTime(nextStart));
                 setError(null);
               }}
-              disabled={busy}
-              required
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">End</span>
-            <input
-              type="time"
-              step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-              className="rounded-lg border border-slate-300 px-3 py-2"
+            <TimeSelect5Min
+              aria-label="End time"
               value={endTime}
-              onChange={(e) => {
-                setEndTime(e.target.value);
+              disabled={busy}
+              onChange={(nextEnd) => {
+                setEndTime(nextEnd);
                 setError(null);
               }}
-              disabled={busy}
-              required
             />
           </label>
         </div>

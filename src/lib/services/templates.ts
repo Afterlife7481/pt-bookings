@@ -40,6 +40,7 @@ import {
   holidayDisplayName,
   parseHolidayRangesForLookup,
   findOverlappingHolidayParsedRecord,
+  datetimeRangesOverlap,
 } from "@/lib/holidays-utils";
 import {
   createTemplateConflictAlerts,
@@ -325,7 +326,7 @@ export async function applyTemplateToWeek(
       ),
       getOrCreateAppliedWeek(template.trainerId, weekStart),
       db
-        .select({ startAt: slots.startAt })
+        .select({ startAt: slots.startAt, endAt: slots.endAt })
         .from(slots)
         .where(
           and(
@@ -395,6 +396,14 @@ export async function applyTemplateToWeek(
     const endAtStr = toLocalDateTimeString(
       parseTimeOnDate(formatDate(slotDate), ts.endTime),
     );
+
+    const overlapsExisting = existingWeekSlots.some((row) =>
+      datetimeRangesOverlap(startAtStr, endAtStr, row.startAt, row.endAt),
+    );
+    const overlapsQueued = slotsToInsert.some((row) =>
+      datetimeRangesOverlap(startAtStr, endAtStr, row.startAt, row.endAt),
+    );
+    if (overlapsExisting || overlapsQueued) continue;
 
     const holiday = findOverlappingHolidayParsedRecord(
       parseLocalDateTime(startAtStr).getTime(),

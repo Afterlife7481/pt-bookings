@@ -68,7 +68,10 @@ export function useSchedulePage() {
       await action();
       await refresh();
     } catch (e) {
-      setScheduleError(e instanceof ApiError ? e.message : "Something went wrong");
+      const message =
+        e instanceof ApiError ? e.message : "Something went wrong";
+      setScheduleError(message);
+      throw e instanceof Error ? e : new Error(message);
     }
   }
 
