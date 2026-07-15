@@ -2,9 +2,12 @@
 
 import { DashboardHeader } from "./DashboardHeader";
 import { OnboardingGate } from "./OnboardingGate";
-import { useTrainerSettings } from "../hooks/useTrainerSettings";
+import {
+  TrainerSettingsProvider,
+  useTrainerSettings,
+} from "../hooks/useTrainerSettings";
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { settings } = useTrainerSettings();
 
   return (
@@ -14,5 +17,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <OnboardingGate>{children}</OnboardingGate>
       </main>
     </div>
+  );
+}
+
+export function DashboardShell({ children }: { children: React.ReactNode }) {
+  return (
+    <TrainerSettingsProvider>
+      <DashboardShellInner>{children}</DashboardShellInner>
+    </TrainerSettingsProvider>
   );
 }

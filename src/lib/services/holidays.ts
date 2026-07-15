@@ -4,7 +4,6 @@ import { getDb } from "@/lib/db";
 import { trainerHolidays } from "@/lib/db/schema";
 import { nowIso } from "@/lib/constants";
 import {
-  datetimeRangesOverlap,
   findOverlappingHoliday,
   holidayDisplayName,
   normalizeHolidayDateTime,
@@ -133,19 +132,3 @@ export function assertSlotNotDuringHoliday(
   );
 }
 
-export function slotRangeOverlapsAnyHoliday(
-  slotStart: string,
-  slotEnd: string,
-  holidays: HolidayPeriod[],
-): HolidayPeriod | null {
-  return findOverlappingHoliday(slotStart, slotEnd, holidays);
-}
-
-export function holidaysOverlap(
-  aStart: string,
-  aEnd: string,
-  bStart: string,
-  bEnd: string,
-): boolean {
-  return datetimeRangesOverlap(aStart, aEnd, bStart, bEnd);
-}

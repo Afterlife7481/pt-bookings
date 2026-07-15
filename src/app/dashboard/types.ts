@@ -1,4 +1,7 @@
 import type { TemplateView } from "@/components/TemplateEditor";
+import type { TrainerSettings } from "@/lib/services/settings";
+
+export type { TrainerSettings };
 
 export type DashboardClient = {
   id: string;
@@ -38,15 +41,6 @@ export type BookingRow = {
   client: { id: string; name: string };
 };
 
-export type WhatsAppRow = {
-  id: string;
-  phone: string;
-  messageType: string;
-  recipient: "client" | "trainer";
-  body: string;
-  createdAt: string;
-};
-
 export const MENU_ITEMS = [
   { label: "Schedule", href: "/dashboard/schedule" },
   { label: "Clients", href: "/dashboard/clients" },
@@ -59,23 +53,6 @@ export const MENU_ITEMS = [
   { label: "Feature request", href: "/dashboard/feature-request" },
   { label: "Feedback", href: "/dashboard/feedback" },
 ] as const;
-
-export type TrainerSettings = {
-  scheduleStartTime: string;
-  scheduleEndTime: string;
-  scheduleDefaultView: "day" | "week";
-  cancelDeadlineHours: number;
-  lastMinuteOfferLockHours: number;
-  clientBookingWindowWeeks: number;
-  timezone: string;
-  name: string;
-  email: string;
-  phone: string;
-  bankAccountNumber: string | null;
-  bankSortCode: string | null;
-  bankName: string | null;
-  paymentPayeeName: string | null;
-};
 
 export type LocationRow = {
   id: string;

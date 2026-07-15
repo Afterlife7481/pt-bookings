@@ -1,7 +1,7 @@
 import { ensureDb } from "@/lib/db/init";
 import { bookSlotByClientToken } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
-import { getAvailableSlotsForChange } from "@/lib/services/templates";
+import { getAvailableSlotsForChange } from "@/lib/services/available-slots";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
 

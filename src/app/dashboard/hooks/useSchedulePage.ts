@@ -2,12 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
-import type {
-  DashboardClient,
-  TrainerLocation,
-  TrainerSettings,
-} from "../types";
+import type { DashboardClient, TrainerLocation } from "../types";
 import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
+import { useTrainerSettings } from "./useTrainerSettings";
 
 export type ApplyTemplateOutcome = {
   ok: boolean;
@@ -17,6 +14,7 @@ export type ApplyTemplateOutcome = {
 };
 
 export function useSchedulePage() {
+  const { settings } = useTrainerSettings();
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [scheduleHolidays, setScheduleHolidays] = useState<ScheduleHoliday[]>([]);
@@ -24,13 +22,12 @@ export function useSchedulePage() {
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [hasTemplate, setHasTemplate] = useState(false);
-  const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const activeWeek = weekStart || defaultWeekStart();
-    const [c, t, sched, sett, locs] = await Promise.all([
+    const [c, t, sched, locs] = await Promise.all([
       fetchJson<DashboardClient[]>("/api/clients"),
       fetchJson<{ template: unknown | null }>("/api/templates"),
       fetchJson<{
@@ -39,7 +36,6 @@ export function useSchedulePage() {
         weekEnd: string;
         holidays: ScheduleHoliday[];
       }>(`/api/schedule?weekStart=${activeWeek}`),
-      fetchJson<TrainerSettings>("/api/settings"),
       fetchJson<TrainerLocation[]>("/api/locations"),
     ]);
     setClients(c);
@@ -47,7 +43,6 @@ export function useSchedulePage() {
     setScheduleEntries(sched.entries);
     setScheduleHolidays(sched.holidays ?? []);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
-    setSettings(sett);
     setTrainerLocations(Array.isArray(locs) ? locs : []);
   }, [weekStart]);
 

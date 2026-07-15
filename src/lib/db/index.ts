@@ -54,8 +54,4 @@ export async function closeDb() {
   }
 }
 
-export function resetDbConnection() {
-  dbInstance = null;
-}
-
 export { schema };

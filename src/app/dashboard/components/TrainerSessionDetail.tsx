@@ -2,27 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
-import {
-  parseLocalDateTime,
-  sessionPaymentTypeLabel,
-} from "@/lib/constants";
-import type { TrainerBookingDetail } from "@/lib/services/bookings";
-import { getPaymentStatus } from "@/lib/payments";
+import { parseLocalDateTime } from "@/lib/constants";
 import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
-import { MarkSessionPaidModal } from "./MarkSessionPaidModal";
-import { SessionPriceEditor } from "./SessionPriceEditor";
+import {
+  SessionPaymentModals,
+  SessionPaymentSection,
+} from "./SessionPaymentSection";
+import { useTrainerBookingActions } from "../hooks/useTrainerBookingActions";
 import {
   cn,
   formatDurationMinutes,
-  resolveBookingSessionPrice,
 } from "@/lib/utils";
-import { prepareWhatsAppOpen, prepareWhatsAppOpenForPhone } from "@/lib/whatsapp-link";
-import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
-import type { NotifyChannel } from "@/lib/notify-channels";
 
 export function TrainerSessionDetail({
   bookingId,
@@ -34,206 +28,45 @@ export function TrainerSessionDetail({
   backLabel?: string;
 }) {
   const router = useRouter();
-  const [detail, setDetail] = useState<TrainerBookingDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [confirmationNotice, setConfirmationNotice] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
-  const [showPaidModal, setShowPaidModal] = useState(false);
-  const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
-  const [showInvoiceSheet, setShowInvoiceSheet] = useState(false);
-  const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/bookings/${bookingId}`);
-    if (res.status === 404) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Failed to load session");
-      setLoading(false);
-      return;
-    }
-    setDetail(data);
-    setLoading(false);
-  }, [bookingId]);
+  const {
+    detail,
+    setDetail,
+    loading,
+    notFound,
+    busy,
+    error,
+    invoiceError,
+    invoiceNotice,
+    showPaidModal,
+    setShowPaidModal,
+    paidModalMode,
+    showInvoiceSheet,
+    setShowInvoiceSheet,
+    patchUpdates,
+    confirmPaymentMethod,
+    openMarkPaidModal,
+    openEditPaymentMethodModal,
+    openInvoiceSheet,
+    runAction,
+    sendInvoice,
+    cancelSession,
+    voidSession,
+  } = useTrainerBookingActions(bookingId, {
+    treat404AsNotFound: true,
+    onCanceled: () => {
+      router.push(backHref);
+      router.refresh();
+    },
+  });
 
-  useEffect(() => {
-    load().catch(() => {
-      setError("Failed to load session");
-      setLoading(false);
-    });
-  }, [load]);
-
-  async function patchUpdates(body: Record<string, unknown>): Promise<boolean> {
-    setBusy(true);
-    setError(null);
-    const res = await fetch(`/api/bookings/${bookingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to save");
-      return false;
-    }
-    setDetail(data);
-    setSaved(true);
-    return true;
-  }
-
-  async function confirmPaymentMethod(paymentType: string) {
-    const ok = await patchUpdates(
-      paidModalMode === "edit"
-        ? { paymentType }
-        : { sessionPaid: true, paymentType },
-    );
-    if (ok) {
-      setShowPaidModal(false);
-    }
-  }
-
-  function openMarkPaidModal() {
-    setPaidModalMode("mark");
-    setShowPaidModal(true);
-  }
-
-  function openEditPaymentMethodModal() {
-    setPaidModalMode("edit");
-    setShowPaidModal(true);
-  }
-
-  async function runAction(
-    action: "cancel" | "send_confirmation" | "void",
-  ) {
-    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
-    if (action === "send_confirmation") {
-      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
-      if (!prepared.ok) {
-        setError(prepared.error);
-        return;
-      }
-      waOpen = prepared.opener;
-    }
-
-    setBusy(true);
-    setError(null);
-    setConfirmationNotice(false);
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      setBusy(false);
-      if (!res.ok) {
-        waOpen?.finish(null);
-        setError(data.error ?? "Action failed");
-        return;
-      }
-      if (action === "cancel") {
-        router.push(backHref);
-        router.refresh();
-        return;
-      }
-      if (action === "send_confirmation") {
-        setDetail(data);
-        setConfirmationNotice(true);
-        waOpen?.finish(data.whatsappUrl);
-        return;
-      }
-      if (action === "void") {
-        setDetail(data);
-        return;
-      }
-      setSaved(true);
-    } catch {
-      waOpen?.finish(null);
-      setBusy(false);
-      setError("Action failed");
-    }
-  }
-
-  async function sendInvoice(channels: NotifyChannel[]) {
-    const wantWhatsApp = channels.includes("whatsapp");
-    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
-    if (wantWhatsApp) {
-      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
-      if (!prepared.ok) {
-        setInvoiceError(prepared.error);
-        return;
-      }
-      waOpen = prepared.opener;
-    }
-
-    setBusy(true);
-    setInvoiceError(null);
-    setInvoiceNotice(null);
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send_invoice", channels }),
-      });
-      const data = await res.json();
-      setBusy(false);
-      if (!res.ok) {
-        waOpen?.finish(null);
-        setInvoiceError(data.error ?? "Failed to send invoice");
-        return;
-      }
-      setDetail(data);
-      setShowInvoiceSheet(false);
-      if (wantWhatsApp) {
-        if (
-          typeof data.whatsappUrl === "string" &&
-          data.whatsappUrl.length > 0
-        ) {
-          waOpen?.finish(data.whatsappUrl);
-        } else {
-          waOpen?.finish(null);
-          setInvoiceError(
-            "Invoice logged, but WhatsApp could not open. Check the client phone number.",
-          );
-        }
-      }
-      const via = Array.isArray(data.sentVia)
-        ? (data.sentVia as string[]).join(" and ")
-        : channels.join(" and ");
-      setInvoiceNotice(`Invoice sent via ${via}.`);
-    } catch {
-      waOpen?.finish(null);
-      setBusy(false);
-      setInvoiceError("Failed to send invoice");
-    }
-  }
-
-  async function cancelSession() {
-    if (!window.confirm("Cancel this session? The slot will become available again.")) {
-      return;
-    }
-    await runAction("cancel");
-  }
-
-  async function voidSession() {
-    if (
-      !window.confirm(
-        "Void this session? It will be marked as if it did not take place. This cannot be undone.",
-      )
-    ) {
-      return;
-    }
-    await runAction("void");
+  async function patchAndMarkSaved(body: Record<string, unknown>) {
+    const ok = await patchUpdates(body);
+    if (ok) setSaved(true);
+    return ok;
   }
 
   if (loading) {
@@ -262,8 +95,7 @@ export function TrainerSessionDetail({
   const isCanceled = booking.status === "canceled";
   const isVoided = booking.status === "voided";
   const isInactive = isCanceled || isVoided;
-  const isPast =
-    parseLocalDateTime(sessionStartAt).getTime() < Date.now();
+  const isPast = parseLocalDateTime(sessionStartAt).getTime() < Date.now();
   const durationMinutes =
     sessionEndAt != null
       ? Math.round(
@@ -272,11 +104,6 @@ export function TrainerSessionDetail({
             60_000,
         )
       : 60;
-  const paymentStatus = getPaymentStatus(booking);
-  const effectiveSessionPrice = resolveBookingSessionPrice(
-    booking.sessionPrice,
-    client.sessionPrice,
-  );
   const clientSessionUrl = booking.sessionUrl;
 
   return (
@@ -372,154 +199,19 @@ export function TrainerSessionDetail({
 
       <Card className="min-w-0">
         <h2 className="font-semibold">Payment</h2>
-        <div className="mt-4 space-y-4">
-          <SessionPriceEditor
-            sessionPrice={booking.sessionPrice}
-            clientDefaultPrice={client.sessionPrice}
-            disabled={busy || isInactive}
-            onSave={async (sessionPrice) => {
-              const ok = await patchUpdates({ sessionPrice });
-              if (ok) setSaved(true);
-            }}
-          />
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-900">Payment status</p>
-              <p className="text-sm text-slate-500">
-                Send an invoice to move from unpaid to requested.
-              </p>
-            </div>
-            <div className="flex shrink-0 self-start rounded-lg border border-slate-200 p-0.5">
-              <button
-                type="button"
-                disabled={busy || isInactive}
-                onClick={() => patchUpdates({ sessionPaid: false })}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  paymentStatus === "unpaid"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Unpaid
-              </button>
-              <button
-                type="button"
-                disabled
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  paymentStatus === "requested"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-400"
-                }`}
-              >
-                Requested
-              </button>
-              <button
-                type="button"
-                disabled={busy || isInactive}
-                onClick={() => {
-                  if (paymentStatus !== "paid") {
-                    openMarkPaidModal();
-                  }
-                }}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  paymentStatus === "paid"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Paid
-              </button>
-            </div>
-          </div>
-
-          {paymentStatus === "paid" && (
-            <div>
-              <p className="text-sm font-medium text-slate-900">
-                Payment method
-              </p>
-              <button
-                type="button"
-                disabled={busy || isInactive}
-                onClick={openEditPaymentMethodModal}
-                className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
-              >
-                {sessionPaymentTypeLabel(booking.paymentType)}
-              </button>
-              <p className="mt-1 text-xs text-slate-500">
-                Tap to change payment method.
-              </p>
-            </div>
-          )}
-
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-sm text-slate-500">
-              Send the session amount and your bank payment details by email,
-              WhatsApp, or both.
-            </p>
-            {booking.invoiceSentAt && (
-              <p className="mt-1 text-sm text-slate-500">
-                Last sent{" "}
-                {new Date(booking.invoiceSentAt).toLocaleString("en-GB", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-                .
-              </p>
-            )}
-            <Button
-              variant="secondary"
-              disabled={
-                busy ||
-                isInactive ||
-                effectiveSessionPrice == null ||
-                !detail.paymentDetailsReady
-              }
-              className="mt-3 w-full sm:w-auto"
-              onClick={() => {
-                setInvoiceError(null);
-                setInvoiceNotice(null);
-                setShowInvoiceSheet(true);
-              }}
-            >
-              {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
-            </Button>
-            {invoiceNotice && (
-              <p className="mt-2 text-sm text-green-700" role="status">
-                {invoiceNotice}
-              </p>
-            )}
-            {effectiveSessionPrice == null && !isInactive && (
-              <p className="mt-2 text-sm text-amber-700">
-                Set a session price above or on the{" "}
-                <Link
-                  href={`/dashboard/clients/${client.id}`}
-                  className="underline hover:text-amber-900"
-                >
-                  client profile
-                </Link>{" "}
-                before sending an invoice.
-              </p>
-            )}
-            {effectiveSessionPrice != null &&
-              !detail.paymentDetailsReady &&
-              !isInactive && (
-                <p className="mt-2 text-sm text-amber-700">
-                  Add bank account and sort code in{" "}
-                  <Link
-                    href="/dashboard/settings"
-                    className="underline hover:text-amber-900"
-                  >
-                    Settings → Payment details
-                  </Link>{" "}
-                  before sending an invoice.
-                </p>
-              )}
-            {invoiceError && (
-              <p className="mt-2 text-sm text-red-600">{invoiceError}</p>
-            )}
-          </div>
-        </div>
+        <SessionPaymentSection
+          detail={detail}
+          busy={busy}
+          disabled={isInactive}
+          variant="card"
+          showSetupHints
+          invoiceError={invoiceError}
+          invoiceNotice={invoiceNotice}
+          onPatch={patchAndMarkSaved}
+          onOpenMarkPaid={openMarkPaidModal}
+          onOpenEditPaymentMethod={openEditPaymentMethodModal}
+          onOpenInvoiceSheet={openInvoiceSheet}
+        />
       </Card>
 
       {!isInactive && (
@@ -527,52 +219,57 @@ export function TrainerSessionDetail({
           <h2 className="font-semibold">Manage session</h2>
           <div className="mt-4 space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            {isPast ? (
-              <>
-                <Button
-                  variant="secondary"
-                  disabled
-                  className="w-full sm:w-auto"
-                >
-                  Send confirmation
-                </Button>
-                <Button
-                  variant="danger"
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                  onClick={voidSession}
-                >
-                  Void session
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                  onClick={() => setShowChangeSlots((open) => !open)}
-                >
-                  Change slot
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                  onClick={() => runAction("send_confirmation")}
-                >
-                  Send confirmation
-                </Button>
-                <Button
-                  variant="danger"
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                  onClick={cancelSession}
-                >
-                  Cancel session
-                </Button>
-              </>
-            )}
+              {isPast ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled
+                    className="w-full sm:w-auto"
+                  >
+                    Send confirmation
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy}
+                    className="w-full sm:w-auto"
+                    onClick={() => void voidSession()}
+                  >
+                    Void session
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    className="w-full sm:w-auto"
+                    onClick={() => setShowChangeSlots((open) => !open)}
+                  >
+                    Change slot
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setConfirmationNotice(false);
+                      void runAction("send_confirmation").then((data) => {
+                        if (data) setConfirmationNotice(true);
+                      });
+                    }}
+                  >
+                    Send confirmation
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy}
+                    className="w-full sm:w-auto"
+                    onClick={() => void cancelSession()}
+                  >
+                    Cancel session
+                  </Button>
+                </>
+              )}
             </div>
             {!isPast && confirmationNotice && (
               <p className="text-sm text-green-700" role="status">
@@ -642,30 +339,21 @@ export function TrainerSessionDetail({
         </div>
       </Card>
 
-      <MarkSessionPaidModal
-        open={showPaidModal}
+      <SessionPaymentModals
+        detail={detail}
         busy={busy}
-        mode={paidModalMode}
-        paymentMethods={detail.paymentMethods}
-        initialPaymentType={booking.paymentType}
-        onClose={() => setShowPaidModal(false)}
-        onConfirm={confirmPaymentMethod}
+        invoiceError={invoiceError}
+        showPaidModal={showPaidModal}
+        paidModalMode={paidModalMode}
+        showInvoiceSheet={showInvoiceSheet}
+        onClosePaidModal={() => setShowPaidModal(false)}
+        onCloseInvoiceSheet={() => setShowInvoiceSheet(false)}
+        onConfirmPaymentMethod={async (paymentType) => {
+          const ok = await confirmPaymentMethod(paymentType);
+          if (ok) setSaved(true);
+        }}
+        onSendInvoice={sendInvoice}
       />
-
-      {showInvoiceSheet ? (
-        <SendInvoiceChannelSheet
-          clientName={client.name}
-          email={client.email}
-          phone={client.phone}
-          preferredNotifyChannel={client.preferredNotifyChannel}
-          busy={busy}
-          error={invoiceError}
-          onClose={() => {
-            if (!busy) setShowInvoiceSheet(false);
-          }}
-          onSend={sendInvoice}
-        />
-      ) : null}
     </div>
   );
 }

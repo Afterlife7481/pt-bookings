@@ -1,6 +1,6 @@
 import { ensureDb } from "@/lib/db/init";
 import { getClientByToken } from "@/lib/services/clients";
-import { getAvailableSlotsForChange } from "@/lib/services/templates";
+import { getAvailableSlotsForChange } from "@/lib/services/available-slots";
 import { getTrainerSettings } from "@/lib/services/settings";
 import { BookSessionFlow } from "@/components/BookSessionFlow";
 import { ClientPageLayout } from "@/components/client/client-ui";

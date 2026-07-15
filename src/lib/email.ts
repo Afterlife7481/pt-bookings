@@ -29,8 +29,8 @@ type SendEmailParams = {
  * when delivery is attempted but fails, and logs the provider detail server-side.
  */
 export async function sendEmail(params: SendEmailParams): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (!apiKey) return false;
+  if (!isEmailDeliveryConfigured()) return false;
+  const apiKey = process.env.RESEND_API_KEY!.trim();
 
   let res: Response;
   try {

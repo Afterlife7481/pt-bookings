@@ -304,27 +304,6 @@ export async function sendWhatsAppSessionChangedToClient(params: {
   });
 }
 
-export async function sendWhatsAppInterestAck(params: {
-  trainerId: string;
-  clientId: string;
-  phone: string;
-  slotStartAt: string;
-  slotEndAt?: string | null;
-  clientName: string;
-}): Promise<WhatsAppDraft> {
-  const body = `Thanks ${params.clientName}! Your trainer has been notified of your interest in ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}.`;
-
-  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
-
-  return logWhatsAppMessage({
-    trainerId: params.trainerId,
-    clientId: params.clientId,
-    phone: params.phone,
-    messageType: "interest_ack",
-    body,
-  });
-}
-
 export async function sendWhatsAppInvoice(params: {
   trainerId: string;
   clientId: string;

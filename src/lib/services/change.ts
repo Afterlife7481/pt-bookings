@@ -12,7 +12,7 @@ import {
   parseLocalDateTime,
 } from "@/lib/constants";
 import { assertSlotNotHeldByActiveBookingTx, getBookingDetailForTrainer } from "./bookings";
-import { getAvailableSlotsForChange } from "./templates";
+import { getAvailableSlotsForChange } from "./available-slots";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
 import { getTrainerById } from "./trainers";

@@ -25,7 +25,6 @@ export type ScheduleClientOption = {
   enabledLocationIds: string[];
 };
 export type ScheduleLocationOption = { id: string; name: string };
-export type ScheduleTemplateOption = { id: string; name: string };
 
 export function AddSlotModal({
   weekStart,

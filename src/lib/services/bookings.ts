@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, clients, slots, changeRequests, locations } from "@/lib/db/schema";
 import {
@@ -42,19 +42,6 @@ export async function assertSlotNotHeldByActiveBookingTx(
   excludeBookingId?: string,
 ) {
   const existing = await tx.query.bookings.findFirst({
-    where: eq(bookings.slotId, slotId),
-  });
-  if (!existing || existing.id === excludeBookingId) return;
-  if (isInactiveBookingStatus(existing.status)) return;
-  throw new Error("Slot is not available");
-}
-
-export async function assertSlotNotHeldByActiveBooking(
-  db: ReturnType<typeof getDb>,
-  slotId: string,
-  excludeBookingId?: string,
-) {
-  const existing = await db.query.bookings.findFirst({
     where: eq(bookings.slotId, slotId),
   });
   if (!existing || existing.id === excludeBookingId) return;
@@ -777,4 +764,44 @@ export async function sendInvoiceForBooking(
   const detail = await getBookingDetailForTrainer(booking.trainerId, bookingId);
   if (!detail) return null;
   return { ...detail, whatsappUrl, sentVia };
+}
+
+const SESSION_LIST_LIMIT = 100;
+
+/** Upcoming sessions first, then recent past — capped for the sessions list. */
+export async function listBookings(trainerId: string) {
+  const db = getDb();
+  const now = Date.now();
+
+  const rows = await db
+    .select({
+      booking: bookings,
+      slot: slots,
+      client: clients,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .innerJoin(clients, eq(bookings.clientId, clients.id))
+    .where(
+      and(
+        eq(bookings.trainerId, trainerId),
+        ne(bookings.status, "canceled"),
+      ),
+    )
+    .orderBy(asc(slots.startAt));
+
+  const upcoming: typeof rows = [];
+  const past: typeof rows = [];
+
+  for (const row of rows) {
+    if (parseLocalDateTime(row.slot.startAt).getTime() >= now) {
+      upcoming.push(row);
+    } else {
+      past.push(row);
+    }
+  }
+
+  past.reverse();
+
+  return [...upcoming, ...past].slice(0, SESSION_LIST_LIMIT);
 }

@@ -1,7 +1,6 @@
 import { count, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clients, locations, trainers } from "@/lib/db/schema";
-import { nowIso } from "@/lib/constants";
 import { getTrainerTemplate } from "@/lib/services/templates";
 
 export type OnboardingStepId =
@@ -111,18 +110,3 @@ export async function getOnboardingStatus(trainerId: string): Promise<Onboarding
   return { complete, allStepsComplete, steps };
 }
 
-export async function markRegionalSettingsConfigured(trainerId: string) {
-  const db = getDb();
-  await db
-    .update(trainers)
-    .set({ regionalSettingsConfiguredAt: nowIso() })
-    .where(eq(trainers.id, trainerId));
-}
-
-export async function markScheduleHoursConfigured(trainerId: string) {
-  const db = getDb();
-  await db
-    .update(trainers)
-    .set({ scheduleHoursConfiguredAt: nowIso() })
-    .where(eq(trainers.id, trainerId));
-}

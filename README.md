@@ -41,7 +41,7 @@ The trainer dashboard is split into route-based sections:
 | `/dashboard/schedule` | Week calendar, open slots, last-minute holds |
 | `/dashboard/clients` | Client list and detail |
 | `/dashboard/sessions` | All bookings |
-| `/dashboard/whatsapp` | Message log |
+| `/dashboard/feed` | Message log, template clash alerts |
 | `/dashboard/settings` | Trainer settings and locations |
 | `/dashboard/settings/templates` | Weekly templates → apply for upcoming weeks |
 

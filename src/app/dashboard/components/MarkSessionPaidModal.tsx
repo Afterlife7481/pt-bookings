@@ -52,7 +52,14 @@ export function MarkSessionPaidModal({
     >
       {paymentMethods.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">
-          Add payment methods in Settings → Payment details.
+          Add payment methods in{" "}
+          <a
+            href="/dashboard/settings/payment"
+            className="underline hover:text-slate-800"
+          >
+            Settings → Payment details
+          </a>
+          .
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-2">
