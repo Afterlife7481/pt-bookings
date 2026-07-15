@@ -83,11 +83,12 @@ npx playwright install chromium
 
 ## WhatsApp
 
-Outbound client messages are drafted in the app and opened in WhatsApp via
-click-to-chat links (`wa.me`). The trainer sends from **their own number** —
-one tap to open, then Send in WhatsApp. Drafts appear in the Feed with an
-**Open WhatsApp** button. Client phone numbers should include a country code
-(e.g. `+447…`); UK `07…` mobiles are normalised automatically.
+Actions like **Send invoice** / **Send confirmation** open WhatsApp via
+click-to-chat (`wa.me`) with the message pre-filled. The trainer sends from
+**their own number** (tap Send in WhatsApp). Those messages also appear in the
+Feed; use **Resend on WhatsApp** there if needed. Client phone numbers should
+include a country code (e.g. `+447…`); UK `07…` mobiles are normalised
+automatically.
 
 Fully automatic sending (Twilio / Cloud API) is not wired; that would use a
 Business WhatsApp number, not the trainer’s personal chat.

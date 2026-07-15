@@ -396,11 +396,11 @@ export function TrainerSessionDetail({
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-500">
               Opens WhatsApp with the session amount and your bank payment
-              details from Settings — send from your number.
+              details from Settings — tap Send in WhatsApp to deliver it.
             </p>
             {booking.invoiceSentAt && (
               <p className="mt-1 text-sm text-slate-500">
-                Last prepared{" "}
+                Last sent{" "}
                 {new Date(booking.invoiceSentAt).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -419,7 +419,7 @@ export function TrainerSessionDetail({
               className="mt-3 w-full sm:w-auto"
               onClick={() => runAction("send_invoice")}
             >
-              {booking.invoiceSentAt ? "Open WhatsApp invoice again" : "Open WhatsApp invoice"}
+              {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
             </Button>
             {effectiveSessionPrice == null && !isInactive && (
               <p className="mt-2 text-sm text-amber-700">
@@ -493,7 +493,7 @@ export function TrainerSessionDetail({
                   className="w-full sm:w-auto"
                   onClick={() => runAction("send_confirmation")}
                 >
-                  Open WhatsApp confirmation
+                  Send confirmation
                 </Button>
                 <Button
                   variant="danger"
@@ -508,13 +508,12 @@ export function TrainerSessionDetail({
             </div>
             {!isPast && confirmationNotice && (
               <p className="text-sm text-green-700" role="status">
-                WhatsApp opened with the confirmation — tap Send in WhatsApp to
-                deliver it.
+                WhatsApp opened — tap Send to deliver the confirmation.
               </p>
             )}
             {!isPast && booking.confirmationSentAt && (
               <p className="text-sm text-slate-500">
-                Last prepared on{" "}
+                Last sent on{" "}
                 {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",

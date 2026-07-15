@@ -279,9 +279,7 @@ export function BookedSlotModal({
                   className="w-full"
                   onClick={() => void runAction("send_invoice")}
                 >
-                  {booking.invoiceSentAt
-                    ? "Open WhatsApp invoice again"
-                    : "Open WhatsApp invoice"}
+                  {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
                 </Button>
                 {invoiceError && (
                   <p className="text-sm text-red-600">{invoiceError}</p>

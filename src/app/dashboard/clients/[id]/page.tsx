@@ -224,7 +224,7 @@ export default function ClientDetailPage() {
       window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
     } else {
       setBookingActionError(
-        "Message ready in Feed, but this client phone number cannot open WhatsApp. Use a number with country code (e.g. +44…).",
+        "Could not open WhatsApp for this phone number. Use a number with country code (e.g. +44…).",
       );
     }
     await loadClient();
@@ -644,7 +644,7 @@ export default function ClientDetailPage() {
                     disabled={busyBookingId === b.id}
                     onClick={() => sendSessionWhatsApp(b.id)}
                   >
-                    {busyBookingId === b.id ? "Opening…" : "Open WhatsApp"}
+                    {busyBookingId === b.id ? "Sending…" : "Send message"}
                   </Button>
                   <Button
                     variant="danger"

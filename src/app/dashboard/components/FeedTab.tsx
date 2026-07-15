@@ -157,9 +157,10 @@ export function FeedTab({
       <Card className="!border-slate-200 !bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Schedule clashes, session updates, and WhatsApp drafts. Tap{" "}
-          <span className="font-medium text-slate-800">Open WhatsApp</span> to
-          send from your number — the message is pre-filled; you just hit Send.
+          Schedule clashes, session updates, and WhatsApp messages you have
+          sent. Use{" "}
+          <span className="font-medium text-slate-800">Resend on WhatsApp</span>{" "}
+          if you need to send a message again.
         </p>
       </Card>
 
@@ -255,9 +256,9 @@ export function FeedTab({
                   href={sendUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50"
                 >
-                  Open WhatsApp
+                  Resend on WhatsApp
                 </a>
               </div>
             ) : null}
@@ -273,15 +274,13 @@ export function FeedTab({
                   }
                 >
                   {notifyingId === entry.conflictAlert.id
-                    ? "Opening…"
+                    ? "Sending…"
                     : entry.conflictAlert.status === "notified"
-                      ? "Open WhatsApp again"
-                      : "Notify via WhatsApp"}
+                      ? "Resend on WhatsApp"
+                      : "Notify client"}
                 </Button>
                 {entry.conflictAlert.status === "notified" ? (
-                  <span className="text-xs text-amber-800">
-                    Draft ready — send from WhatsApp if you have not already
-                  </span>
+                  <span className="text-xs text-amber-800">Notified</span>
                 ) : null}
               </div>
             ) : null}

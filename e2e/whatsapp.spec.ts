@@ -73,7 +73,7 @@ test.describe("Feed tab", () => {
     await expect(page.getByText(/session is booked for/i).first()).toBeVisible();
     await expect(page.getByText("WhatsApp").first()).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Open WhatsApp" }).first(),
+      page.getByRole("link", { name: "Resend on WhatsApp" }).first(),
     ).toBeVisible();
   });
 });

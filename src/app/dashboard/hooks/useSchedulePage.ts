@@ -154,11 +154,20 @@ export function useSchedulePage() {
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
     await runScheduleAction(async () => {
-      await fetchJson("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "allocate", slotId, clientId }),
-      });
+      const result = await fetchJson<{ whatsappUrl?: string | null }>(
+        "/api/bookings",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "allocate", slotId, clientId }),
+        },
+      );
+      if (
+        typeof result.whatsappUrl === "string" &&
+        result.whatsappUrl.length > 0
+      ) {
+        window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
+      }
     });
   }
 

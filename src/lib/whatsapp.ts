@@ -57,8 +57,8 @@ async function logWhatsAppMessage(params: {
     messageType: params.messageType,
     recipient,
     body: params.body,
-    // Pending until the trainer opens WhatsApp and taps Send.
-    status: "pending",
+    // Logged when the trainer triggers Send (WhatsApp opens with the draft).
+    status: "sent",
     createdAt: nowIso(),
   });
 

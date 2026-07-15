@@ -157,10 +157,12 @@ export async function createBookingForSlot(params: {
     },
   );
 
+  let whatsappUrl: string | null = null;
+
   if (sendConfirmation) {
     const client = bookingClient;
     if (client) {
-      await sendWhatsAppConfirmation({
+      const draft = await sendWhatsAppConfirmation({
         trainerId,
         clientId,
         phone: client.phone,
@@ -169,6 +171,7 @@ export async function createBookingForSlot(params: {
         slotEndAt,
         clientName: client.name,
       });
+      whatsappUrl = draft.sendUrl;
       const ts = nowIso();
       await db
         .update(bookings)
@@ -177,7 +180,7 @@ export async function createBookingForSlot(params: {
     }
   }
 
-  return { bookingId, token };
+  return { bookingId, token, whatsappUrl };
 }
 
 export async function releaseSlot(slotId: string) {
