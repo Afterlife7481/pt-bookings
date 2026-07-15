@@ -159,6 +159,7 @@ export function useSchedulePage() {
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
     const waOpen = prepareWhatsAppOpen();
+    let whatsappOpened = false;
     try {
       await runScheduleAction(async () => {
         const result = await fetchJson<{ whatsappUrl?: string | null }>(
@@ -170,10 +171,11 @@ export function useSchedulePage() {
           },
         );
         waOpen.finish(result.whatsappUrl);
+        whatsappOpened = true;
       });
-    } catch {
-      waOpen.finish(null);
-      throw;
+    } catch (e) {
+      if (!whatsappOpened) waOpen.finish(null);
+      throw e;
     }
   }
 
