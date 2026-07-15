@@ -12,6 +12,7 @@ import {
   type SessionPaymentType,
 } from "@/lib/constants";
 import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
+import { assertWhatsAppPhone, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 import { getTrainerSettings } from "./settings";
 import { getTrainerById } from "./trainers";
 import {
@@ -158,29 +159,35 @@ export async function createBookingForSlot(params: {
   );
 
   let whatsappUrl: string | null = null;
+  let whatsappError: string | null = null;
 
   if (sendConfirmation) {
     const client = bookingClient;
     if (client) {
-      const draft = await sendWhatsAppConfirmation({
-        trainerId,
-        clientId,
-        phone: client.phone,
-        bookingToken: token,
-        slotStartAt,
-        slotEndAt,
-        clientName: client.name,
-      });
-      whatsappUrl = draft.sendUrl;
-      const ts = nowIso();
-      await db
-        .update(bookings)
-        .set({ confirmationSentAt: ts, updatedAt: ts })
-        .where(eq(bookings.id, bookingId));
+      const phoneCheck = validateWhatsAppPhone(client.phone);
+      if (!phoneCheck.ok) {
+        whatsappError = phoneCheck.error;
+      } else {
+        const draft = await sendWhatsAppConfirmation({
+          trainerId,
+          clientId,
+          phone: client.phone,
+          bookingToken: token,
+          slotStartAt,
+          slotEndAt,
+          clientName: client.name,
+        });
+        whatsappUrl = draft.sendUrl;
+        const ts = nowIso();
+        await db
+          .update(bookings)
+          .set({ confirmationSentAt: ts, updatedAt: ts })
+          .where(eq(bookings.id, bookingId));
+      }
     }
   }
 
-  return { bookingId, token, whatsappUrl };
+  return { bookingId, token, whatsappUrl, whatsappError };
 }
 
 export async function releaseSlot(slotId: string) {
@@ -415,6 +422,7 @@ export async function sendConfirmationForBooking(bookingId: string) {
   let whatsappUrl: string | null = null;
 
   if (slot && client) {
+    assertWhatsAppPhone(client.phone);
     const draft = await sendWhatsAppConfirmation({
       trainerId: booking.trainerId,
       clientId: client.id,
@@ -702,6 +710,8 @@ export async function sendInvoiceForBooking(bookingId: string) {
 
   const slotStartAt = slot?.startAt ?? booking.sessionStartAt;
   const slotEndAt = slot?.endAt ?? null;
+
+  assertWhatsAppPhone(client.phone);
 
   const draft = await sendWhatsAppInvoice({
     trainerId: booking.trainerId,

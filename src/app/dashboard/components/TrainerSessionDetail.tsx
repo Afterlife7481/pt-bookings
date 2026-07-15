@@ -20,7 +20,7 @@ import {
   formatDurationMinutes,
   resolveBookingSessionPrice,
 } from "@/lib/utils";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpen, prepareWhatsAppOpenForPhone } from "@/lib/whatsapp-link";
 
 export function TrainerSessionDetail({
   bookingId,
@@ -111,10 +111,16 @@ export function TrainerSessionDetail({
   async function runAction(
     action: "cancel" | "send_confirmation" | "send_invoice" | "void",
   ) {
-    const waOpen =
-      action === "send_confirmation" || action === "send_invoice"
-        ? prepareWhatsAppOpen()
-        : null;
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (action === "send_confirmation" || action === "send_invoice") {
+      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
+      if (!prepared.ok) {
+        if (action === "send_invoice") setInvoiceError(prepared.error);
+        else setError(prepared.error);
+        return;
+      }
+      waOpen = prepared.opener;
+    }
 
     setBusy(true);
     setError(null);
@@ -162,7 +168,8 @@ export function TrainerSessionDetail({
           } else {
             waOpen?.finish(null);
             setInvoiceError(
-              "Invoice saved, but WhatsApp could not open. Check the client phone has a country code (e.g. +44…).",
+              data.error ??
+                "Add or check this client's phone number before sending on WhatsApp.",
             );
           }
         }

@@ -22,6 +22,7 @@ import {
   sendWhatsAppTemplateConflictAckToTrainer,
   sendWhatsAppTemplateConflictToClient,
 } from "@/lib/whatsapp";
+import { assertWhatsAppPhone } from "@/lib/whatsapp-link";
 
 export type TemplateConflictInput = {
   trainerId: string;
@@ -165,6 +166,8 @@ export async function notifyClientOfScheduleConflict(
 
   const link = conflictUrl(row.alert.acknowledgmentToken);
   const body = `Hi ${row.clientName}, your regular PT session on ${row.alert.slotLabel} cannot be booked${row.alert.holidayLabel ? ` (${row.alert.holidayLabel})` : " (trainer time off)"}. Please confirm you have received this: ${link}`;
+
+  assertWhatsAppPhone(row.clientPhone);
 
   const draft = await sendWhatsAppTemplateConflictToClient({
     trainerId,

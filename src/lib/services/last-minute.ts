@@ -24,6 +24,7 @@ import {
   sendWhatsAppLastMinuteAcceptedToTrainer,
   sendWhatsAppLastMinuteDeclinedToTrainer,
 } from "@/lib/whatsapp";
+import { assertWhatsAppPhone } from "@/lib/whatsapp-link";
 import { createBookingForSlot } from "./bookings";
 import { getTrainerSettings } from "./settings";
 import { getTrainerTemplateOverlay } from "./templates";
@@ -551,6 +552,7 @@ export async function sendLastMinuteOffer(
   if (!client.lastMinuteOptIn) {
     throw new Error("Client is not opted in to last-minute alerts");
   }
+  assertWhatsAppPhone(client.phone);
 
   const prefs = await getClientLastMinutePreferences(clientId);
   if (!prefs.some((pref) => slotMatchesPreference(slot.startAt, pref))) {

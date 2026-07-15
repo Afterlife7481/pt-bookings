@@ -5,7 +5,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { cn, formatDateTimeInTimezone } from "@/lib/utils";
 import type { FeedEntry } from "@/lib/services/feed";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -128,9 +128,12 @@ export function FeedTab({
   }
 
   async function notifyClient(alertId: string) {
-    const waOpen = prepareWhatsAppOpen();
     setNotifyingId(alertId);
     setNotifyError(null);
+    // Phone is validated on the server; open the placeholder tab only after
+    // we know notify succeeded would lose the user gesture, so open first and
+    // close it if the number is bad.
+    const waOpen = prepareWhatsAppOpen();
     try {
       const res = await fetch(`/api/feed/conflicts/${alertId}/notify`, {
         method: "POST",
@@ -141,7 +144,14 @@ export function FeedTab({
         setNotifyError(data.error ?? "Failed to prepare message");
         return;
       }
-      waOpen.finish(data.whatsappUrl);
+      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
+        waOpen.finish(data.whatsappUrl);
+      } else {
+        waOpen.finish(null);
+        setNotifyError(
+          "Add or check this client's phone number before sending on WhatsApp.",
+        );
+      }
       await onRefresh();
     } catch {
       waOpen.finish(null);
@@ -260,6 +270,13 @@ export function FeedTab({
                   Resend on WhatsApp
                 </a>
               </div>
+            ) : entry.isWhatsApp &&
+              entry.whatsapp?.recipient === "client" &&
+              !validateWhatsAppPhone(entry.whatsapp.phone).ok ? (
+              <p className="mt-3 text-sm text-amber-800" role="status">
+                Cannot open WhatsApp — add or check this client&apos;s phone
+                number (e.g. +447…).
+              </p>
             ) : null}
 
             {entry.conflictAlert?.canNotify &&

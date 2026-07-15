@@ -3,6 +3,16 @@
  * https://wa.me/<digits>?text=...
  */
 
+export const WHATSAPP_PHONE_HINT =
+  "Mobile number with country code, e.g. +447700900000 (UK mobiles can also use 07…).";
+
+export const WHATSAPP_PHONE_ERROR =
+  "Add or check this client's phone number before sending on WhatsApp. Use a mobile with country code (e.g. +447…).";
+
+export type WhatsAppPhoneResult =
+  | { ok: true; digits: string; e164: string }
+  | { ok: false; error: string };
+
 /** Digits only, suitable for wa.me (no +). Returns null if unusable. */
 export function digitsForWhatsApp(phone: string): string | null {
   const trimmed = phone.trim();
@@ -20,6 +30,42 @@ export function digitsForWhatsApp(phone: string): string | null {
 
   if (digits.length < 10 || digits.length > 15) return null;
   return digits;
+}
+
+/** Validate a client phone for WhatsApp click-to-chat. */
+export function validateWhatsAppPhone(
+  phone: string | null | undefined,
+): WhatsAppPhoneResult {
+  const trimmed = (phone ?? "").trim();
+  if (!trimmed) {
+    return {
+      ok: false,
+      error:
+        "This client has no phone number. Add one on their profile, then try again.",
+    };
+  }
+
+  const digits = digitsForWhatsApp(trimmed);
+  if (!digits) {
+    return { ok: false, error: WHATSAPP_PHONE_ERROR };
+  }
+
+  return { ok: true, digits, e164: `+${digits}` };
+}
+
+/** Throws with a trainer-facing message when the phone cannot be used with WhatsApp. */
+export function assertWhatsAppPhone(phone: string | null | undefined): {
+  digits: string;
+  e164: string;
+} {
+  const result = validateWhatsAppPhone(phone);
+  if (!result.ok) throw new Error(result.error);
+  return { digits: result.digits, e164: result.e164 };
+}
+
+/** Normalise a client phone to E.164 (+digits) or throw. */
+export function normalizeClientPhone(phone: string): string {
+  return assertWhatsAppPhone(phone).e164;
 }
 
 /** Click-to-chat URL, or null when the phone cannot be used with WhatsApp. */
@@ -67,6 +113,18 @@ export function prepareWhatsAppOpen(): WhatsAppOpenHandle {
       window.location.assign(url);
     },
   };
+}
+
+/**
+ * Validate phone then open a placeholder tab. Returns null when the phone is
+ * invalid (no tab opened) so the caller can show `error` instead.
+ */
+export function prepareWhatsAppOpenForPhone(
+  phone: string | null | undefined,
+): { ok: true; opener: WhatsAppOpenHandle } | { ok: false; error: string } {
+  const check = validateWhatsAppPhone(phone);
+  if (!check.ok) return check;
+  return { ok: true, opener: prepareWhatsAppOpen() };
 }
 
 /** Open WhatsApp with a pre-filled message (trainer taps Send). */

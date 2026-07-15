@@ -16,7 +16,7 @@ import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import type { ScheduleEntry } from "@/lib/services/schedule-types";
 import { SessionPriceEditor } from "@/app/dashboard/components/SessionPriceEditor";
 import { cn, resolveBookingSessionPrice } from "@/lib/utils";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpen, prepareWhatsAppOpenForPhone } from "@/lib/whatsapp-link";
 
 export function BookedSlotModal({
   entry,
@@ -97,7 +97,15 @@ export function BookedSlotModal({
 
   async function runAction(action: "cancel" | "send_invoice" | "void") {
     if (!bookingId) return;
-    const waOpen = action === "send_invoice" ? prepareWhatsAppOpen() : null;
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (action === "send_invoice") {
+      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
+      if (!prepared.ok) {
+        setInvoiceError(prepared.error);
+        return;
+      }
+      waOpen = prepared.opener;
+    }
     setBusy(true);
     setError(null);
     if (action === "send_invoice") setInvoiceError(null);
@@ -134,7 +142,8 @@ export function BookedSlotModal({
         } else {
           waOpen?.finish(null);
           setInvoiceError(
-            "Invoice saved, but WhatsApp could not open. Check the client phone has a country code (e.g. +44…).",
+            data.error ??
+              "Add or check this client's phone number before sending on WhatsApp.",
           );
         }
       }

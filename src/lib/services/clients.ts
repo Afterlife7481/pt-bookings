@@ -13,6 +13,7 @@ import { clientHomeUrl, nowIso } from "@/lib/constants";
 import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
+import { normalizeClientPhone } from "@/lib/whatsapp-link";
 
 export type RecurringSlotRef = {
   dayOfWeek: number;
@@ -179,7 +180,7 @@ export async function createClient(params: {
     trainerId: params.trainerId,
     name: params.name,
     email: (params.email ?? "").trim(),
-    phone: params.phone,
+    phone: normalizeClientPhone(params.phone),
     lastMinuteOptIn: params.lastMinuteOptIn ?? false,
     sessionPrice: params.sessionPrice ?? null,
     createdAt,
@@ -266,9 +267,7 @@ export async function updateClient(
     patch.name = name;
   }
   if (updates.phone !== undefined) {
-    const phone = updates.phone.trim();
-    if (!phone) throw new Error("Phone is required");
-    patch.phone = phone;
+    patch.phone = normalizeClientPhone(updates.phone);
   }
   if (updates.email !== undefined) {
     patch.email = updates.email.trim();

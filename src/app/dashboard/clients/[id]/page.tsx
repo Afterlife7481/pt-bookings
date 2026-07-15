@@ -16,7 +16,7 @@ import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { parseLocalDateTime } from "@/lib/constants";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpenForPhone, WHATSAPP_PHONE_HINT } from "@/lib/whatsapp-link";
 
 type ClientBooking = {
   id: string;
@@ -208,7 +208,12 @@ export default function ClientDetailPage() {
   }
 
   async function sendSessionWhatsApp(bookingId: string) {
-    const waOpen = prepareWhatsAppOpen();
+    const prepared = prepareWhatsAppOpenForPhone(phone);
+    if (!prepared.ok) {
+      setBookingActionError(prepared.error);
+      return;
+    }
+    const waOpen = prepared.opener;
     setBusyBookingId(bookingId);
     setBookingActionError(null);
     try {
@@ -229,7 +234,8 @@ export default function ClientDetailPage() {
       } else {
         waOpen.finish(null);
         setBookingActionError(
-          "Could not open WhatsApp for this phone number. Use a number with country code (e.g. +44…).",
+          data.error ??
+            "Add or check this client's phone number before sending on WhatsApp.",
         );
       }
       await loadClient();
@@ -447,8 +453,10 @@ export default function ClientDetailPage() {
                 className="rounded-lg border border-slate-300 px-3 py-2"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                placeholder="+447700900000"
                 required
               />
+              <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-slate-600">Session price (£)</span>

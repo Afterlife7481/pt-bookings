@@ -7,7 +7,7 @@ import type {
   TrainerLocation,
   TrainerSettings,
 } from "../types";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 
 export type ApplyTemplateOutcome = {
   ok: boolean;
@@ -158,23 +158,32 @@ export function useSchedulePage() {
   }
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
-    const waOpen = prepareWhatsAppOpen();
+    const client = clients.find((c) => c.id === clientId);
+    const phoneCheck = validateWhatsAppPhone(client?.phone);
+    const waOpen = phoneCheck.ok ? prepareWhatsAppOpen() : null;
     let whatsappOpened = false;
+
     try {
       await runScheduleAction(async () => {
-        const result = await fetchJson<{ whatsappUrl?: string | null }>(
-          "/api/bookings",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "allocate", slotId, clientId }),
-          },
-        );
-        waOpen.finish(result.whatsappUrl);
-        whatsappOpened = true;
+        const result = await fetchJson<{
+          whatsappUrl?: string | null;
+          whatsappError?: string | null;
+        }>("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "allocate", slotId, clientId }),
+        });
+        if (waOpen) {
+          waOpen.finish(result.whatsappUrl);
+          whatsappOpened = true;
+        }
+        const warning = result.whatsappError ?? (!phoneCheck.ok ? phoneCheck.error : null);
+        if (warning) {
+          setScheduleError(warning);
+        }
       });
     } catch (e) {
-      if (!whatsappOpened) waOpen.finish(null);
+      if (!whatsappOpened) waOpen?.finish(null);
       throw e;
     }
   }

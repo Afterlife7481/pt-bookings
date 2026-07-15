@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
+import {
+  normalizeClientPhone,
+  WHATSAPP_PHONE_HINT,
+} from "@/lib/whatsapp-link";
 
 export default function AddClientPage() {
   const router = useRouter();
@@ -24,10 +28,24 @@ export default function AddClientPage() {
     setLoading(true);
     setError(null);
 
+    let normalisedPhone: string;
+    try {
+      normalisedPhone = normalizeClientPhone(phone);
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : "Invalid phone number");
+      return;
+    }
+
     const res = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, sessionPrice }),
+      body: JSON.stringify({
+        name,
+        email,
+        phone: normalisedPhone,
+        sessionPrice,
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -81,6 +99,7 @@ export default function AddClientPage() {
               placeholder="+447700900000"
               required
             />
+            <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Session price (£)</span>
