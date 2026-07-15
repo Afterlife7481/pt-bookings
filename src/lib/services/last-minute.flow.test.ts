@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   bookings,
+  clientLastMinutePreferences,
   lastMinuteInterests,
   slots,
   whatsappMessages,
@@ -318,5 +319,75 @@ describe("last-minute offer flow", () => {
 
     const sessionView = await getBookingByToken(result.booking.token);
     expect(sessionView?.booking.status).toBe("booked");
+  });
+});
+
+describe("prune last-minute prefs on template save", () => {
+  it("removes prefs that no longer match template slot starts and opts the client out when none remain", async () => {
+    const fixtures = await seedTestFixtures();
+    const day = fixtures.slotDayOfWeek;
+
+    await saveTrainerTemplate(DEFAULT_TRAINER_ID, [
+      {
+        dayOfWeek: day,
+        startTime: "09:00",
+        endTime: "10:00",
+        locationId: fixtures.locationId,
+      },
+      {
+        dayOfWeek: day,
+        startTime: "10:00",
+        endTime: "11:00",
+        locationId: fixtures.locationId,
+      },
+    ]);
+
+    await setClientLastMinutePreferences(fixtures.clientId, DEFAULT_TRAINER_ID, [
+      { dayOfWeek: day, startTime: "09:00" },
+      { dayOfWeek: day, startTime: "10:00" },
+    ]);
+
+    await saveTrainerTemplate(DEFAULT_TRAINER_ID, [
+      {
+        dayOfWeek: day,
+        startTime: "10:00",
+        endTime: "11:00",
+        locationId: fixtures.locationId,
+      },
+    ]);
+
+    const db = getDb();
+    const remaining = await db
+      .select()
+      .from(clientLastMinutePreferences)
+      .where(eq(clientLastMinutePreferences.clientId, fixtures.clientId));
+
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.startTime).toBe("10:00");
+
+    const client = await db.query.clients.findFirst({
+      where: eq(clients.id, fixtures.clientId),
+    });
+    expect(client?.lastMinuteOptIn).toBe(true);
+
+    await saveTrainerTemplate(DEFAULT_TRAINER_ID, [
+      {
+        dayOfWeek: day,
+        startTime: "14:00",
+        endTime: "15:00",
+        locationId: fixtures.locationId,
+      },
+    ]);
+
+    const afterRemove = await db
+      .select()
+      .from(clientLastMinutePreferences)
+      .where(eq(clientLastMinutePreferences.clientId, fixtures.clientId));
+    expect(afterRemove).toHaveLength(0);
+
+    const clientAfter = await db.query.clients.findFirst({
+      where: eq(clients.id, fixtures.clientId),
+    });
+    expect(clientAfter?.lastMinuteOptIn).toBe(false);
   });
 });

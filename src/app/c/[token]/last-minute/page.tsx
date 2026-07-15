@@ -20,7 +20,7 @@ export default async function ClientLastMinutePage({
     <main className="p-4 sm:p-6">
       <ClientPageLayout
         title="Last-minute openings"
-        description="Tap open slots to opt in for last-minute offers. Only session times from your trainer's template at your available locations are shown."
+        description="Tap open slots to opt in for last-minute offers. Only session times from your trainer's template at your available locations are shown. If your trainer updates their template, some selections may be removed."
         backHref={`/c/${token}`}
       >
         <LastMinutePreferencesForm clientToken={token} showHeader={false} />

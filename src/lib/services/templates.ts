@@ -243,6 +243,15 @@ export async function saveTrainerTemplate(
         .where(eq(templateSlots.templateId, existing.id));
       await insertTemplateSlotsTx(tx, existing.id, normalized);
     });
+    const {
+      pruneLastMinutePreferencesToTemplateSlots,
+      notifyClientsOfLastMinutePrune,
+    } = await import("./last-minute");
+    const pruneResult = await pruneLastMinutePreferencesToTemplateSlots(
+      trainerId,
+      normalized,
+    );
+    await notifyClientsOfLastMinutePrune(pruneResult.prunedClients);
     return existing.id;
   }
 
@@ -256,6 +265,15 @@ export async function saveTrainerTemplate(
     });
     await insertTemplateSlotsTx(tx, id, normalized);
   });
+  const {
+    pruneLastMinutePreferencesToTemplateSlots,
+    notifyClientsOfLastMinutePrune,
+  } = await import("./last-minute");
+  const pruneResult = await pruneLastMinutePreferencesToTemplateSlots(
+    trainerId,
+    normalized,
+  );
+  await notifyClientsOfLastMinutePrune(pruneResult.prunedClients);
   return id;
 }
 

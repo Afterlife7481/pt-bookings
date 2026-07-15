@@ -172,3 +172,67 @@ export async function sendTrainerContactEmail(params: {
 
   return delivered;
 }
+
+export async function sendLastMinutePruneEmail(params: {
+  to: string;
+  clientName: string;
+  clientToken: string;
+  removed: Array<{ dayOfWeek: number; startTime: string }>;
+  optedOut: boolean;
+}): Promise<boolean> {
+  const { dayOfWeekLabel } = await import("@/lib/schedule-grid");
+  const { appBaseUrl } = await import("@/lib/constants");
+  const prefsUrl = `${appBaseUrl()}/c/${params.clientToken}/last-minute`;
+  const removedLines = params.removed.map(
+    (slot) => `• ${dayOfWeekLabel(slot.dayOfWeek)} ${slot.startTime}`,
+  );
+  const subject = "Your last-minute openings were updated";
+  const text = [
+    `Hi ${params.clientName},`,
+    "",
+    "Your trainer updated their weekly template, so some of your last-minute opening selections were removed:",
+    "",
+    ...removedLines,
+    "",
+    params.optedOut
+      ? "You no longer have any last-minute selections, so you have been opted out."
+      : "Your remaining selections are unchanged.",
+    "",
+    `Review or update your preferences: ${prefsUrl}`,
+  ].join("\n");
+
+  const safeName = escapeHtml(params.clientName);
+  const safeRemoved = removedLines
+    .map((line) => `<li>${escapeHtml(line.replace(/^•\s*/, ""))}</li>`)
+    .join("");
+  const safeUrl = escapeHtml(prefsUrl);
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 12px;">Last-minute openings updated</h1>
+        <p style="font-size:14px;line-height:20px;margin:0 0 16px;">Hi ${safeName}, your trainer updated their weekly template, so some of your last-minute opening selections were removed:</p>
+        <ul style="font-size:14px;line-height:22px;margin:0 0 16px;padding-left:20px;">${safeRemoved}</ul>
+        <p style="font-size:14px;line-height:20px;margin:0 0 16px;">${
+          params.optedOut
+            ? "You no longer have any last-minute selections, so you have been opted out."
+            : "Your remaining selections are unchanged."
+        }</p>
+        <p style="margin:0 0 8px;"><a href="${safeUrl}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">Review preferences</a></p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+  });
+  if (!delivered) {
+    console.log(`[prune-notify → ${params.to}]\n${text}`);
+  }
+  return delivered;
+}

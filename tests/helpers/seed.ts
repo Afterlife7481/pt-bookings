@@ -27,6 +27,7 @@ export async function wipeTestDatabase() {
       whatsapp_messages,
       last_minute_interests,
       client_last_minute_preferences,
+      client_email_verifications,
       change_requests,
       bookings,
       slots,

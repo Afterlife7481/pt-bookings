@@ -71,7 +71,22 @@ export const clients = pgTable("clients", {
     .notNull()
     .default("whatsapp"),
   lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
+  lastMinutePruneNotify: boolean("last_minute_prune_notify")
+    .notNull()
+    .default(false),
   sessionPrice: integer("session_price"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const clientEmailVerifications = pgTable("client_email_verifications", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => clients.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -452,6 +467,8 @@ export type Trainer = typeof trainers.$inferSelect;
 export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
+export type ClientEmailVerification =
+  typeof clientEmailVerifications.$inferSelect;
 export type Location = typeof locations.$inferSelect;
 export type TrainerHoliday = typeof trainerHolidays.$inferSelect;
 export type ScheduleConflictAlert = typeof scheduleConflictAlerts.$inferSelect;

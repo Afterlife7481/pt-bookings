@@ -95,6 +95,15 @@ export default async function ClientHomePage({
 
       <ClientGroup>
         <ClientRowLink
+          href={`/c/${token}/email`}
+          title="Your email"
+          subtitle={
+            client.email?.trim()
+              ? client.email
+              : "Add an email for notifications"
+          }
+        />
+        <ClientRowLink
           href={`/c/${token}/install`}
           title="Install on your phone"
           subtitle="Add the app to your home screen"
