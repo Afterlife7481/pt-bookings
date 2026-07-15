@@ -14,6 +14,10 @@ import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/ser
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { normalizeClientPhone } from "@/lib/whatsapp-link";
+import {
+  parsePreferredNotifyChannel,
+  type PreferredNotifyChannel,
+} from "@/lib/notify-channels";
 
 export type RecurringSlotRef = {
   dayOfWeek: number;
@@ -159,6 +163,7 @@ export async function createClient(params: {
   name: string;
   phone: string;
   email?: string;
+  preferredNotifyChannel?: PreferredNotifyChannel;
   lastMinuteOptIn?: boolean;
   sessionPrice?: number | null;
 }) {
@@ -174,6 +179,10 @@ export async function createClient(params: {
     throw new Error("Session price must be zero or greater");
   }
 
+  const preferredNotifyChannel = params.preferredNotifyChannel
+    ? parsePreferredNotifyChannel(params.preferredNotifyChannel)
+    : "whatsapp";
+
   await db.insert(clients).values({
     id,
     token,
@@ -181,6 +190,7 @@ export async function createClient(params: {
     name: params.name,
     email: (params.email ?? "").trim(),
     phone: normalizeClientPhone(params.phone),
+    preferredNotifyChannel,
     lastMinuteOptIn: params.lastMinuteOptIn ?? false,
     sessionPrice: params.sessionPrice ?? null,
     createdAt,
@@ -246,6 +256,7 @@ export async function updateClient(
     name?: string;
     phone?: string;
     email?: string;
+    preferredNotifyChannel?: PreferredNotifyChannel;
     lastMinuteOptIn?: boolean;
     sessionPrice?: number | null;
   },
@@ -257,6 +268,7 @@ export async function updateClient(
     name?: string;
     phone?: string;
     email?: string;
+    preferredNotifyChannel?: PreferredNotifyChannel;
     lastMinuteOptIn?: boolean;
     sessionPrice?: number | null;
   } = {};
@@ -271,6 +283,11 @@ export async function updateClient(
   }
   if (updates.email !== undefined) {
     patch.email = updates.email.trim();
+  }
+  if (updates.preferredNotifyChannel !== undefined) {
+    patch.preferredNotifyChannel = parsePreferredNotifyChannel(
+      updates.preferredNotifyChannel,
+    );
   }
   if (updates.lastMinuteOptIn !== undefined) {
     patch.lastMinuteOptIn = updates.lastMinuteOptIn;

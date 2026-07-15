@@ -330,6 +330,64 @@ describe("sendInvoiceForBooking", () => {
     const invoice = messages.find((message) => message.messageType === "invoice");
     expect(invoice?.body).toContain("£35");
     expect(invoice?.body).not.toContain("£50");
+    expect(invoice?.channel).toBe("whatsapp");
+  });
+
+  it("sends by email when requested and logs an email feed entry", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+      bankAccountNumber: "12345678",
+      bankSortCode: "12-34-56",
+    });
+    await db
+      .update(clients)
+      .set({ sessionPrice: 5000, email: "casey@example.com" })
+      .where(eq(clients.id, fixtures.clientId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const detail = await sendInvoiceForBooking(bookingId, ["email"]);
+    expect(detail?.sentVia).toEqual(["email"]);
+    expect(detail?.whatsappUrl).toBeNull();
+
+    const messages = await db.query.whatsappMessages.findMany({
+      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+    });
+    const invoice = messages.find((message) => message.messageType === "invoice");
+    expect(invoice?.channel).toBe("email");
+    expect(invoice?.phone).toBe("casey@example.com");
+  });
+
+  it("rejects email channel when the client has no email", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
+      bankAccountNumber: "12345678",
+      bankSortCode: "12-34-56",
+    });
+    await db
+      .update(clients)
+      .set({ sessionPrice: 5000, email: "" })
+      .where(eq(clients.id, fixtures.clientId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    await expect(sendInvoiceForBooking(bookingId, ["email"])).rejects.toThrow(
+      /no email/i,
+    );
   });
 
   it("rejects invoices for voided sessions", async () => {

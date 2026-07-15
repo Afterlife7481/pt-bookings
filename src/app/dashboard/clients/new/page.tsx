@@ -9,6 +9,7 @@ import {
   normalizeClientPhone,
   WHATSAPP_PHONE_HINT,
 } from "@/lib/whatsapp-link";
+import type { PreferredNotifyChannel } from "@/lib/notify-channels";
 
 export default function AddClientPage() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function AddClientPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredNotifyChannel, setPreferredNotifyChannel] =
+    useState<PreferredNotifyChannel>("whatsapp");
   const [sessionPrice, setSessionPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,7 @@ export default function AddClientPage() {
         name,
         email,
         phone: normalisedPhone,
+        preferredNotifyChannel,
         sessionPrice,
       }),
     });
@@ -101,6 +105,33 @@ export default function AddClientPage() {
             />
             <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
           </label>
+          <fieldset className="space-y-2 text-sm">
+            <legend className="text-slate-600">Communication preference</legend>
+            <p className="text-xs text-slate-500">
+              Default for invoices. You can still choose the other option when
+              sending.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "whatsapp"}
+                  onChange={() => setPreferredNotifyChannel("whatsapp")}
+                />
+                <span>WhatsApp</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "email"}
+                  onChange={() => setPreferredNotifyChannel("email")}
+                />
+                <span>Email</span>
+              </label>
+            </div>
+          </fieldset>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Session price (£)</span>
             <input

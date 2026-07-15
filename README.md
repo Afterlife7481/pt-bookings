@@ -81,17 +81,21 @@ First-time e2e setup:
 npx playwright install chromium
 ```
 
-## WhatsApp
+## Invoices (email & WhatsApp)
 
-Actions like **Send invoice** / **Send confirmation** open WhatsApp via
-click-to-chat (`wa.me`) with the message pre-filled. The trainer sends from
-**their own number** (tap Send in WhatsApp). Those messages also appear in the
-Feed; use **Resend on WhatsApp** there if needed. Client phone numbers should
-include a country code (e.g. `+447…`); UK `07…` mobiles are normalised
+**Send invoice** opens a channel picker:
+
+- **Email** — if the client has an email (sent via Resend; needs `RESEND_API_KEY`)
+- **WhatsApp** — if the client has a valid mobile; opens `wa.me` so the trainer
+  sends from their own number
+- **Both** — email now, then open WhatsApp
+
+Each send is logged to the Feed (Email and/or WhatsApp badges). Client phones
+should include a country code (e.g. `+447…`); UK `07…` mobiles are normalised
 automatically.
 
-Fully automatic sending (Twilio / Cloud API) is not wired; that would use a
-Business WhatsApp number, not the trainer’s personal chat.
+Other WhatsApp drafts (confirmations, last-minute offers) still use click-to-chat
+the same way. Fully automatic WhatsApp (Twilio / Cloud API) is not wired.
 
 ## Security model
 

@@ -101,6 +101,9 @@ function entryBadge(entry: FeedEntry) {
   if (entry.kind === "conflict_acknowledged") {
     return <Badge tone="success">Acknowledged</Badge>;
   }
+  if (entry.isEmail) {
+    return <Badge tone="default">Email</Badge>;
+  }
   if (entry.isWhatsApp) {
     return <Badge tone="default">WhatsApp</Badge>;
   }
@@ -166,10 +169,10 @@ export function FeedTab({
       <Card className="!border-slate-200 !bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Schedule clashes, session updates, and WhatsApp messages you have
-          sent. Use{" "}
+          Schedule clashes, session updates, and messages you have sent by
+          WhatsApp or email. Use{" "}
           <span className="font-medium text-slate-800">Resend on WhatsApp</span>{" "}
-          if you need to send a message again.
+          if you need to send a WhatsApp message again.
         </p>
       </Card>
 
@@ -193,10 +196,11 @@ export function FeedTab({
         const copyId = entry.whatsapp?.id ?? entry.id;
         const toTrainer = entry.whatsapp?.recipient === "trainer";
         const sendUrl = entry.whatsapp?.sendUrl ?? null;
+        const isOutbound = entry.isWhatsApp || entry.isEmail;
 
         return (
           <Card key={entry.id} className={cn("relative", entryTone(entry))}>
-            {entry.isWhatsApp ? (
+            {isOutbound ? (
               <div className="absolute right-3 top-3">
                 <CopyMessageButton
                   messageId={copyId}
@@ -210,7 +214,7 @@ export function FeedTab({
             <div
               className={cn(
                 "flex flex-wrap items-center justify-between gap-2",
-                entry.isWhatsApp && "pr-10",
+                isOutbound && "pr-10",
               )}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -220,7 +224,7 @@ export function FeedTab({
                     {entry.clientName}
                   </span>
                 ) : null}
-                {entry.isWhatsApp && entry.whatsapp ? (
+                {isOutbound && entry.whatsapp ? (
                   <span
                     className={cn(
                       "text-sm",

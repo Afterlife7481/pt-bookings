@@ -111,7 +111,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (body.action === "send_invoice") {
-      const detail = await sendInvoiceForBooking(id);
+      const detail = await sendInvoiceForBooking(id, body.channels);
       if (!detail) {
         return Response.json({ error: "Session not found" }, { status: 404 });
       }

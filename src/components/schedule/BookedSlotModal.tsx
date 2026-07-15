@@ -17,6 +17,8 @@ import type { ScheduleEntry } from "@/lib/services/schedule-types";
 import { SessionPriceEditor } from "@/app/dashboard/components/SessionPriceEditor";
 import { cn, resolveBookingSessionPrice } from "@/lib/utils";
 import { prepareWhatsAppOpen, prepareWhatsAppOpenForPhone } from "@/lib/whatsapp-link";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
+import type { NotifyChannel } from "@/lib/notify-channels";
 
 export function BookedSlotModal({
   entry,
@@ -36,6 +38,8 @@ export function BookedSlotModal({
   const [showChangeSlots, setShowChangeSlots] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
   const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
+  const [showInvoiceSheet, setShowInvoiceSheet] = useState(false);
+  const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!bookingId) return;
@@ -95,20 +99,10 @@ export function BookedSlotModal({
     setShowPaidModal(true);
   }
 
-  async function runAction(action: "cancel" | "send_invoice" | "void") {
+  async function runAction(action: "cancel" | "void") {
     if (!bookingId) return;
-    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
-    if (action === "send_invoice") {
-      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
-      if (!prepared.ok) {
-        setInvoiceError(prepared.error);
-        return;
-      }
-      waOpen = prepared.opener;
-    }
     setBusy(true);
     setError(null);
-    if (action === "send_invoice") setInvoiceError(null);
 
     try {
       const res = await fetch(`/api/bookings/${bookingId}`, {
@@ -119,10 +113,7 @@ export function BookedSlotModal({
       const data = await res.json();
       setBusy(false);
       if (!res.ok) {
-        waOpen?.finish(null);
-        const message = data.error ?? "Action failed";
-        if (action === "send_invoice") setInvoiceError(message);
-        else setError(message);
+        setError(data.error ?? "Action failed");
         return;
       }
 
@@ -133,7 +124,46 @@ export function BookedSlotModal({
       }
 
       setDetail(data);
-      if (action === "send_invoice") {
+      await onChanged();
+    } catch {
+      setBusy(false);
+      setError("Action failed");
+    }
+  }
+
+  async function sendInvoice(channels: NotifyChannel[]) {
+    if (!bookingId) return;
+    const wantWhatsApp = channels.includes("whatsapp");
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (wantWhatsApp) {
+      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
+      if (!prepared.ok) {
+        setInvoiceError(prepared.error);
+        return;
+      }
+      waOpen = prepared.opener;
+    }
+
+    setBusy(true);
+    setInvoiceError(null);
+    setInvoiceNotice(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_invoice", channels }),
+      });
+      const data = await res.json();
+      setBusy(false);
+      if (!res.ok) {
+        waOpen?.finish(null);
+        setInvoiceError(data.error ?? "Failed to send invoice");
+        return;
+      }
+
+      setDetail(data);
+      setShowInvoiceSheet(false);
+      if (wantWhatsApp) {
         if (
           typeof data.whatsappUrl === "string" &&
           data.whatsappUrl.length > 0
@@ -142,17 +172,19 @@ export function BookedSlotModal({
         } else {
           waOpen?.finish(null);
           setInvoiceError(
-            data.error ??
-              "Add or check this client's phone number before sending on WhatsApp.",
+            "Invoice logged, but WhatsApp could not open. Check the client phone number.",
           );
         }
       }
+      const via = Array.isArray(data.sentVia)
+        ? (data.sentVia as string[]).join(" and ")
+        : channels.join(" and ");
+      setInvoiceNotice(`Invoice sent via ${via}.`);
       await onChanged();
     } catch {
       waOpen?.finish(null);
       setBusy(false);
-      if (action === "send_invoice") setInvoiceError("Action failed");
-      else setError("Action failed");
+      setInvoiceError("Failed to send invoice");
     }
   }
 
@@ -302,10 +334,19 @@ export function BookedSlotModal({
                     !detail.paymentDetailsReady
                   }
                   className="w-full"
-                  onClick={() => void runAction("send_invoice")}
+                  onClick={() => {
+                    setInvoiceError(null);
+                    setInvoiceNotice(null);
+                    setShowInvoiceSheet(true);
+                  }}
                 >
                   {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
                 </Button>
+                {invoiceNotice ? (
+                  <p className="text-sm text-green-700" role="status">
+                    {invoiceNotice}
+                  </p>
+                ) : null}
                 {invoiceError && (
                   <p className="text-sm text-red-600">{invoiceError}</p>
                 )}
@@ -376,6 +417,21 @@ export function BookedSlotModal({
           onConfirm={confirmPaymentMethod}
         />
       )}
+
+      {showInvoiceSheet && detail ? (
+        <SendInvoiceChannelSheet
+          clientName={detail.client.name}
+          email={detail.client.email}
+          phone={detail.client.phone}
+          preferredNotifyChannel={detail.client.preferredNotifyChannel}
+          busy={busy}
+          error={invoiceError}
+          onClose={() => {
+            if (!busy) setShowInvoiceSheet(false);
+          }}
+          onSend={sendInvoice}
+        />
+      ) : null}
     </>
   );
 }

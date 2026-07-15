@@ -5,11 +5,13 @@ import {
   formatConflictAlertBody,
   listScheduleConflictAlerts,
 } from "@/lib/services/template-conflicts";
+import type { NotifyChannel } from "@/lib/notify-channels";
 
 export type FeedEntryKind =
   | "template_conflict"
   | "conflict_acknowledged"
-  | "whatsapp";
+  | "whatsapp"
+  | "email";
 
 export type FeedEntry = {
   id: string;
@@ -21,6 +23,8 @@ export type FeedEntry = {
   clientName?: string;
   /** True when this entry represents a WhatsApp message (sent or logged). */
   isWhatsApp: boolean;
+  /** True when this entry is an emailed notification. */
+  isEmail: boolean;
   conflictAlert?: {
     id: string;
     status: "open" | "notified" | "acknowledged";
@@ -33,7 +37,8 @@ export type FeedEntry = {
     recipient: "client" | "trainer";
     body: string;
     createdAt: string;
-    /** Click-to-chat URL for client drafts; null for trainer notices. */
+    channel: NotifyChannel;
+    /** Click-to-chat URL for client WhatsApp drafts; null for email / trainer. */
     sendUrl: string | null;
   };
 };
@@ -68,6 +73,7 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
       clientId: alert.clientId,
       clientName,
       isWhatsApp: false,
+      isEmail: false,
       conflictAlert: {
         id: alert.id,
         status: alert.status,
@@ -77,19 +83,21 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
   }
 
   for (const message of messages) {
+    const channel = (message.channel ?? "whatsapp") as NotifyChannel;
     const sendUrl =
-      message.recipient === "client"
+      channel === "whatsapp" && message.recipient === "client"
         ? whatsappClickToChatUrl(message.phone, message.body)
         : null;
 
     entries.push({
       id: `wa-${message.id}`,
-      kind: "whatsapp",
+      kind: channel === "email" ? "email" : "whatsapp",
       createdAt: message.createdAt,
-      title: feedTitleForWhatsApp(message.messageType, message.recipient),
+      title: feedTitleForMessage(message.messageType, message.recipient, channel),
       body: message.body,
       clientId: message.clientId ?? undefined,
-      isWhatsApp: true,
+      isWhatsApp: channel === "whatsapp",
+      isEmail: channel === "email",
       whatsapp: {
         id: message.id,
         phone: message.phone,
@@ -97,6 +105,7 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
         recipient: message.recipient,
         body: message.body,
         createdAt: message.createdAt,
+        channel,
         sendUrl,
       },
     });
@@ -110,10 +119,12 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
   return entries;
 }
 
-function feedTitleForWhatsApp(
+function feedTitleForMessage(
   messageType: string,
   recipient: "client" | "trainer",
+  channel: NotifyChannel,
 ): string {
+  const via = channel === "email" ? " (email)" : "";
   if (messageType === "template_conflict") {
     return recipient === "client" ? "Clash notice" : "Clash notice";
   }
@@ -122,13 +133,13 @@ function feedTitleForWhatsApp(
       ? "Clash acknowledged"
       : "Acknowledgement sent";
   }
-  if (messageType === "confirmation") return "Booking confirmation";
+  if (messageType === "confirmation") return `Booking confirmation${via}`;
   if (messageType === "last_minute") return "Last-minute offer";
   if (messageType === "last_minute_accepted") return "Offer accepted";
   if (messageType === "last_minute_declined") return "Offer declined";
   if (messageType === "session_canceled") return "Session canceled";
   if (messageType === "session_changed") return "Session changed";
   if (messageType === "interest_ack") return "Interest acknowledgement";
-  if (messageType === "invoice") return "Invoice";
+  if (messageType === "invoice") return `Invoice${via}`;
   return messageType;
 }

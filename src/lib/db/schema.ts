@@ -65,6 +65,11 @@ export const clients = pgTable("clients", {
   name: text("name").notNull(),
   email: text("email").notNull().default(""),
   phone: text("phone").notNull(),
+  preferredNotifyChannel: text("preferred_notify_channel", {
+    enum: ["email", "whatsapp"],
+  })
+    .notNull()
+    .default("whatsapp"),
   lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
   sessionPrice: integer("session_price"),
   createdAt: text("created_at").notNull(),
@@ -434,6 +439,9 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
     .notNull()
     .default("client"),
   body: text("body").notNull(),
+  channel: text("channel", { enum: ["whatsapp", "email"] })
+    .notNull()
+    .default("whatsapp"),
   status: text("status", {
     enum: ["pending", "sent", "failed"],
   }).notNull(),

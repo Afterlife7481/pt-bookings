@@ -17,6 +17,7 @@ import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils"
 import { useMounted } from "@/lib/use-mounted";
 import { parseLocalDateTime } from "@/lib/constants";
 import { prepareWhatsAppOpenForPhone, WHATSAPP_PHONE_HINT } from "@/lib/whatsapp-link";
+import type { PreferredNotifyChannel } from "@/lib/notify-channels";
 
 type ClientBooking = {
   id: string;
@@ -41,6 +42,7 @@ type ClientDetail = {
   name: string;
   email: string;
   phone: string;
+  preferredNotifyChannel: "email" | "whatsapp";
   lastMinuteOptIn: boolean;
   sessionPrice: number | null;
   createdAt: string;
@@ -64,6 +66,8 @@ export default function ClientDetailPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredNotifyChannel, setPreferredNotifyChannel] =
+    useState<PreferredNotifyChannel>("whatsapp");
   const [sessionPrice, setSessionPrice] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -111,6 +115,9 @@ export default function ClientDetailPage() {
     setName(data.name);
     setEmail(data.email);
     setPhone(data.phone);
+    setPreferredNotifyChannel(
+      data.preferredNotifyChannel === "email" ? "email" : "whatsapp",
+    );
     setSessionPrice(sessionPriceToInput(data.sessionPrice));
     setEnabledLocationIds(
       new Set(data.locations.filter((l) => l.enabled).map((l) => l.id)),
@@ -193,7 +200,13 @@ export default function ClientDetailPage() {
     const res = await fetch(`/api/clients/${clientId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, sessionPrice }),
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        preferredNotifyChannel,
+        sessionPrice,
+      }),
     });
     const data = await res.json();
     setSavingDetails(false);
@@ -458,6 +471,33 @@ export default function ClientDetailPage() {
               />
               <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
             </label>
+            <fieldset className="flex flex-col gap-2 text-sm sm:col-span-2">
+              <legend className="text-slate-600">Communication preference</legend>
+              <p className="text-xs text-slate-500">
+                Used as the default when sending invoices. You can still choose
+                the other channel (or both) each time.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="preferred-notify-channel"
+                    checked={preferredNotifyChannel === "whatsapp"}
+                    onChange={() => setPreferredNotifyChannel("whatsapp")}
+                  />
+                  <span>WhatsApp</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="preferred-notify-channel"
+                    checked={preferredNotifyChannel === "email"}
+                    onChange={() => setPreferredNotifyChannel("email")}
+                  />
+                  <span>Email</span>
+                </label>
+              </div>
+            </fieldset>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-slate-600">Session price (£)</span>
               <input

@@ -14,12 +14,15 @@ import {
   type PaymentDetailsForMessage,
 } from "@/lib/payments";
 import { whatsappClickToChatUrl } from "@/lib/whatsapp-link";
+import type { NotifyChannel } from "@/lib/notify-channels";
+import { sendEmail } from "@/lib/email";
 
 export type WhatsAppDraft = {
   phone: string;
   body: string;
-  /** wa.me URL for client messages; null for trainer in-app notices or bad phones. */
+  /** wa.me URL for client WhatsApp messages; null for email / trainer notices. */
   sendUrl: string | null;
+  channel: NotifyChannel;
 };
 
 type WhatsAppMessageType =
@@ -41,10 +44,12 @@ async function logWhatsAppMessage(params: {
   messageType: WhatsAppMessageType;
   recipient?: "client" | "trainer";
   body: string;
+  channel?: NotifyChannel;
 }): Promise<WhatsAppDraft> {
   const recipient = params.recipient ?? "client";
+  const channel = params.channel ?? "whatsapp";
   const sendUrl =
-    recipient === "client"
+    channel === "whatsapp" && recipient === "client"
       ? whatsappClickToChatUrl(params.phone, params.body)
       : null;
 
@@ -57,12 +62,26 @@ async function logWhatsAppMessage(params: {
     messageType: params.messageType,
     recipient,
     body: params.body,
+    channel,
     // Logged when the trainer triggers Send (WhatsApp opens with the draft).
     status: "sent",
     createdAt: nowIso(),
   });
 
-  return { phone: params.phone, body: params.body, sendUrl };
+  return { phone: params.phone, body: params.body, sendUrl, channel };
+}
+
+export function buildInvoiceMessageBody(params: {
+  clientName: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  amountPence: number;
+  paymentDetails: PaymentDetailsForMessage;
+}): string {
+  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const amount = formatInvoiceAmount(params.amountPence);
+  const paymentLines = formatPaymentOptionsText(params.paymentDetails);
+  return `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
 }
 
 export async function sendWhatsAppConfirmation(params: {
@@ -256,11 +275,7 @@ export async function sendWhatsAppInvoice(params: {
   amountPence: number;
   paymentDetails: PaymentDetailsForMessage;
 }): Promise<WhatsAppDraft> {
-  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
-  const amount = formatInvoiceAmount(params.amountPence);
-  const paymentLines = formatPaymentOptionsText(params.paymentDetails);
-
-  const body = `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
+  const body = buildInvoiceMessageBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -270,7 +285,72 @@ export async function sendWhatsAppInvoice(params: {
     phone: params.phone,
     messageType: "invoice",
     body,
+    channel: "whatsapp",
   });
+}
+
+export async function sendInvoiceEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  clientName: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  amountPence: number;
+  paymentDetails: PaymentDetailsForMessage;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const body = buildInvoiceMessageBody(params);
+  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const amount = formatInvoiceAmount(params.amountPence);
+  const subject = `Invoice for your PT session on ${sessionLabel}`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">PT session invoice</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+        <p style="font-size:12px;line-height:18px;color:#475569;margin:0;">Amount due: ${escapeHtml(amount)}</p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Invoice email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "invoice",
+    body,
+    channel: "email",
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeHtmlPreservingNewlines(value: string): string {
+  return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
 export async function sendWhatsAppTemplateConflictToClient(params: {

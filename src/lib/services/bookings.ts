@@ -11,8 +11,13 @@ import {
   parseLocalDateTime,
   type SessionPaymentType,
 } from "@/lib/constants";
-import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
+import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendInvoiceEmail, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
 import { assertWhatsAppPhone, validateWhatsAppPhone } from "@/lib/whatsapp-link";
+import {
+  hasClientEmail,
+  parseNotifyChannels,
+  type NotifyChannel,
+} from "@/lib/notify-channels";
 import { getTrainerSettings } from "./settings";
 import { getTrainerById } from "./trainers";
 import {
@@ -474,6 +479,7 @@ export type TrainerBookingDetail = {
     name: string;
     email: string;
     phone: string;
+    preferredNotifyChannel: "email" | "whatsapp";
     sessionPrice: number | null;
   };
   paymentDetailsReady: boolean;
@@ -551,6 +557,8 @@ export async function getBookingDetailForTrainer(
       name: client.name,
       email: client.email,
       phone: client.phone,
+      preferredNotifyChannel:
+        client.preferredNotifyChannel === "email" ? "email" : "whatsapp",
       sessionPrice: client.sessionPrice,
     },
     paymentDetailsReady,
@@ -675,7 +683,11 @@ export async function voidBookingForTrainer(
   return getBookingDetailForTrainer(trainerId, bookingId);
 }
 
-export async function sendInvoiceForBooking(bookingId: string) {
+export async function sendInvoiceForBooking(
+  bookingId: string,
+  channelsInput: unknown = ["whatsapp"],
+) {
+  const channels = parseNotifyChannels(channelsInput);
   const db = getDb();
   const booking = await db.query.bookings.findFirst({
     where: eq(bookings.id, bookingId),
@@ -710,19 +722,51 @@ export async function sendInvoiceForBooking(bookingId: string) {
 
   const slotStartAt = slot?.startAt ?? booking.sessionStartAt;
   const slotEndAt = slot?.endAt ?? null;
+  const wantEmail = channels.includes("email");
+  const wantWhatsApp = channels.includes("whatsapp");
 
-  assertWhatsAppPhone(client.phone);
+  if (wantEmail && !hasClientEmail(client.email)) {
+    throw new Error(
+      "This client has no email address. Add one on their profile, or send by WhatsApp instead.",
+    );
+  }
+  if (wantWhatsApp) {
+    assertWhatsAppPhone(client.phone);
+  }
 
-  const draft = await sendWhatsAppInvoice({
-    trainerId: booking.trainerId,
-    clientId: client.id,
-    phone: client.phone,
-    clientName: client.name,
-    slotStartAt,
-    slotEndAt,
-    amountPence,
-    paymentDetails,
-  });
+  let whatsappUrl: string | null = null;
+  const sentVia: NotifyChannel[] = [];
+
+  if (wantEmail) {
+    const trainer = await getTrainerById(booking.trainerId);
+    await sendInvoiceEmail({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      email: client.email,
+      clientName: client.name,
+      slotStartAt,
+      slotEndAt,
+      amountPence,
+      paymentDetails,
+      replyTo: trainer?.email ?? settings.email,
+    });
+    sentVia.push("email");
+  }
+
+  if (wantWhatsApp) {
+    const draft = await sendWhatsAppInvoice({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      phone: client.phone,
+      clientName: client.name,
+      slotStartAt,
+      slotEndAt,
+      amountPence,
+      paymentDetails,
+    });
+    whatsappUrl = draft.sendUrl;
+    sentVia.push("whatsapp");
+  }
 
   const ts = nowIso();
   await db
@@ -732,5 +776,5 @@ export async function sendInvoiceForBooking(bookingId: string) {
 
   const detail = await getBookingDetailForTrainer(booking.trainerId, bookingId);
   if (!detail) return null;
-  return { ...detail, whatsappUrl: draft.sendUrl };
+  return { ...detail, whatsappUrl, sentVia };
 }

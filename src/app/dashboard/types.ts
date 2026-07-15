@@ -6,6 +6,7 @@ export type DashboardClient = {
   name: string;
   email: string;
   phone: string;
+  preferredNotifyChannel?: "email" | "whatsapp";
   lastMinuteOptIn: boolean;
   sessionPrice: number | null;
   enabledLocationIds: string[];

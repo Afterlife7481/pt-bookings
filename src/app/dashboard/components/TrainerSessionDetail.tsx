@@ -21,6 +21,8 @@ import {
   resolveBookingSessionPrice,
 } from "@/lib/utils";
 import { prepareWhatsAppOpen, prepareWhatsAppOpenForPhone } from "@/lib/whatsapp-link";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
+import type { NotifyChannel } from "@/lib/notify-channels";
 
 export function TrainerSessionDetail({
   bookingId,
@@ -43,6 +45,8 @@ export function TrainerSessionDetail({
   const [showChangeSlots, setShowChangeSlots] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
   const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
+  const [showInvoiceSheet, setShowInvoiceSheet] = useState(false);
+  const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/bookings/${bookingId}`);
@@ -109,14 +113,13 @@ export function TrainerSessionDetail({
   }
 
   async function runAction(
-    action: "cancel" | "send_confirmation" | "send_invoice" | "void",
+    action: "cancel" | "send_confirmation" | "void",
   ) {
     let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
-    if (action === "send_confirmation" || action === "send_invoice") {
+    if (action === "send_confirmation") {
       const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
       if (!prepared.ok) {
-        if (action === "send_invoice") setInvoiceError(prepared.error);
-        else setError(prepared.error);
+        setError(prepared.error);
         return;
       }
       waOpen = prepared.opener;
@@ -125,9 +128,6 @@ export function TrainerSessionDetail({
     setBusy(true);
     setError(null);
     setConfirmationNotice(false);
-    if (action === "send_invoice") {
-      setInvoiceError(null);
-    }
     try {
       const res = await fetch(`/api/bookings/${bookingId}`, {
         method: "POST",
@@ -138,12 +138,7 @@ export function TrainerSessionDetail({
       setBusy(false);
       if (!res.ok) {
         waOpen?.finish(null);
-        const message = data.error ?? "Action failed";
-        if (action === "send_invoice") {
-          setInvoiceError(message);
-        } else {
-          setError(message);
-        }
+        setError(data.error ?? "Action failed");
         return;
       }
       if (action === "cancel") {
@@ -157,33 +152,69 @@ export function TrainerSessionDetail({
         waOpen?.finish(data.whatsappUrl);
         return;
       }
-      if (action === "send_invoice" || action === "void") {
+      if (action === "void") {
         setDetail(data);
-        if (action === "send_invoice") {
-          if (
-            typeof data.whatsappUrl === "string" &&
-            data.whatsappUrl.length > 0
-          ) {
-            waOpen?.finish(data.whatsappUrl);
-          } else {
-            waOpen?.finish(null);
-            setInvoiceError(
-              data.error ??
-                "Add or check this client's phone number before sending on WhatsApp.",
-            );
-          }
-        }
         return;
       }
       setSaved(true);
     } catch {
       waOpen?.finish(null);
       setBusy(false);
-      if (action === "send_invoice") {
-        setInvoiceError("Action failed");
-      } else {
-        setError("Action failed");
+      setError("Action failed");
+    }
+  }
+
+  async function sendInvoice(channels: NotifyChannel[]) {
+    const wantWhatsApp = channels.includes("whatsapp");
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (wantWhatsApp) {
+      const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
+      if (!prepared.ok) {
+        setInvoiceError(prepared.error);
+        return;
       }
+      waOpen = prepared.opener;
+    }
+
+    setBusy(true);
+    setInvoiceError(null);
+    setInvoiceNotice(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_invoice", channels }),
+      });
+      const data = await res.json();
+      setBusy(false);
+      if (!res.ok) {
+        waOpen?.finish(null);
+        setInvoiceError(data.error ?? "Failed to send invoice");
+        return;
+      }
+      setDetail(data);
+      setShowInvoiceSheet(false);
+      if (wantWhatsApp) {
+        if (
+          typeof data.whatsappUrl === "string" &&
+          data.whatsappUrl.length > 0
+        ) {
+          waOpen?.finish(data.whatsappUrl);
+        } else {
+          waOpen?.finish(null);
+          setInvoiceError(
+            "Invoice logged, but WhatsApp could not open. Check the client phone number.",
+          );
+        }
+      }
+      const via = Array.isArray(data.sentVia)
+        ? (data.sentVia as string[]).join(" and ")
+        : channels.join(" and ");
+      setInvoiceNotice(`Invoice sent via ${via}.`);
+    } catch {
+      waOpen?.finish(null);
+      setBusy(false);
+      setInvoiceError("Failed to send invoice");
     }
   }
 
@@ -423,8 +454,8 @@ export function TrainerSessionDetail({
 
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-500">
-              Opens WhatsApp with the session amount and your bank payment
-              details from Settings — tap Send in WhatsApp to deliver it.
+              Send the session amount and your bank payment details by email,
+              WhatsApp, or both.
             </p>
             {booking.invoiceSentAt && (
               <p className="mt-1 text-sm text-slate-500">
@@ -445,10 +476,19 @@ export function TrainerSessionDetail({
                 !detail.paymentDetailsReady
               }
               className="mt-3 w-full sm:w-auto"
-              onClick={() => runAction("send_invoice")}
+              onClick={() => {
+                setInvoiceError(null);
+                setInvoiceNotice(null);
+                setShowInvoiceSheet(true);
+              }}
             >
               {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
             </Button>
+            {invoiceNotice && (
+              <p className="mt-2 text-sm text-green-700" role="status">
+                {invoiceNotice}
+              </p>
+            )}
             {effectiveSessionPrice == null && !isInactive && (
               <p className="mt-2 text-sm text-amber-700">
                 Set a session price above or on the{" "}
@@ -611,6 +651,21 @@ export function TrainerSessionDetail({
         onClose={() => setShowPaidModal(false)}
         onConfirm={confirmPaymentMethod}
       />
+
+      {showInvoiceSheet ? (
+        <SendInvoiceChannelSheet
+          clientName={client.name}
+          email={client.email}
+          phone={client.phone}
+          preferredNotifyChannel={client.preferredNotifyChannel}
+          busy={busy}
+          error={invoiceError}
+          onClose={() => {
+            if (!busy) setShowInvoiceSheet(false);
+          }}
+          onSend={sendInvoice}
+        />
+      ) : null}
     </div>
   );
 }
