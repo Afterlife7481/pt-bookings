@@ -20,6 +20,7 @@ import {
   formatDurationMinutes,
   resolveBookingSessionPrice,
 } from "@/lib/utils";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 export function TrainerSessionDetail({
   bookingId,
@@ -110,53 +111,73 @@ export function TrainerSessionDetail({
   async function runAction(
     action: "cancel" | "send_confirmation" | "send_invoice" | "void",
   ) {
+    const waOpen =
+      action === "send_confirmation" || action === "send_invoice"
+        ? prepareWhatsAppOpen()
+        : null;
+
     setBusy(true);
     setError(null);
     setConfirmationNotice(false);
     if (action === "send_invoice") {
       setInvoiceError(null);
     }
-    const res = await fetch(`/api/bookings/${bookingId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      const message = data.error ?? "Action failed";
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      setBusy(false);
+      if (!res.ok) {
+        waOpen?.finish(null);
+        const message = data.error ?? "Action failed";
+        if (action === "send_invoice") {
+          setInvoiceError(message);
+        } else {
+          setError(message);
+        }
+        return;
+      }
+      if (action === "cancel") {
+        router.push(backHref);
+        router.refresh();
+        return;
+      }
+      if (action === "send_confirmation") {
+        setDetail(data);
+        setConfirmationNotice(true);
+        waOpen?.finish(data.whatsappUrl);
+        return;
+      }
+      if (action === "send_invoice" || action === "void") {
+        setDetail(data);
+        if (action === "send_invoice") {
+          if (
+            typeof data.whatsappUrl === "string" &&
+            data.whatsappUrl.length > 0
+          ) {
+            waOpen?.finish(data.whatsappUrl);
+          } else {
+            waOpen?.finish(null);
+            setInvoiceError(
+              "Invoice saved, but WhatsApp could not open. Check the client phone has a country code (e.g. +44…).",
+            );
+          }
+        }
+        return;
+      }
+      setSaved(true);
+    } catch {
+      waOpen?.finish(null);
+      setBusy(false);
       if (action === "send_invoice") {
-        setInvoiceError(message);
+        setInvoiceError("Action failed");
       } else {
-        setError(message);
+        setError("Action failed");
       }
-      return;
     }
-    if (action === "cancel") {
-      router.push(backHref);
-      router.refresh();
-      return;
-    }
-    if (action === "send_confirmation") {
-      setDetail(data);
-      setConfirmationNotice(true);
-      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
-        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
-      }
-      return;
-    }
-    if (action === "send_invoice" || action === "void") {
-      setDetail(data);
-      if (
-        action === "send_invoice" &&
-        typeof data.whatsappUrl === "string" &&
-        data.whatsappUrl.length > 0
-      ) {
-        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
-      }
-      return;
-    }
-    setSaved(true);
   }
 
   async function cancelSession() {

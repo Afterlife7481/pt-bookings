@@ -16,6 +16,7 @@ import type { TrainerBookingDetail } from "@/lib/services/bookings";
 import type { ScheduleEntry } from "@/lib/services/schedule-types";
 import { SessionPriceEditor } from "@/app/dashboard/components/SessionPriceEditor";
 import { cn, resolveBookingSessionPrice } from "@/lib/utils";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 export function BookedSlotModal({
   entry,
@@ -96,39 +97,54 @@ export function BookedSlotModal({
 
   async function runAction(action: "cancel" | "send_invoice" | "void") {
     if (!bookingId) return;
+    const waOpen = action === "send_invoice" ? prepareWhatsAppOpen() : null;
     setBusy(true);
     setError(null);
     if (action === "send_invoice") setInvoiceError(null);
 
-    const res = await fetch(`/api/bookings/${bookingId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      const message = data.error ?? "Action failed";
-      if (action === "send_invoice") setInvoiceError(message);
-      else setError(message);
-      return;
-    }
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      setBusy(false);
+      if (!res.ok) {
+        waOpen?.finish(null);
+        const message = data.error ?? "Action failed";
+        if (action === "send_invoice") setInvoiceError(message);
+        else setError(message);
+        return;
+      }
 
-    if (action === "cancel") {
+      if (action === "cancel") {
+        await onChanged();
+        onClose();
+        return;
+      }
+
+      setDetail(data);
+      if (action === "send_invoice") {
+        if (
+          typeof data.whatsappUrl === "string" &&
+          data.whatsappUrl.length > 0
+        ) {
+          waOpen?.finish(data.whatsappUrl);
+        } else {
+          waOpen?.finish(null);
+          setInvoiceError(
+            "Invoice saved, but WhatsApp could not open. Check the client phone has a country code (e.g. +44…).",
+          );
+        }
+      }
       await onChanged();
-      onClose();
-      return;
+    } catch {
+      waOpen?.finish(null);
+      setBusy(false);
+      if (action === "send_invoice") setInvoiceError("Action failed");
+      else setError("Action failed");
     }
-
-    setDetail(data);
-    if (
-      action === "send_invoice" &&
-      typeof data.whatsappUrl === "string" &&
-      data.whatsappUrl.length > 0
-    ) {
-      window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
-    }
-    await onChanged();
   }
 
   async function cancelSession() {

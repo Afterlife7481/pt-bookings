@@ -16,6 +16,7 @@ import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { parseLocalDateTime } from "@/lib/constants";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 type ClientBooking = {
   id: string;
@@ -207,27 +208,36 @@ export default function ClientDetailPage() {
   }
 
   async function sendSessionWhatsApp(bookingId: string) {
+    const waOpen = prepareWhatsAppOpen();
     setBusyBookingId(bookingId);
     setBookingActionError(null);
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send_confirmation", bookingId }),
-    });
-    const data = await res.json();
-    setBusyBookingId(null);
-    if (!res.ok) {
-      setBookingActionError(data.error ?? "Failed to prepare message");
-      return;
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_confirmation", bookingId }),
+      });
+      const data = await res.json();
+      setBusyBookingId(null);
+      if (!res.ok) {
+        waOpen.finish(null);
+        setBookingActionError(data.error ?? "Failed to prepare message");
+        return;
+      }
+      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
+        waOpen.finish(data.whatsappUrl);
+      } else {
+        waOpen.finish(null);
+        setBookingActionError(
+          "Could not open WhatsApp for this phone number. Use a number with country code (e.g. +44…).",
+        );
+      }
+      await loadClient();
+    } catch {
+      waOpen.finish(null);
+      setBusyBookingId(null);
+      setBookingActionError("Failed to prepare message");
     }
-    if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
-      window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
-    } else {
-      setBookingActionError(
-        "Could not open WhatsApp for this phone number. Use a number with country code (e.g. +44…).",
-      );
-    }
-    await loadClient();
   }
 
   async function cancelSession(bookingId: string) {

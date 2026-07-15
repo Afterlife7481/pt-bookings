@@ -7,6 +7,7 @@ import type {
   TrainerLocation,
   TrainerSettings,
 } from "../types";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 export type ApplyTemplateOutcome = {
   ok: boolean;
@@ -157,22 +158,23 @@ export function useSchedulePage() {
   }
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
-    await runScheduleAction(async () => {
-      const result = await fetchJson<{ whatsappUrl?: string | null }>(
-        "/api/bookings",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "allocate", slotId, clientId }),
-        },
-      );
-      if (
-        typeof result.whatsappUrl === "string" &&
-        result.whatsappUrl.length > 0
-      ) {
-        window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
-      }
-    });
+    const waOpen = prepareWhatsAppOpen();
+    try {
+      await runScheduleAction(async () => {
+        const result = await fetchJson<{ whatsappUrl?: string | null }>(
+          "/api/bookings",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "allocate", slotId, clientId }),
+          },
+        );
+        waOpen.finish(result.whatsappUrl);
+      });
+    } catch {
+      waOpen.finish(null);
+      throw;
+    }
   }
 
   return {

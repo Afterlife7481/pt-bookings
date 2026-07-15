@@ -5,6 +5,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { cn, formatDateTimeInTimezone } from "@/lib/utils";
 import type { FeedEntry } from "@/lib/services/feed";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -127,6 +128,7 @@ export function FeedTab({
   }
 
   async function notifyClient(alertId: string) {
+    const waOpen = prepareWhatsAppOpen();
     setNotifyingId(alertId);
     setNotifyError(null);
     try {
@@ -135,17 +137,14 @@ export function FeedTab({
       });
       const data = await res.json();
       if (!res.ok) {
+        waOpen.finish(null);
         setNotifyError(data.error ?? "Failed to prepare message");
         return;
       }
-      if (
-        typeof data.whatsappUrl === "string" &&
-        data.whatsappUrl.length > 0
-      ) {
-        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
-      }
+      waOpen.finish(data.whatsappUrl);
       await onRefresh();
     } catch {
+      waOpen.finish(null);
       setNotifyError("Failed to prepare message");
     } finally {
       setNotifyingId(null);

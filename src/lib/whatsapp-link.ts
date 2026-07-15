@@ -32,10 +32,48 @@ export function whatsappClickToChatUrl(
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
+export type WhatsAppOpenHandle = {
+  /** Navigate to the wa.me URL, or close the placeholder tab if null. */
+  finish: (url: string | null | undefined) => void;
+};
+
+/**
+ * Call synchronously inside the click handler (before any `await`).
+ * Browsers block `window.open` after async work; opening a blank tab first
+ * keeps the gesture so WhatsApp can open once the API returns the URL.
+ */
+export function prepareWhatsAppOpen(): WhatsAppOpenHandle {
+  if (typeof window === "undefined") {
+    return { finish: () => undefined };
+  }
+
+  const popup = window.open("about:blank", "_blank");
+
+  return {
+    finish(url) {
+      if (!url) {
+        popup?.close();
+        return;
+      }
+      if (popup && !popup.closed) {
+        try {
+          popup.location.href = url;
+          return;
+        } catch {
+          // Fall through to same-tab navigation.
+        }
+      }
+      // Popup blocked — leave this tab for WhatsApp (works well on mobile).
+      window.location.assign(url);
+    },
+  };
+}
+
 /** Open WhatsApp with a pre-filled message (trainer taps Send). */
 export function openWhatsAppClickToChat(phone: string, text: string): boolean {
   const url = whatsappClickToChatUrl(phone, text);
   if (!url || typeof window === "undefined") return false;
-  window.open(url, "_blank", "noopener,noreferrer");
+  const opener = prepareWhatsAppOpen();
+  opener.finish(url);
   return true;
 }
