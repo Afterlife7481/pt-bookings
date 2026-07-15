@@ -10,6 +10,8 @@ export type ScheduleEligibleClient = {
   id: string;
   name: string;
   phone: string;
+  email: string;
+  preferredNotifyChannel: "email" | "whatsapp";
   isHeld: boolean;
   latestOffer: {
     status: string;

@@ -21,6 +21,9 @@ export function SendInvoiceChannelSheet({
   error,
   onClose,
   onSend,
+  title = "Send invoice",
+  subtitle,
+  emptyHint = "Add an email or a valid mobile number on this client's profile before sending.",
 }: {
   clientName: string;
   email: string;
@@ -30,6 +33,9 @@ export function SendInvoiceChannelSheet({
   error: string | null;
   onClose: () => void;
   onSend: (channels: NotifyChannel[]) => void | Promise<void>;
+  title?: string;
+  subtitle?: string;
+  emptyHint?: string;
 }) {
   const canEmail = hasClientEmail(email);
   const canWhatsApp = canNotifyByWhatsApp(phone);
@@ -47,11 +53,13 @@ export function SendInvoiceChannelSheet({
   const [choice, setChoice] = useState(defaultChoice);
 
   const canSend = choice != null && !busy;
+  const resolvedSubtitle =
+    subtitle ?? `Choose how to send the invoice to ${clientName}.`;
 
   return (
     <SheetModal
-      title="Send invoice"
-      subtitle={`Choose how to send the invoice to ${clientName}.`}
+      title={title}
+      subtitle={resolvedSubtitle}
       onClose={onClose}
       footer={
         <div className="flex flex-wrap gap-2">
@@ -73,8 +81,7 @@ export function SendInvoiceChannelSheet({
       <div className="space-y-3">
         {!canEmail && !canWhatsApp ? (
           <p className="text-sm text-amber-800" role="status">
-            Add an email or a valid mobile number on this client&apos;s profile
-            before sending an invoice.
+            {emptyHint}
           </p>
         ) : null}
 
@@ -103,7 +110,7 @@ export function SendInvoiceChannelSheet({
           >
             <input
               type="radio"
-              name="invoice-channel"
+              name="notify-channel"
               className="mt-1"
               disabled={!canEmail}
               checked={choice === "email"}
@@ -130,7 +137,7 @@ export function SendInvoiceChannelSheet({
           >
             <input
               type="radio"
-              name="invoice-channel"
+              name="notify-channel"
               className="mt-1"
               disabled={!canWhatsApp}
               checked={choice === "whatsapp"}
@@ -157,7 +164,7 @@ export function SendInvoiceChannelSheet({
           >
             <input
               type="radio"
-              name="invoice-channel"
+              name="notify-channel"
               className="mt-1"
               disabled={!canEmail || !canWhatsApp}
               checked={choice === "both"}

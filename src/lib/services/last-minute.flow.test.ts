@@ -162,6 +162,46 @@ describe("last-minute offer flow", () => {
     ).toBe(true);
   });
 
+  it("rejects a second offer to another client while the hold is active", async () => {
+    const fixtures = await seedTestFixtures();
+    await prepareClientForLastMinute(fixtures);
+
+    const db = getDb();
+    const others = await db.query.clients.findMany({
+      where: eq(clients.trainerId, DEFAULT_TRAINER_ID),
+    });
+    const other =
+      others.find((c) => c.id !== fixtures.clientId && c.lastMinuteOptIn) ??
+      others.find((c) => c.id !== fixtures.clientId);
+    expect(other).toBeTruthy();
+
+    await db
+      .update(clients)
+      .set({ lastMinuteOptIn: true })
+      .where(eq(clients.id, other!.id));
+    await setClientLastMinutePreferences(other!.id, DEFAULT_TRAINER_ID, [
+      { dayOfWeek: fixtures.slotDayOfWeek, startTime: "10:00" },
+    ]);
+
+    await sendLastMinuteOffer(
+      DEFAULT_TRAINER_ID,
+      fixtures.slotId,
+      fixtures.clientId,
+    );
+
+    await expect(
+      sendLastMinuteOffer(DEFAULT_TRAINER_ID, fixtures.slotId, other!.id),
+    ).rejects.toThrow(/already held for another client/i);
+
+    const interestRows = await db.query.lastMinuteInterests.findMany({
+      where: eq(lastMinuteInterests.slotId, fixtures.slotId),
+    });
+    expect(interestRows.every((row) => row.status !== "superseded")).toBe(true);
+    expect(
+      interestRows.filter((row) => row.status === "offered"),
+    ).toHaveLength(1);
+  });
+
   it("rejects sending offers for past slots", async () => {
     const fixtures = await seedTestFixtures();
     await prepareClientForLastMinute(fixtures);

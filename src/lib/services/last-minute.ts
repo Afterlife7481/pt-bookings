@@ -21,12 +21,19 @@ import {
 } from "@/lib/constants";
 import {
   sendWhatsAppLastMinute,
+  sendLastMinuteEmail,
   sendWhatsAppLastMinuteAcceptedToTrainer,
   sendWhatsAppLastMinuteDeclinedToTrainer,
 } from "@/lib/whatsapp";
 import { assertWhatsAppPhone } from "@/lib/whatsapp-link";
+import {
+  hasClientEmail,
+  parseNotifyChannels,
+  type NotifyChannel,
+} from "@/lib/notify-channels";
 import { createBookingForSlot } from "./bookings";
 import { getTrainerSettings } from "./settings";
+import { getTrainerById } from "./trainers";
 import { getTrainerTemplateOverlay } from "./templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { isScheduleTimeAligned } from "@/lib/constants";
@@ -228,6 +235,8 @@ export type EligibleClientSummary = {
   id: string;
   name: string;
   phone: string;
+  email: string;
+  preferredNotifyChannel: "email" | "whatsapp";
   isHeld: boolean;
   latestOffer: {
     status: LastMinuteOfferStatus;
@@ -263,6 +272,8 @@ export async function buildEligibleClientsBySlotId(
       clientId: clients.id,
       name: clients.name,
       phone: clients.phone,
+      email: clients.email,
+      preferredNotifyChannel: clients.preferredNotifyChannel,
       dayOfWeek: clientLastMinutePreferences.dayOfWeek,
       startTime: clientLastMinutePreferences.startTime,
     })
@@ -276,6 +287,8 @@ export async function buildEligibleClientsBySlotId(
     id: string;
     name: string;
     phone: string;
+    email: string;
+    preferredNotifyChannel: "email" | "whatsapp";
     prefs: LastMinuteSlotRef[];
   };
   const clientMap = new Map<string, ClientRecord>();
@@ -286,6 +299,9 @@ export async function buildEligibleClientsBySlotId(
         id: row.clientId,
         name: row.name,
         phone: row.phone,
+        email: row.email,
+        preferredNotifyChannel:
+          row.preferredNotifyChannel === "email" ? "email" : "whatsapp",
         prefs: [],
       };
       clientMap.set(row.clientId, client);
@@ -323,6 +339,8 @@ export async function buildEligibleClientsBySlotId(
         id: client.id,
         name: client.name,
         phone: client.phone,
+        email: client.email,
+        preferredNotifyChannel: client.preferredNotifyChannel,
         isHeld: slot.heldForClientId === client.id,
         latestOffer: latest
           ? {
@@ -531,7 +549,9 @@ export async function sendLastMinuteOffer(
   trainerId: string,
   slotId: string,
   clientId: string,
+  channelsInput: unknown = ["whatsapp"],
 ) {
+  const channels = parseNotifyChannels(channelsInput);
   await clearExpiredSlotHolds(trainerId);
 
   const db = getDb();
@@ -545,6 +565,21 @@ export async function sendLastMinuteOffer(
     throw new Error("Cannot send offers for past slots");
   }
 
+  const holdStillActive =
+    Boolean(slot.heldForClientId) &&
+    Boolean(slot.holdExpiresAt) &&
+    new Date(slot.holdExpiresAt!).getTime() > Date.now();
+
+  if (
+    holdStillActive &&
+    slot.heldForClientId &&
+    slot.heldForClientId !== clientId
+  ) {
+    throw new Error(
+      "This slot is already held for another client until their offer expires.",
+    );
+  }
+
   const client = await db.query.clients.findFirst({
     where: and(eq(clients.id, clientId), eq(clients.trainerId, trainerId)),
   });
@@ -552,7 +587,18 @@ export async function sendLastMinuteOffer(
   if (!client.lastMinuteOptIn) {
     throw new Error("Client is not opted in to last-minute alerts");
   }
-  assertWhatsAppPhone(client.phone);
+
+  const wantEmail = channels.includes("email");
+  const wantWhatsApp = channels.includes("whatsapp");
+
+  if (wantEmail && !hasClientEmail(client.email)) {
+    throw new Error(
+      "This client has no email address. Add one on their profile, or send by WhatsApp instead.",
+    );
+  }
+  if (wantWhatsApp) {
+    assertWhatsAppPhone(client.phone);
+  }
 
   const prefs = await getClientLastMinutePreferences(clientId);
   if (!prefs.some((pref) => slotMatchesPreference(slot.startAt, pref))) {
@@ -562,25 +608,6 @@ export async function sendLastMinuteOffer(
   const { lastMinuteOfferLockHours } = await getTrainerSettings(trainerId);
   const offeredAt = nowIso();
   const expiresAt = addHours(offeredAt, lastMinuteOfferLockHours);
-
-  if (slot.heldForClientId && slot.heldForClientId !== clientId) {
-    const previousOffers = await db
-      .select()
-      .from(lastMinuteInterests)
-      .where(
-        and(
-          eq(lastMinuteInterests.slotId, slotId),
-          eq(lastMinuteInterests.status, "offered"),
-        ),
-      );
-
-    for (const offer of previousOffers) {
-      await db
-        .update(lastMinuteInterests)
-        .set({ status: "superseded" })
-        .where(eq(lastMinuteInterests.id, offer.id));
-    }
-  }
 
   await db
     .update(slots)
@@ -619,18 +646,48 @@ export async function sendLastMinuteOffer(
     });
   }
 
-  await sendWhatsAppLastMinute({
-    trainerId,
-    clientId: client.id,
-    phone: client.phone,
-    offerToken,
-    slotStartAt: slot.startAt,
-    slotEndAt: slot.endAt,
-    clientName: client.name,
-    lockHours: lastMinuteOfferLockHours,
-  });
+  let whatsappUrl: string | null = null;
+  const sentVia: NotifyChannel[] = [];
 
-  return { expiresAt, lockHours: lastMinuteOfferLockHours, offerToken };
+  if (wantEmail) {
+    const trainer = await getTrainerById(trainerId);
+    const settings = await getTrainerSettings(trainerId);
+    await sendLastMinuteEmail({
+      trainerId,
+      clientId: client.id,
+      email: client.email,
+      offerToken,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+      clientName: client.name,
+      lockHours: lastMinuteOfferLockHours,
+      replyTo: trainer?.email ?? settings.email,
+    });
+    sentVia.push("email");
+  }
+
+  if (wantWhatsApp) {
+    const draft = await sendWhatsAppLastMinute({
+      trainerId,
+      clientId: client.id,
+      phone: client.phone,
+      offerToken,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+      clientName: client.name,
+      lockHours: lastMinuteOfferLockHours,
+    });
+    whatsappUrl = draft.sendUrl;
+    sentVia.push("whatsapp");
+  }
+
+  return {
+    expiresAt,
+    lockHours: lastMinuteOfferLockHours,
+    offerToken,
+    whatsappUrl,
+    sentVia,
+  };
 }
 
 export type LastMinuteOfferPreview = {

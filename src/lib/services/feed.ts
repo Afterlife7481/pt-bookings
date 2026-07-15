@@ -134,7 +134,7 @@ function feedTitleForMessage(
       : "Acknowledgement sent";
   }
   if (messageType === "confirmation") return `Booking confirmation${via}`;
-  if (messageType === "last_minute") return "Last-minute offer";
+  if (messageType === "last_minute") return `Last-minute offer${via}`;
   if (messageType === "last_minute_accepted") return "Offer accepted";
   if (messageType === "last_minute_declined") return "Offer declined";
   if (messageType === "session_canceled") return "Session canceled";

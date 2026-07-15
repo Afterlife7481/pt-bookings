@@ -107,6 +107,17 @@ export async function sendWhatsAppConfirmation(params: {
   });
 }
 
+export function buildLastMinuteOfferBody(params: {
+  clientName: string;
+  offerToken: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  lockHours: number;
+}): string {
+  const link = interestUrl(params.offerToken);
+  return `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
+}
+
 export async function sendWhatsAppLastMinute(params: {
   trainerId: string;
   clientId: string;
@@ -117,8 +128,7 @@ export async function sendWhatsAppLastMinute(params: {
   clientName: string;
   lockHours: number;
 }): Promise<WhatsAppDraft> {
-  const link = interestUrl(params.offerToken);
-  const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
+  const body = buildLastMinuteOfferBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -128,6 +138,56 @@ export async function sendWhatsAppLastMinute(params: {
     phone: params.phone,
     messageType: "last_minute",
     body,
+    channel: "whatsapp",
+  });
+}
+
+export async function sendLastMinuteEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  offerToken: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  clientName: string;
+  lockHours: number;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const body = buildLastMinuteOfferBody(params);
+  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const subject = `Last-minute PT slot available: ${sessionLabel}`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">Last-minute PT slot</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Last-minute email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "last_minute",
+    body,
+    channel: "email",
   });
 }
 

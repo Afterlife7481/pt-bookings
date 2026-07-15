@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       trainerId,
       body.slotId,
       body.clientId,
+      body.channels,
     );
     return Response.json({ ok: true, ...result });
   } catch (e) {

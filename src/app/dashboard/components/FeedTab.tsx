@@ -5,7 +5,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { cn, formatDateTimeInTimezone } from "@/lib/utils";
 import type { FeedEntry } from "@/lib/services/feed";
-import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
+import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -170,9 +170,7 @@ export function FeedTab({
         <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
           Schedule clashes, session updates, and messages you have sent by
-          WhatsApp or email. Use{" "}
-          <span className="font-medium text-slate-800">Resend on WhatsApp</span>{" "}
-          if you need to send a WhatsApp message again.
+          WhatsApp or email.
         </p>
       </Card>
 
@@ -195,7 +193,6 @@ export function FeedTab({
         const whatsappBody = entry.whatsapp?.body ?? entry.body;
         const copyId = entry.whatsapp?.id ?? entry.id;
         const toTrainer = entry.whatsapp?.recipient === "trainer";
-        const sendUrl = entry.whatsapp?.sendUrl ?? null;
         const isOutbound = entry.isWhatsApp || entry.isEmail;
 
         return (
@@ -263,26 +260,6 @@ export function FeedTab({
               )}
             />
 
-            {sendUrl ? (
-              <div className="mt-3">
-                <a
-                  href={sendUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50"
-                >
-                  Resend on WhatsApp
-                </a>
-              </div>
-            ) : entry.isWhatsApp &&
-              entry.whatsapp?.recipient === "client" &&
-              !validateWhatsAppPhone(entry.whatsapp.phone).ok ? (
-              <p className="mt-3 text-sm text-amber-800" role="status">
-                Cannot open WhatsApp — add or check this client&apos;s phone
-                number (e.g. +447…).
-              </p>
-            ) : null}
-
             {entry.conflictAlert?.canNotify &&
             entry.kind === "template_conflict" ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -296,7 +273,7 @@ export function FeedTab({
                   {notifyingId === entry.conflictAlert.id
                     ? "Sending…"
                     : entry.conflictAlert.status === "notified"
-                      ? "Resend on WhatsApp"
+                      ? "Notify again"
                       : "Notify client"}
                 </Button>
                 {entry.conflictAlert.status === "notified" ? (
