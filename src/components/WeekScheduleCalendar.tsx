@@ -52,7 +52,6 @@ import {
   scheduleGridContentHeight,
   useScheduleViewportHeight,
 } from "@/components/schedule/useScheduleViewportHeight";
-import { Button } from "@/components/ui";
 
 type ClientOption = ScheduleClientOption;
 type LocationOption = ScheduleLocationOption;
@@ -161,8 +160,12 @@ function DayScheduleGrid({
                   onClick={() => onRequestAdd(selectedDay, rowTime)}
                   aria-label={`Add a slot at ${rowTime}`}
                   title={`Add a slot at ${rowTime}`}
-                  className="h-full min-h-0 w-full rounded-lg transition hover:bg-slate-50 active:bg-slate-100"
-                />
+                  className="flex h-full min-h-0 w-full items-center justify-center text-slate-300 transition hover:bg-slate-50/80 hover:text-slate-400 active:bg-slate-100"
+                >
+                  <span aria-hidden className="text-sm font-light leading-none">
+                    +
+                  </span>
+                </button>
               ) : (
                 <div className="h-full min-h-0" />
               )}
@@ -337,8 +340,12 @@ function WeekGrid({
               onClick={() => onRequestAdd(dayOfWeek, rowTime)}
               aria-label={`Add a slot at ${rowTime}`}
               title={`Add a slot at ${rowTime}`}
-              className="h-full w-full rounded transition hover:bg-slate-50"
-            />
+              className="flex h-full w-full items-center justify-center text-slate-300 transition hover:bg-slate-50/80 hover:text-slate-400"
+            >
+              <span aria-hidden className="text-xs font-light leading-none">
+                +
+              </span>
+            </button>
           );
         }
 
@@ -540,14 +547,6 @@ export function WeekScheduleCalendar({
     }
   }
 
-  function openAddSession() {
-    if (!onAddSlot || busyKey) return;
-    setPendingAdd({
-      dayOfWeek: selectedDay,
-      startTime: scheduleStartTime,
-    });
-  }
-
   function requestAdd(dayOfWeek: number, startTime: string) {
     if (!onAddSlot || busyKey) return;
     setPendingAdd({ dayOfWeek, startTime });
@@ -583,18 +582,6 @@ export function WeekScheduleCalendar({
 
   return (
     <div>
-      {editable && onAddSlot ? (
-        <div className="mb-3 flex flex-wrap items-center gap-3 px-4 sm:mb-4 sm:px-5">
-          <Button
-            variant="secondary"
-            disabled={!!busyKey}
-            onClick={openAddSession}
-          >
-            Add a slot
-          </Button>
-        </div>
-      ) : null}
-
       {viewMode === "day" ? (
         <div className="px-4 sm:px-5">
           <div className="mb-4">
@@ -660,7 +647,7 @@ export function WeekScheduleCalendar({
       >
         {editable ? (
           <p className="mb-2 text-xs text-slate-500">
-            Tap empty space or Add a slot · tap slots to manage
+            Tap + or empty space to add a slot · tap slots to manage
           </p>
         ) : null}
         <ScheduleLegend />

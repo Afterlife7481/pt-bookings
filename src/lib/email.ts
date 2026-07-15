@@ -1,3 +1,9 @@
+import {
+  FEATURE_REQUEST_INBOX,
+  FEEDBACK_INBOX,
+  type TrainerContactKind,
+} from "@/lib/contact";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_FROM = "PT Bookings <noreply@example.com>";
 
@@ -14,6 +20,7 @@ type SendEmailParams = {
   subject: string;
   html: string;
   text: string;
+  replyTo?: string;
 };
 
 /**
@@ -39,6 +46,7 @@ export async function sendEmail(params: SendEmailParams): Promise<boolean> {
         subject: params.subject,
         html: params.html,
         text: params.text,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
       }),
     });
   } catch (cause) {
@@ -109,4 +117,58 @@ export async function sendMagicLinkEmail(params: {
 </html>`;
 
   return sendEmail({ to: params.to, subject, html, text });
+}
+
+/**
+ * Sends a trainer feature request or feedback message to the product inbox.
+ * Returns whether delivery was configured (`false` logs locally in dev).
+ */
+export async function sendTrainerContactEmail(params: {
+  kind: TrainerContactKind;
+  message: string;
+  trainerName: string;
+  trainerEmail: string;
+}): Promise<boolean> {
+  const isFeature = params.kind === "feature_request";
+  const to = isFeature ? FEATURE_REQUEST_INBOX : FEEDBACK_INBOX;
+  const label = isFeature ? "Feature request" : "Feedback";
+  const subject = `${label} from ${params.trainerName || params.trainerEmail}`;
+  const safeMessage = escapeHtml(params.message).replace(/\n/g, "<br>");
+  const safeName = escapeHtml(params.trainerName || "Trainer");
+  const safeEmail = escapeHtml(params.trainerEmail);
+
+  const text = [
+    `${label} from ${params.trainerName || "Trainer"} <${params.trainerEmail}>`,
+    "",
+    params.message,
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 12px;">${escapeHtml(label)}</h1>
+        <p style="font-size:13px;line-height:18px;color:#475569;margin:0 0 20px;">
+          From ${safeName} &lt;${safeEmail}&gt;
+        </p>
+        <div style="font-size:14px;line-height:22px;white-space:normal;">${safeMessage}</div>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to,
+    subject,
+    html,
+    text,
+    replyTo: params.trainerEmail,
+  });
+
+  if (!delivered) {
+    console.log(`[contact → ${to}] ${subject}\n${params.message}`);
+  }
+
+  return delivered;
 }

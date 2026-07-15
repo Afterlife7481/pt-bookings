@@ -218,8 +218,8 @@ export function TemplateEditorForm({
           )}
         </div>
         <p className="mb-3 text-sm text-slate-500">
-          Tap empty space or{" "}
-          <span className="font-medium text-slate-700">Add a slot</span>.
+          Tap empty space or the{" "}
+          <span className="font-medium text-slate-700">+</span> to add a slot.
           Slots cannot overlap.
         </p>
         {locations.length === 0 && (

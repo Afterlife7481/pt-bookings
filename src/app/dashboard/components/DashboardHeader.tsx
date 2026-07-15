@@ -14,6 +14,11 @@ const MAIN_MENU_HREFS = new Set([
   "/dashboard/feed",
 ]);
 
+const SUPPORT_MENU_HREFS = new Set([
+  "/dashboard/feature-request",
+  "/dashboard/feedback",
+]);
+
 const MENU_ANIMATION_MS = 280;
 
 function isNavActive(pathname: string, href: string) {
@@ -108,7 +113,13 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
   }, [mounted]);
 
   const mainItems = MENU_ITEMS.filter((item) => MAIN_MENU_HREFS.has(item.href));
-  const accountItems = MENU_ITEMS.filter((item) => !MAIN_MENU_HREFS.has(item.href));
+  const supportItems = MENU_ITEMS.filter((item) =>
+    SUPPORT_MENU_HREFS.has(item.href),
+  );
+  const accountItems = MENU_ITEMS.filter(
+    (item) =>
+      !MAIN_MENU_HREFS.has(item.href) && !SUPPORT_MENU_HREFS.has(item.href),
+  );
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
@@ -217,6 +228,26 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
                             {settings.email}
                           </span>
                         ) : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <ul className="mt-2 border-t border-slate-200 pt-2">
+                {supportItems.map((item) => {
+                  const active = isNavActive(pathname, item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
+                          active
+                            ? "bg-slate-900 text-white"
+                            : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {item.label}
                       </Link>
                     </li>
                   );

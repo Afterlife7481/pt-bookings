@@ -38,6 +38,7 @@ export function TrainerSessionDetail({
   const [error, setError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [confirmationNotice, setConfirmationNotice] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
   const [showPaidModal, setShowPaidModal] = useState(false);
   const [paidModalMode, setPaidModalMode] = useState<"mark" | "edit">("mark");
@@ -111,6 +112,7 @@ export function TrainerSessionDetail({
   ) {
     setBusy(true);
     setError(null);
+    setConfirmationNotice(false);
     if (action === "send_invoice") {
       setInvoiceError(null);
     }
@@ -135,11 +137,12 @@ export function TrainerSessionDetail({
       router.refresh();
       return;
     }
-    if (
-      action === "send_invoice" ||
-      action === "void" ||
-      action === "send_confirmation"
-    ) {
+    if (action === "send_confirmation") {
+      setDetail(data);
+      setConfirmationNotice(true);
+      return;
+    }
+    if (action === "send_invoice" || action === "void") {
       setDetail(data);
       return;
     }
@@ -493,9 +496,14 @@ export function TrainerSessionDetail({
               </>
             )}
             </div>
+            {!isPast && confirmationNotice && (
+              <p className="text-sm text-green-700" role="status">
+                Confirmation sent.
+              </p>
+            )}
             {!isPast && booking.confirmationSentAt && (
               <p className="text-sm text-slate-500">
-                Last sent{" "}
+                Last sent on{" "}
                 {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",

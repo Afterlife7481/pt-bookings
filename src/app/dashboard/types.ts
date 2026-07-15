@@ -55,6 +55,8 @@ export const MENU_ITEMS = [
   { label: "Getting started guide", href: "/dashboard/settings/getting-started" },
   { label: "Install on your phone", href: "/dashboard/settings/install" },
   { label: "Account", href: "/dashboard/settings/account" },
+  { label: "Feature request", href: "/dashboard/feature-request" },
+  { label: "Feedback", href: "/dashboard/feedback" },
 ] as const;
 
 export type TrainerSettings = {

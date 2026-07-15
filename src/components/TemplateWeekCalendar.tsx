@@ -374,11 +374,6 @@ export function TemplateWeekCalendar({
     });
   }
 
-  function openAddSession() {
-    if (readOnly || disabled || locations.length === 0) return;
-    openCell(1, scheduleStartTime, null);
-  }
-
   function slotAtRow(dayOfWeek: number, rowTime: string) {
     return (
       slots.find(
@@ -391,22 +386,6 @@ export function TemplateWeekCalendar({
 
   return (
     <>
-      {!readOnly && locations.length > 0 ? (
-        <div className="mb-3 flex flex-wrap items-center gap-3 px-4 sm:px-5">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={disabled}
-            onClick={openAddSession}
-          >
-            Add a slot
-          </Button>
-          <p className="text-xs text-slate-500">
-            Tap empty space or Add a slot
-          </p>
-        </div>
-      ) : null}
-
       <WeeklyHourGrid
         timeRows={timeRows}
         variant="compact"
@@ -428,8 +407,12 @@ export function TemplateWeekCalendar({
                 onClick={() => openCell(dayOfWeek, rowTime, null)}
                 aria-label={`Add a slot at ${rowTime}`}
                 title={`Add a slot at ${rowTime}`}
-                className="h-full w-full rounded transition hover:bg-slate-50"
-              />
+                className="flex h-full w-full items-center justify-center text-slate-300 transition hover:bg-slate-50/80 hover:text-slate-400"
+              >
+                <span aria-hidden className="text-xs font-light leading-none">
+                  +
+                </span>
+              </button>
             );
           }
 
