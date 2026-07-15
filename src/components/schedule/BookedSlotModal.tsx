@@ -121,6 +121,13 @@ export function BookedSlotModal({
     }
 
     setDetail(data);
+    if (
+      action === "send_invoice" &&
+      typeof data.whatsappUrl === "string" &&
+      data.whatsappUrl.length > 0
+    ) {
+      window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
+    }
     await onChanged();
   }
 
@@ -272,7 +279,9 @@ export function BookedSlotModal({
                   className="w-full"
                   onClick={() => void runAction("send_invoice")}
                 >
-                  {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
+                  {booking.invoiceSentAt
+                    ? "Open WhatsApp invoice again"
+                    : "Open WhatsApp invoice"}
                 </Button>
                 {invoiceError && (
                   <p className="text-sm text-red-600">{invoiceError}</p>

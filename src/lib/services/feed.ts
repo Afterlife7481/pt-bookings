@@ -1,4 +1,5 @@
 import { listWhatsAppLog } from "@/lib/whatsapp";
+import { whatsappClickToChatUrl } from "@/lib/whatsapp-link";
 import {
   conflictAlertTitle,
   formatConflictAlertBody,
@@ -32,6 +33,8 @@ export type FeedEntry = {
     recipient: "client" | "trainer";
     body: string;
     createdAt: string;
+    /** Click-to-chat URL for client drafts; null for trainer notices. */
+    sendUrl: string | null;
   };
 };
 
@@ -74,6 +77,11 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
   }
 
   for (const message of messages) {
+    const sendUrl =
+      message.recipient === "client"
+        ? whatsappClickToChatUrl(message.phone, message.body)
+        : null;
+
     entries.push({
       id: `wa-${message.id}`,
       kind: "whatsapp",
@@ -89,6 +97,7 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
         recipient: message.recipient,
         body: message.body,
         createdAt: message.createdAt,
+        sendUrl,
       },
     });
   }

@@ -13,8 +13,8 @@ export async function POST(
   const { id } = await params;
 
   try {
-    await notifyClientOfScheduleConflict(id, trainerId);
-    return Response.json({ ok: true });
+    const result = await notifyClientOfScheduleConflict(id, trainerId);
+    return Response.json(result);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to notify client";

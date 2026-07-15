@@ -409,8 +409,10 @@ export async function sendConfirmationForBooking(bookingId: string) {
     where: eq(clients.id, booking.clientId),
   });
 
+  let whatsappUrl: string | null = null;
+
   if (slot && client) {
-    await sendWhatsAppConfirmation({
+    const draft = await sendWhatsAppConfirmation({
       trainerId: booking.trainerId,
       clientId: client.id,
       phone: client.phone,
@@ -419,6 +421,7 @@ export async function sendConfirmationForBooking(bookingId: string) {
       slotEndAt: slot.endAt,
       clientName: client.name,
     });
+    whatsappUrl = draft.sendUrl;
     const ts = nowIso();
     await db
       .update(bookings)
@@ -426,7 +429,9 @@ export async function sendConfirmationForBooking(bookingId: string) {
       .where(eq(bookings.id, bookingId));
   }
 
-  return getBookingDetailForTrainer(booking.trainerId, bookingId);
+  const detail = await getBookingDetailForTrainer(booking.trainerId, bookingId);
+  if (!detail) return null;
+  return { ...detail, whatsappUrl };
 }
 
 export type TrainerBookingDetail = {
@@ -695,7 +700,7 @@ export async function sendInvoiceForBooking(bookingId: string) {
   const slotStartAt = slot?.startAt ?? booking.sessionStartAt;
   const slotEndAt = slot?.endAt ?? null;
 
-  await sendWhatsAppInvoice({
+  const draft = await sendWhatsAppInvoice({
     trainerId: booking.trainerId,
     clientId: client.id,
     phone: client.phone,
@@ -712,5 +717,7 @@ export async function sendInvoiceForBooking(bookingId: string) {
     .set({ invoiceSentAt: ts, updatedAt: ts })
     .where(eq(bookings.id, bookingId));
 
-  return getBookingDetailForTrainer(booking.trainerId, bookingId);
+  const detail = await getBookingDetailForTrainer(booking.trainerId, bookingId);
+  if (!detail) return null;
+  return { ...detail, whatsappUrl: draft.sendUrl };
 }

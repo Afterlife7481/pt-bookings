@@ -217,8 +217,15 @@ export default function ClientDetailPage() {
     const data = await res.json();
     setBusyBookingId(null);
     if (!res.ok) {
-      setBookingActionError(data.error ?? "Failed to send message");
+      setBookingActionError(data.error ?? "Failed to prepare message");
       return;
+    }
+    if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
+      window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
+    } else {
+      setBookingActionError(
+        "Message ready in Feed, but this client phone number cannot open WhatsApp. Use a number with country code (e.g. +44…).",
+      );
     }
     await loadClient();
   }
@@ -637,7 +644,7 @@ export default function ClientDetailPage() {
                     disabled={busyBookingId === b.id}
                     onClick={() => sendSessionWhatsApp(b.id)}
                   >
-                    {busyBookingId === b.id ? "Sending…" : "Send message"}
+                    {busyBookingId === b.id ? "Opening…" : "Open WhatsApp"}
                   </Button>
                   <Button
                     variant="danger"

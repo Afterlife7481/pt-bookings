@@ -166,7 +166,7 @@ export async function notifyClientOfScheduleConflict(
   const link = conflictUrl(row.alert.acknowledgmentToken);
   const body = `Hi ${row.clientName}, your regular PT session on ${row.alert.slotLabel} cannot be booked${row.alert.holidayLabel ? ` (${row.alert.holidayLabel})` : " (trainer time off)"}. Please confirm you have received this: ${link}`;
 
-  await sendWhatsAppTemplateConflictToClient({
+  const draft = await sendWhatsAppTemplateConflictToClient({
     trainerId,
     clientId: row.alert.clientId,
     phone: row.clientPhone,
@@ -184,7 +184,7 @@ export async function notifyClientOfScheduleConflict(
     })
     .where(eq(scheduleConflictAlerts.id, alertId));
 
-  return { ok: true as const };
+  return { ok: true as const, whatsappUrl: draft.sendUrl };
 }
 
 export async function getScheduleConflictPreview(

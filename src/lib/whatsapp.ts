@@ -13,6 +13,14 @@ import {
   formatPaymentOptionsText,
   type PaymentDetailsForMessage,
 } from "@/lib/payments";
+import { whatsappClickToChatUrl } from "@/lib/whatsapp-link";
+
+export type WhatsAppDraft = {
+  phone: string;
+  body: string;
+  /** wa.me URL for client messages; null for trainer in-app notices or bad phones. */
+  sendUrl: string | null;
+};
 
 type WhatsAppMessageType =
   | "confirmation"
@@ -33,7 +41,13 @@ async function logWhatsAppMessage(params: {
   messageType: WhatsAppMessageType;
   recipient?: "client" | "trainer";
   body: string;
-}) {
+}): Promise<WhatsAppDraft> {
+  const recipient = params.recipient ?? "client";
+  const sendUrl =
+    recipient === "client"
+      ? whatsappClickToChatUrl(params.phone, params.body)
+      : null;
+
   const db = getDb();
   await db.insert(whatsappMessages).values({
     id: nanoid(),
@@ -41,11 +55,14 @@ async function logWhatsAppMessage(params: {
     clientId: params.clientId ?? null,
     phone: params.phone,
     messageType: params.messageType,
-    recipient: params.recipient ?? "client",
+    recipient,
     body: params.body,
-    status: "sent",
+    // Pending until the trainer opens WhatsApp and taps Send.
+    status: "pending",
     createdAt: nowIso(),
   });
+
+  return { phone: params.phone, body: params.body, sendUrl };
 }
 
 export async function sendWhatsAppConfirmation(params: {
@@ -56,13 +73,13 @@ export async function sendWhatsAppConfirmation(params: {
   slotStartAt: string;
   slotEndAt?: string | null;
   clientName: string;
-}) {
+}): Promise<WhatsAppDraft> {
   const link = bookingUrl(params.bookingToken);
   const body = `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -80,13 +97,13 @@ export async function sendWhatsAppLastMinute(params: {
   slotEndAt?: string | null;
   clientName: string;
   lockHours: number;
-}) {
+}): Promise<WhatsAppDraft> {
   const link = interestUrl(params.offerToken);
   const body = `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -105,7 +122,7 @@ export async function sendWhatsAppLastMinuteAcceptedToTrainer(params: {
 }) {
   const body = `${params.clientName} accepted your last-minute offer for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is now booked.`;
 
-  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${body}`);
 
   await logWhatsAppMessage({
     trainerId: params.trainerId,
@@ -127,7 +144,7 @@ export async function sendWhatsAppLastMinuteDeclinedToTrainer(params: {
 }) {
   const body = `${params.clientName} declined your last-minute offer for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is open again — you can send another offer.`;
 
-  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${body}`);
 
   await logWhatsAppMessage({
     trainerId: params.trainerId,
@@ -149,7 +166,7 @@ export async function sendWhatsAppSessionCanceledToTrainer(params: {
 }) {
   const body = `${params.clientName} canceled their PT session on ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. The slot is open again.`;
 
-  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${body}`);
 
   await logWhatsAppMessage({
     trainerId: params.trainerId,
@@ -173,7 +190,7 @@ export async function sendWhatsAppSessionChangedToTrainer(params: {
 }) {
   const body = `${params.clientName} changed their session from ${formatSlotLabel(params.fromSlotStartAt, params.fromSlotEndAt)} to ${formatSlotLabel(params.toSlotStartAt, params.toSlotEndAt)}.`;
 
-  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${body}`);
+  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${body}`);
 
   await logWhatsAppMessage({
     trainerId: params.trainerId,
@@ -193,13 +210,13 @@ export async function sendWhatsAppSessionChangedToClient(params: {
   bookingToken: string;
   slotStartAt: string;
   slotEndAt?: string | null;
-}) {
+}): Promise<WhatsAppDraft> {
   const link = bookingUrl(params.bookingToken);
   const body = `Hi ${params.clientName}, your PT session has been changed to ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -215,12 +232,12 @@ export async function sendWhatsAppInterestAck(params: {
   slotStartAt: string;
   slotEndAt?: string | null;
   clientName: string;
-}) {
+}): Promise<WhatsAppDraft> {
   const body = `Thanks ${params.clientName}! Your trainer has been notified of your interest in ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}.`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -238,16 +255,16 @@ export async function sendWhatsAppInvoice(params: {
   slotEndAt?: string | null;
   amountPence: number;
   paymentDetails: PaymentDetailsForMessage;
-}) {
+}): Promise<WhatsAppDraft> {
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
   const amount = formatInvoiceAmount(params.amountPence);
   const paymentLines = formatPaymentOptionsText(params.paymentDetails);
 
   const body = `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -262,10 +279,10 @@ export async function sendWhatsAppTemplateConflictToClient(params: {
   phone: string;
   clientName: string;
   body: string;
-}) {
-  console.log(`[WhatsApp → ${params.phone}] ${params.body}`);
+}): Promise<WhatsAppDraft> {
+  console.log(`[WhatsApp draft → ${params.phone}] ${params.body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,
@@ -281,7 +298,7 @@ export async function sendWhatsAppTemplateConflictAckToTrainer(params: {
   trainerEmail: string;
   body: string;
 }) {
-  console.log(`[WhatsApp → trainer ${params.trainerEmail}] ${params.body}`);
+  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${params.body}`);
 
   await logWhatsAppMessage({
     trainerId: params.trainerId,
@@ -299,12 +316,12 @@ export async function sendWhatsAppTemplateConflictAckToClient(params: {
   phone: string;
   clientName: string;
   slotLabel: string;
-}) {
+}): Promise<WhatsAppDraft> {
   const body = `Thanks ${params.clientName}! We have recorded your acknowledgement for the schedule change (${params.slotLabel}).`;
 
-  console.log(`[WhatsApp → ${params.phone}] ${body}`);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
-  await logWhatsAppMessage({
+  return logWhatsAppMessage({
     trainerId: params.trainerId,
     clientId: params.clientId,
     phone: params.phone,

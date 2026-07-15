@@ -135,12 +135,18 @@ export function FeedTab({
       });
       const data = await res.json();
       if (!res.ok) {
-        setNotifyError(data.error ?? "Failed to send message");
+        setNotifyError(data.error ?? "Failed to prepare message");
         return;
+      }
+      if (
+        typeof data.whatsappUrl === "string" &&
+        data.whatsappUrl.length > 0
+      ) {
+        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
       }
       await onRefresh();
     } catch {
-      setNotifyError("Failed to send message");
+      setNotifyError("Failed to prepare message");
     } finally {
       setNotifyingId(null);
     }
@@ -151,9 +157,9 @@ export function FeedTab({
       <Card className="!border-slate-200 !bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Everything happening with your clients — schedule clashes, session
-          updates, and outbound messages. Copy client messages from here and
-          send them manually until messaging is integrated.
+          Schedule clashes, session updates, and WhatsApp drafts. Tap{" "}
+          <span className="font-medium text-slate-800">Open WhatsApp</span> to
+          send from your number — the message is pre-filled; you just hit Send.
         </p>
       </Card>
 
@@ -176,6 +182,7 @@ export function FeedTab({
         const whatsappBody = entry.whatsapp?.body ?? entry.body;
         const copyId = entry.whatsapp?.id ?? entry.id;
         const toTrainer = entry.whatsapp?.recipient === "trainer";
+        const sendUrl = entry.whatsapp?.sendUrl ?? null;
 
         return (
           <Card key={entry.id} className={cn("relative", entryTone(entry))}>
@@ -242,6 +249,19 @@ export function FeedTab({
               )}
             />
 
+            {sendUrl ? (
+              <div className="mt-3">
+                <a
+                  href={sendUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  Open WhatsApp
+                </a>
+              </div>
+            ) : null}
+
             {entry.conflictAlert?.canNotify &&
             entry.kind === "template_conflict" ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -253,13 +273,15 @@ export function FeedTab({
                   }
                 >
                   {notifyingId === entry.conflictAlert.id
-                    ? "Sending…"
+                    ? "Opening…"
                     : entry.conflictAlert.status === "notified"
-                      ? "Resend message"
-                      : "Notify client"}
+                      ? "Open WhatsApp again"
+                      : "Notify via WhatsApp"}
                 </Button>
                 {entry.conflictAlert.status === "notified" ? (
-                  <span className="text-xs text-amber-800">Message sent</span>
+                  <span className="text-xs text-amber-800">
+                    Draft ready — send from WhatsApp if you have not already
+                  </span>
                 ) : null}
               </div>
             ) : null}

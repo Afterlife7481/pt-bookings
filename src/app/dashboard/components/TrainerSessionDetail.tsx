@@ -140,10 +140,20 @@ export function TrainerSessionDetail({
     if (action === "send_confirmation") {
       setDetail(data);
       setConfirmationNotice(true);
+      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
+        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
+      }
       return;
     }
     if (action === "send_invoice" || action === "void") {
       setDetail(data);
+      if (
+        action === "send_invoice" &&
+        typeof data.whatsappUrl === "string" &&
+        data.whatsappUrl.length > 0
+      ) {
+        window.open(data.whatsappUrl, "_blank", "noopener,noreferrer");
+      }
       return;
     }
     setSaved(true);
@@ -385,12 +395,12 @@ export function TrainerSessionDetail({
 
           <div className="border-t border-slate-100 pt-4">
             <p className="text-sm text-slate-500">
-              Sends a message with the session amount and your bank payment
-              details from Settings.
+              Opens WhatsApp with the session amount and your bank payment
+              details from Settings — send from your number.
             </p>
             {booking.invoiceSentAt && (
               <p className="mt-1 text-sm text-slate-500">
-                Last sent{" "}
+                Last prepared{" "}
                 {new Date(booking.invoiceSentAt).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -409,7 +419,7 @@ export function TrainerSessionDetail({
               className="mt-3 w-full sm:w-auto"
               onClick={() => runAction("send_invoice")}
             >
-              {booking.invoiceSentAt ? "Resend invoice" : "Send invoice"}
+              {booking.invoiceSentAt ? "Open WhatsApp invoice again" : "Open WhatsApp invoice"}
             </Button>
             {effectiveSessionPrice == null && !isInactive && (
               <p className="mt-2 text-sm text-amber-700">
@@ -483,7 +493,7 @@ export function TrainerSessionDetail({
                   className="w-full sm:w-auto"
                   onClick={() => runAction("send_confirmation")}
                 >
-                  Send confirmation
+                  Open WhatsApp confirmation
                 </Button>
                 <Button
                   variant="danger"
@@ -498,12 +508,13 @@ export function TrainerSessionDetail({
             </div>
             {!isPast && confirmationNotice && (
               <p className="text-sm text-green-700" role="status">
-                Confirmation sent.
+                WhatsApp opened with the confirmation — tap Send in WhatsApp to
+                deliver it.
               </p>
             )}
             {!isPast && booking.confirmationSentAt && (
               <p className="text-sm text-slate-500">
-                Last sent on{" "}
+                Last prepared on{" "}
                 {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
                   dateStyle: "medium",
                   timeStyle: "short",
