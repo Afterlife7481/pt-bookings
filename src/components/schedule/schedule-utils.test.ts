@@ -4,8 +4,11 @@ import { timeRowsInScheduleRange } from "@/lib/schedule-grid";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import {
   adjacentDaySelection,
+  buildDayPickerChips,
   dateForWeekDay,
   findEntryForScheduleRow,
+  isCalendarDatePast,
+  isCalendarDateToday,
   isPastWeekDay,
   isTodayWeekDay,
 } from "./schedule-utils";
@@ -88,5 +91,16 @@ describe("schedule-utils week grid", () => {
   it("wraps across week boundaries when swiping from Sunday or Monday", () => {
     expect(adjacentDaySelection(0, 1)).toEqual({ dayOfWeek: 1, weekDelta: 1 });
     expect(adjacentDaySelection(1, -1)).toEqual({ dayOfWeek: 0, weekDelta: -1 });
+  });
+
+  it("builds a scrollable day strip that includes the active week", () => {
+    const today = new Date(2026, 6, 3, 12, 0, 0); // Fri 3 Jul 2026
+    const chips = buildDayPickerChips("2026-06-29", 2, 6, today);
+    expect(chips[0]?.dateKey).toBe("2026-06-15");
+    expect(chips.some((chip) => chip.dateKey === "2026-07-03")).toBe(true);
+    expect(chips.some((chip) => chip.weekStart === "2026-06-29")).toBe(true);
+    expect(isCalendarDateToday("2026-07-03", today)).toBe(true);
+    expect(isCalendarDatePast("2026-07-02", today)).toBe(true);
+    expect(isCalendarDatePast("2026-07-03", today)).toBe(false);
   });
 });

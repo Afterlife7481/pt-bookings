@@ -584,12 +584,12 @@ body {
 }
 
 .holiday-hatch {
-  background-color: rgb(255 251 235 / 0.92);
+  background-color: rgb(248 250 252 / 0.95);
   background-image: repeating-linear-gradient(
     -45deg,
     transparent,
     transparent 7px,
-    rgb(217 119 6 / 0.2) 7px,
-    rgb(217 119 6 / 0.2) 8px
+    rgb(148 163 184 / 0.35) 7px,
+    rgb(148 163 184 / 0.35) 8px
   );
 }

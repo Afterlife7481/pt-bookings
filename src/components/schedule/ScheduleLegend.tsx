@@ -2,11 +2,17 @@ import { cn } from "@/lib/utils";
 
 export function ScheduleLegend({ className }: { className?: string }) {
   const items = [
-    { swatch: "bg-blue-600", label: "Recurring slot" },
-    { swatch: "bg-slate-800", label: "Booked slot" },
+    {
+      swatch: "border border-slate-500 bg-slate-800",
+      label: "Booked slot",
+    },
+    {
+      swatch: "border-2 border-sky-300 bg-slate-800",
+      label: "Recurring booked",
+    },
     { swatch: "border border-green-200 bg-green-50", label: "Open slot" },
     {
-      swatch: "border border-amber-200 bg-amber-50",
+      swatch: "border-2 border-green-500 bg-green-50",
       label: "Open slot with last-minute match",
     },
     {
@@ -18,7 +24,7 @@ export function ScheduleLegend({ className }: { className?: string }) {
       label: "Past day",
     },
     {
-      swatch: "holiday-hatch border border-amber-200",
+      swatch: "holiday-hatch border border-slate-300",
       label: "Time off (blocked slots)",
     },
   ] as const;

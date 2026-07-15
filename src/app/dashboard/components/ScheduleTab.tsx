@@ -26,6 +26,7 @@ export function ScheduleTab({
   onDismissError,
   onChangeWeek,
   onGoToThisWeek,
+  onGoToWeek,
   onApplyTemplate,
   onAddSlot,
   onRemoveSlot,
@@ -46,6 +47,7 @@ export function ScheduleTab({
   onDismissError: () => void;
   onChangeWeek: (delta: number) => void;
   onGoToThisWeek: () => void;
+  onGoToWeek: (weekStart: string) => void;
   onApplyTemplate: () => Promise<ApplyTemplateOutcome>;
   onAddSlot: (
     dayOfWeek: number,
@@ -146,29 +148,31 @@ export function ScheduleTab({
             </button>
           </InlineNotice>
         )}
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-          <Button
-            variant="secondary"
-            className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-            onClick={() => onChangeWeek(-1)}
-          >
-            ← Prev
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-            onClick={onGoToThisWeek}
-          >
-            This week
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-            onClick={() => onChangeWeek(1)}
-          >
-            Next →
-          </Button>
-        </div>
+        {viewMode === "week" ? (
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+            <Button
+              variant="secondary"
+              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
+              onClick={() => onChangeWeek(-1)}
+            >
+              ← Prev
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
+              onClick={onGoToThisWeek}
+            >
+              This week
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
+              onClick={() => onChangeWeek(1)}
+            >
+              Next →
+            </Button>
+          </div>
+        ) : null}
       </div>
       {settings ? (
         <WeekScheduleCalendar
@@ -186,6 +190,7 @@ export function ScheduleTab({
           }))}
           locations={trainerLocations}
           onChangeWeek={onChangeWeek}
+          onGoToWeek={onGoToWeek}
           onAddSlot={onAddSlot}
           onRemoveSlot={onRemoveSlot}
           onAllocateSlot={onAllocateSlot}

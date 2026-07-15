@@ -21,6 +21,7 @@ export default function SchedulePage() {
       onDismissError={() => schedule.setScheduleError(null)}
       onChangeWeek={schedule.changeWeek}
       onGoToThisWeek={schedule.goToThisWeek}
+      onGoToWeek={schedule.goToWeek}
       onApplyTemplate={schedule.applyTemplateToCurrentWeek}
       onAddSlot={schedule.addScheduleSlot}
       onRemoveSlot={schedule.removeScheduleSlot}

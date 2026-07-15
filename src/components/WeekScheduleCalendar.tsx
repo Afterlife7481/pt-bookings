@@ -23,14 +23,16 @@ import {
 } from "@/components/schedule/ScheduleModals";
 import {
   adjacentDaySelection,
+  buildDayPickerChips,
   dateForWeekDay,
   dayNumberForWeekDay,
-  dayShortDate,
   defaultSelectedDay,
   displayRowHasEntry,
   entriesForDate,
   entryEndTime,
   entryStartTime,
+  isCalendarDatePast,
+  isCalendarDateToday,
   isPastWeekDay,
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
@@ -39,7 +41,6 @@ import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/constants";
 import {
-  WEEK_DAYS,
   scheduleGridTimeLabel,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
@@ -207,55 +208,95 @@ function DayPicker({
   weekStart,
   selectedDay,
   holidayIndex,
-  onSelectDay,
+  onSelectCalendarDay,
 }: {
   weekStart: string;
   selectedDay: number;
   holidayIndex: HolidayScheduleIndex;
-  onSelectDay: (day: number) => void;
+  onSelectCalendarDay: (nextWeekStart: string, dayOfWeek: number) => void;
 }) {
-  return (
-    <div className="grid grid-cols-7 gap-1">
-      {WEEK_DAYS.map((day) => {
-        const isSelected = selectedDay === day.value;
-        const isPast = isPastWeekDay(weekStart, day.value);
-        const isFullDayOff =
-          !isPast && holidayIndex.unavailableDays.has(day.value);
-        const isPartialDayOff =
-          !isPast &&
-          !isFullDayOff &&
-          holidayIndex.partialHolidayDays.has(day.value);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const selectedChipRef = useRef<HTMLButtonElement>(null);
+  const chips = useMemo(() => buildDayPickerChips(weekStart), [weekStart]);
+  const selectedDateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
 
-        return (
-          <button
-            key={day.value}
-            type="button"
-            onClick={() => onSelectDay(day.value)}
-            className={cn(
-              "flex min-w-0 flex-col items-center rounded-xl border px-1 py-2 sm:px-2",
-              isSelected
-                ? "border-slate-900 bg-slate-900 text-white"
-                : isPast
-                  ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
-                  : isFullDayOff
-                    ? "holiday-hatch border-amber-200 text-amber-950 active:bg-amber-50/70"
-                    : isPartialDayOff
-                      ? "border-amber-300 bg-amber-50/50 text-amber-950 active:bg-amber-50"
-                      : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
-            )}
-          >
-            <span className="text-[10px] font-semibold sm:text-xs">{day.label}</span>
-            <span
+  useEffect(() => {
+    const chip = selectedChipRef.current;
+    const scroller = scrollerRef.current;
+    if (!chip || !scroller) return;
+    const chipLeft = chip.offsetLeft;
+    const chipRight = chipLeft + chip.offsetWidth;
+    const viewLeft = scroller.scrollLeft;
+    const viewRight = viewLeft + scroller.clientWidth;
+    if (chipLeft < viewLeft || chipRight > viewRight) {
+      chip.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
+    }
+  }, [selectedDateKey, chips]);
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      aria-label="Choose day"
+    >
+      <div className="flex w-max gap-1">
+        {chips.map((chip) => {
+          const isSelected = chip.dateKey === selectedDateKey;
+          const isPast = isCalendarDatePast(chip.dateKey);
+          const isToday = isCalendarDateToday(chip.dateKey);
+          const inLoadedWeek = chip.weekStart === weekStart;
+          const isFullDayOff =
+            inLoadedWeek &&
+            !isPast &&
+            holidayIndex.unavailableDays.has(chip.dayOfWeek);
+          const isPartialDayOff =
+            inLoadedWeek &&
+            !isPast &&
+            !isFullDayOff &&
+            holidayIndex.partialHolidayDays.has(chip.dayOfWeek);
+
+          return (
+            <button
+              key={chip.dateKey}
+              ref={isSelected ? selectedChipRef : undefined}
+              type="button"
+              onClick={() =>
+                onSelectCalendarDay(chip.weekStart, chip.dayOfWeek)
+              }
               className={cn(
-                "text-[10px]",
-                isSelected ? "text-slate-300" : "text-slate-400",
+                "flex w-11 shrink-0 flex-col items-center rounded-xl border px-1 py-2",
+                isSelected
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : isPast
+                    ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
+                    : isFullDayOff
+                      ? "holiday-hatch border-slate-300 text-slate-700 active:bg-slate-50/70"
+                      : isPartialDayOff
+                        ? "border-slate-300 bg-slate-100/70 text-slate-700 active:bg-slate-100"
+                        : isToday
+                          ? "border-sky-400 bg-sky-50 text-slate-900 active:bg-sky-100"
+                          : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
               )}
             >
-              {dayShortDate(weekStart, day.value)}
-            </span>
-          </button>
-        );
-      })}
+              <span className="text-[10px] font-semibold">
+                {chip.weekdayLabel}
+              </span>
+              <span
+                className={cn(
+                  "text-[10px]",
+                  isSelected ? "text-slate-300" : "text-slate-500",
+                )}
+              >
+                {chip.dayNumber}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -395,6 +436,7 @@ export function WeekScheduleCalendar({
   clients = [],
   locations = [],
   onChangeWeek,
+  onGoToWeek,
   onAddSlot,
   onRemoveSlot,
   onAllocateSlot,
@@ -411,6 +453,7 @@ export function WeekScheduleCalendar({
   clients?: ClientOption[];
   locations?: LocationOption[];
   onChangeWeek?: (delta: number) => void;
+  onGoToWeek?: (weekStart: string) => void;
   onAddSlot?: (
     dayOfWeek: number,
     startTime: string,
@@ -449,9 +492,11 @@ export function WeekScheduleCalendar({
   const selectedDayRef = useRef(selectedDay);
   const weekStartRef = useRef(weekStart);
   const onChangeWeekRef = useRef(onChangeWeek);
+  const onGoToWeekRef = useRef(onGoToWeek);
   selectedDayRef.current = selectedDay;
   weekStartRef.current = weekStart;
   onChangeWeekRef.current = onChangeWeek;
+  onGoToWeekRef.current = onGoToWeek;
 
   const gridViewportHeight = useScheduleViewportHeight(gridRef, {
     enabled: true,
@@ -499,6 +544,14 @@ export function WeekScheduleCalendar({
     setSelectedDay(next.dayOfWeek);
     onChangeWeekRef.current(next.weekDelta);
   }, []);
+
+  function selectCalendarDay(nextWeekStart: string, dayOfWeek: number) {
+    selectedDayRef.current = dayOfWeek;
+    setSelectedDay(dayOfWeek);
+    if (nextWeekStart === weekStartRef.current) return;
+    pendingWeekDayRef.current = dayOfWeek;
+    onGoToWeekRef.current?.(nextWeekStart);
+  }
 
   useEffect(() => {
     setSelectedOpenSlot((prev) => {
@@ -589,7 +642,7 @@ export function WeekScheduleCalendar({
               weekStart={weekStart}
               selectedDay={selectedDay}
               holidayIndex={holidayIndex}
-              onSelectDay={setSelectedDay}
+              onSelectCalendarDay={selectCalendarDay}
             />
           </div>
 

@@ -253,7 +253,7 @@ export function WeeklyHourGrid({
                   todayDay
                     ? "border-sky-700 bg-slate-900"
                     : "border-slate-200",
-                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-amber-50/70" : partialHolidayDay ? "bg-amber-50/40" : "bg-slate-50"),
+                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-slate-100/80" : partialHolidayDay ? "bg-slate-100/50" : "bg-slate-50"),
                 )}
               >
                 <div

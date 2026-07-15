@@ -1,7 +1,8 @@
-import { addDays, parseDateOnly, slotTimeLabel } from "@/lib/constants";
+import { addDays, formatDate, parseDateOnly, slotTimeLabel, startOfWeekMonday } from "@/lib/constants";
 import {
   slotCoversGridRow,
   slotGridRowSpan,
+  WEEK_DAYS,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
@@ -31,6 +32,63 @@ export function dayNumberForWeekDay(weekStart: string, dayOfWeek: number): strin
   const d = dateForWeekDay(weekStart, dayOfWeek);
   const month = d.toLocaleDateString("en-GB", { month: "short" });
   return `${month} ${d.getDate()}`;
+}
+
+export type DayPickerChip = {
+  dateKey: string;
+  weekStart: string;
+  dayOfWeek: number;
+  weekdayLabel: string;
+  dayNumber: string;
+};
+
+/** Horizontal day-strip chips: a few weeks around today, expanded to include active week. */
+export function buildDayPickerChips(
+  activeWeekStart: string,
+  weeksBefore = 2,
+  weeksAfter = 6,
+  today: Date = new Date(),
+): DayPickerChip[] {
+  const todayMonday = startOfWeekMonday(today);
+  const activeMonday = parseDateOnly(activeWeekStart);
+  let rangeStart = addDays(todayMonday, -weeksBefore * 7);
+  let rangeEndExclusive = addDays(todayMonday, weeksAfter * 7);
+
+  if (activeMonday.getTime() < rangeStart.getTime()) {
+    rangeStart = addDays(activeMonday, -7);
+  }
+  if (activeMonday.getTime() >= rangeEndExclusive.getTime()) {
+    rangeEndExclusive = addDays(activeMonday, 14);
+  }
+
+  const chips: DayPickerChip[] = [];
+  for (
+    let cursor = new Date(rangeStart);
+    cursor.getTime() < rangeEndExclusive.getTime();
+    cursor = addDays(cursor, 1)
+  ) {
+    const dayOfWeek = cursor.getDay();
+    const weekStart = formatDate(startOfWeekMonday(cursor));
+    const meta = WEEK_DAYS.find((day) => day.value === dayOfWeek);
+    chips.push({
+      dateKey: formatDate(cursor),
+      weekStart,
+      dayOfWeek,
+      weekdayLabel: meta?.label ?? cursor.toLocaleDateString("en-GB", { weekday: "short" }),
+      dayNumber: String(cursor.getDate()),
+    });
+  }
+  return chips;
+}
+
+export function isCalendarDatePast(dateKey: string, today: Date = new Date()): boolean {
+  const day = parseDateOnly(dateKey);
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return day.getTime() < startToday.getTime();
+}
+
+export function isCalendarDateToday(dateKey: string, today: Date = new Date()): boolean {
+  return dateKey === formatDate(today);
 }
 
 export function defaultSelectedDay(weekStart: string): number {
@@ -174,21 +232,21 @@ export function entryRowSpan(entry: ScheduleEntry): number {
 export function bookedSlotColorClasses(recurring: boolean, onPastDay = false) {
   if (onPastDay) {
     return recurring
-      ? "border-blue-400/80 bg-blue-600/45 text-white"
+      ? "border-sky-300/90 bg-slate-800/45 text-white"
       : "border-slate-500/80 bg-slate-800/45 text-white";
   }
 
   return recurring
-    ? "border-blue-300 bg-blue-600 text-white active:bg-blue-700"
-    : "border-slate-400 bg-slate-800 text-white active:bg-slate-700";
+    ? "border-sky-300 bg-slate-800 text-white active:bg-slate-700"
+    : "border-slate-500 bg-slate-800 text-white active:bg-slate-700";
 }
 
-export function bookedSlotSubtextClasses(recurring: boolean, onPastDay = false) {
+export function bookedSlotSubtextClasses(_recurring: boolean, onPastDay = false) {
   if (onPastDay) {
-    return recurring ? "text-blue-50" : "text-slate-200";
+    return "text-slate-200";
   }
 
-  return recurring ? "text-blue-100" : "text-slate-300";
+  return "text-slate-300";
 }
 
 export function openSlotColorClasses(
@@ -208,8 +266,8 @@ export function openSlotColorClasses(
     }
     if (hasMatch) {
       return cn(
-        "border-amber-300/80 bg-amber-100/45",
-        selected && "border-amber-400/90 bg-amber-100/60 ring-2 ring-amber-300/80",
+        "border-green-500/90 bg-green-100/40",
+        selected && "border-green-600/90 bg-green-100/55 ring-2 ring-green-400/80",
       );
     }
     return cn(
@@ -226,8 +284,8 @@ export function openSlotColorClasses(
   }
   if (hasMatch) {
     return cn(
-      "border-amber-200 bg-amber-50 active:border-amber-300 active:bg-amber-100",
-      selected && "border-amber-400 bg-amber-100 ring-2 ring-amber-300",
+      "border-green-500 bg-green-50 active:border-green-600 active:bg-green-100",
+      selected && "border-green-600 bg-green-100 ring-2 ring-green-400",
     );
   }
   return cn(
@@ -242,23 +300,16 @@ export function openSlotTextClasses(
   onPastDay = false,
 ) {
   const isHeld = !!lm?.heldForClientId;
-  const hasMatch = (lm?.eligibleCount ?? 0) > 0;
 
   if (onPastDay) {
     if (isHeld) {
       return line === "primary" ? "text-white" : "text-purple-100";
-    }
-    if (hasMatch) {
-      return line === "primary" ? "text-amber-950" : "text-amber-800";
     }
     return line === "primary" ? "text-green-900" : "text-green-700";
   }
 
   if (isHeld) {
     return line === "primary" ? "text-white" : "text-purple-100";
-  }
-  if (hasMatch) {
-    return line === "primary" ? "text-amber-900" : "text-amber-700";
   }
   return line === "primary" ? "text-green-800" : "text-green-600";
 }

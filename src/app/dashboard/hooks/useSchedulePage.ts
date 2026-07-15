@@ -62,6 +62,10 @@ export function useSchedulePage() {
     setWeekStart(defaultWeekStart());
   }
 
+  function goToWeek(nextWeekStart: string) {
+    setWeekStart(nextWeekStart);
+  }
+
   async function runScheduleAction(action: () => Promise<void>) {
     setScheduleError(null);
     try {
@@ -186,6 +190,7 @@ export function useSchedulePage() {
     refresh,
     changeWeek,
     goToThisWeek,
+    goToWeek,
     applyTemplateToCurrentWeek,
     addScheduleSlot,
     updateScheduleSlotLocation,
