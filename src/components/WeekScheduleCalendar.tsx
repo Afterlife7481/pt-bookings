@@ -207,12 +207,10 @@ function DayScheduleGrid({
 function DayPicker({
   weekStart,
   selectedDay,
-  holidayIndex,
   onSelectCalendarDay,
 }: {
   weekStart: string;
   selectedDay: number;
-  holidayIndex: HolidayScheduleIndex;
   onSelectCalendarDay: (nextWeekStart: string, dayOfWeek: number) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -248,16 +246,6 @@ function DayPicker({
           const isSelected = chip.dateKey === selectedDateKey;
           const isPast = isCalendarDatePast(chip.dateKey);
           const isToday = isCalendarDateToday(chip.dateKey);
-          const inLoadedWeek = chip.weekStart === weekStart;
-          const isFullDayOff =
-            inLoadedWeek &&
-            !isPast &&
-            holidayIndex.unavailableDays.has(chip.dayOfWeek);
-          const isPartialDayOff =
-            inLoadedWeek &&
-            !isPast &&
-            !isFullDayOff &&
-            holidayIndex.partialHolidayDays.has(chip.dayOfWeek);
 
           return (
             <button
@@ -273,13 +261,9 @@ function DayPicker({
                   ? "border-slate-900 bg-slate-900 text-white"
                   : isPast
                     ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
-                    : isFullDayOff
-                      ? "holiday-hatch border-slate-300 text-slate-700 active:bg-slate-50/70"
-                      : isPartialDayOff
-                        ? "border-slate-300 bg-slate-100/70 text-slate-700 active:bg-slate-100"
-                        : isToday
-                          ? "border-sky-400 bg-sky-50 text-slate-900 active:bg-sky-100"
-                          : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
+                    : isToday
+                      ? "border-sky-400 bg-sky-50 text-slate-900 active:bg-sky-100"
+                      : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
               )}
             >
               <span className="text-[10px] font-semibold">
@@ -343,11 +327,6 @@ function WeekGrid({
       isUnavailableDay={(dayOfWeek) =>
         !isPastWeekDay(weekStart, dayOfWeek) &&
         holidayIndex.unavailableDays.has(dayOfWeek)
-      }
-      isPartialHolidayDay={(dayOfWeek) =>
-        !isPastWeekDay(weekStart, dayOfWeek) &&
-        !holidayIndex.unavailableDays.has(dayOfWeek) &&
-        holidayIndex.partialHolidayDays.has(dayOfWeek)
       }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
       getDayHeader={(day) => ({
@@ -641,7 +620,6 @@ export function WeekScheduleCalendar({
             <DayPicker
               weekStart={weekStart}
               selectedDay={selectedDay}
-              holidayIndex={holidayIndex}
               onSelectCalendarDay={selectCalendarDay}
             />
           </div>

@@ -72,8 +72,6 @@ type WeeklyHourGridProps = {
   isPastDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is marked unavailable (e.g. full-day holiday). */
   isUnavailableDay?: (dayOfWeek: number) => boolean;
-  /** When true, the day has partial time off (header hint only). */
-  isPartialHolidayDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is highlighted as today. */
   isToday?: (dayOfWeek: number) => boolean;
   /**
@@ -99,7 +97,6 @@ export function WeeklyHourGrid({
   viewportHeight,
   isPastDay,
   isUnavailableDay,
-  isPartialHolidayDay,
   isToday,
   renderDayOverlay,
 }: WeeklyHourGridProps) {
@@ -151,7 +148,7 @@ export function WeeklyHourGrid({
           splitDayHeaderRows ? 56 : 40,
         )
       : undefined;
-  const totalGridRows = headerRowCount + rows.length;
+  const bodyRowCount = rows.length;
 
   return (
     <div
@@ -185,7 +182,7 @@ export function WeeklyHourGrid({
                   className="pointer-events-none holiday-hatch"
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `1 / span ${totalGridRows}`,
+                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
                   }}
                 />
               );
@@ -202,7 +199,7 @@ export function WeeklyHourGrid({
                   className="pointer-events-none past-day-hatch"
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `1 / span ${totalGridRows}`,
+                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
                   }}
                 />
               );
@@ -219,7 +216,7 @@ export function WeeklyHourGrid({
                   className="pointer-events-none bg-sky-100/40"
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `1 / span ${totalGridRows}`,
+                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
                   }}
                 />
               );
@@ -235,12 +232,6 @@ export function WeeklyHourGrid({
         {columns.map((day, dayIndex) => {
           const header = getDayHeader(day);
           const pastDay = isPastDay?.(day.value) ?? false;
-          const unavailableDay =
-            !pastDay && (isUnavailableDay?.(day.value) ?? false);
-          const partialHolidayDay =
-            !pastDay &&
-            !unavailableDay &&
-            (isPartialHolidayDay?.(day.value) ?? false);
           const todayDay = isToday?.(day.value) ?? false;
 
           if (splitDayHeaderRows) {
@@ -253,7 +244,7 @@ export function WeeklyHourGrid({
                   todayDay
                     ? "border-sky-700 bg-slate-900"
                     : "border-slate-200",
-                  !todayDay && (pastDay ? "bg-slate-50/70" : unavailableDay ? "bg-slate-100/80" : partialHolidayDay ? "bg-slate-100/50" : "bg-slate-50"),
+                  !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
                 )}
               >
                 <div
