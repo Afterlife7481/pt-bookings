@@ -43,6 +43,7 @@ import { WeekScheduleCarousel } from "@/components/schedule/WeekScheduleCarousel
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIMEZONE, formatDate } from "@/lib/constants";
+import { shiftWeekStart } from "@/lib/schedule-utils";
 import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
 import {
   scheduleGridTimeLabel,
@@ -443,6 +444,7 @@ export function WeekScheduleCalendar({
   weekStart,
   entries,
   holidays = [],
+  neighborWeeks,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
   viewMode,
@@ -460,6 +462,11 @@ export function WeekScheduleCalendar({
   weekStart: string;
   entries: ScheduleEntry[];
   holidays?: ScheduleHoliday[];
+  /** Prefetched adjacent weeks for instant week-view swipes. */
+  neighborWeeks?: {
+    prev: { entries: ScheduleEntry[]; holidays: ScheduleHoliday[] } | null;
+    next: { entries: ScheduleEntry[]; holidays: ScheduleHoliday[] } | null;
+  };
   scheduleStartTime?: string;
   scheduleEndTime?: string;
   viewMode: ScheduleView;
@@ -491,6 +498,24 @@ export function WeekScheduleCalendar({
   const holidayIndex = useMemo(
     () => buildHolidayScheduleIndex(weekStart, holidays, timeRows),
     [weekStart, holidays, timeRows],
+  );
+  const prevHolidayIndex = useMemo(
+    () =>
+      buildHolidayScheduleIndex(
+        shiftWeekStart(weekStart, -1),
+        neighborWeeks?.prev?.holidays ?? [],
+        timeRows,
+      ),
+    [neighborWeeks?.prev?.holidays, timeRows, weekStart],
+  );
+  const nextHolidayIndex = useMemo(
+    () =>
+      buildHolidayScheduleIndex(
+        shiftWeekStart(weekStart, 1),
+        neighborWeeks?.next?.holidays ?? [],
+        timeRows,
+      ),
+    [neighborWeeks?.next?.holidays, timeRows, weekStart],
   );
   const editable = !!(onAddSlot || onRemoveSlot || onAllocateSlot);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -701,23 +726,41 @@ export function WeekScheduleCalendar({
                   }
                 : undefined
             }
-          >
-            <WeekGrid
-              weekStart={weekStart}
-              timeRows={timeRows}
-              scheduleStartTime={scheduleStartTime}
-              scheduleEndTime={scheduleEndTime}
-              entries={entries}
-              holidayIndex={holidayIndex}
-              timeZone={timeZone}
-              editable={editable}
-              selectedOpenSlot={selectedOpenSlot}
-              onRequestAdd={onAddSlot ? requestAdd : undefined}
-              onOpenSlot={openSlotActions}
-              compact={useCompactWeekGrid}
-              viewportHeight={gridViewportHeight}
-            />
-          </WeekScheduleCarousel>
+            renderWeek={(slideWeekStart, offset) => {
+              const slideEntries =
+                offset === 0
+                  ? entries
+                  : offset === -1
+                    ? (neighborWeeks?.prev?.entries ?? [])
+                    : (neighborWeeks?.next?.entries ?? []);
+              const slideHolidayIndex =
+                offset === 0
+                  ? holidayIndex
+                  : offset === -1
+                    ? prevHolidayIndex
+                    : nextHolidayIndex;
+
+              return (
+                <WeekGrid
+                  weekStart={slideWeekStart}
+                  timeRows={timeRows}
+                  scheduleStartTime={scheduleStartTime}
+                  scheduleEndTime={scheduleEndTime}
+                  entries={slideEntries}
+                  holidayIndex={slideHolidayIndex}
+                  timeZone={timeZone}
+                  editable={editable && offset === 0}
+                  selectedOpenSlot={offset === 0 ? selectedOpenSlot : null}
+                  onRequestAdd={
+                    offset === 0 && onAddSlot ? requestAdd : undefined
+                  }
+                  onOpenSlot={openSlotActions}
+                  compact={useCompactWeekGrid}
+                  viewportHeight={gridViewportHeight}
+                />
+              );
+            }}
+          />
         </div>
       )}
 

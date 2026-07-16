@@ -13,6 +13,7 @@ export default function SchedulePage() {
       scheduleRange={schedule.scheduleRange}
       scheduleEntries={schedule.scheduleEntries}
       scheduleHolidays={schedule.scheduleHolidays}
+      neighborWeeks={schedule.neighborWeeks}
       hasTemplate={schedule.hasTemplate}
       clients={schedule.clients}
       trainerLocations={schedule.trainerLocations}
