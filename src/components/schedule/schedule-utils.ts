@@ -1,4 +1,14 @@
-import { addDays, formatDate, parseDateOnly, slotTimeLabel, startOfWeekMonday } from "@/lib/constants";
+import {
+  SCHEDULE_DISPLAY_STEP_MINUTES,
+  addDays,
+  addMinutesToTime,
+  formatDate,
+  parseDateOnly,
+  parseLocalDateTime,
+  parseTimeOnDate,
+  slotTimeLabel,
+  startOfWeekMonday,
+} from "@/lib/constants";
 import {
   slotCoversGridRow,
   slotGridRowSpan,
@@ -148,6 +158,35 @@ export function isTodayWeekDay(
   today.setHours(0, 0, 0, 0);
   day.setHours(0, 0, 0, 0);
   return day.getTime() === today.getTime();
+}
+
+/**
+ * True when a grid row is in the past: whole past days, or today's rows
+ * whose window has already ended.
+ */
+export function isPastWeekRowTime(
+  weekStart: string,
+  dayOfWeek: number,
+  rowTime: string,
+  now: Date = new Date(),
+  rowMinutes = SCHEDULE_DISPLAY_STEP_MINUTES,
+): boolean {
+  if (isPastWeekDay(weekStart, dayOfWeek, now)) return true;
+  if (!isTodayWeekDay(weekStart, dayOfWeek, now)) return false;
+  const dateKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
+  const rowEnd = parseTimeOnDate(
+    dateKey,
+    addMinutesToTime(rowTime, rowMinutes),
+  );
+  return rowEnd.getTime() <= now.getTime();
+}
+
+/** True when a schedule entry has already ended. */
+export function isPastScheduleEntry(
+  entry: Pick<ScheduleEntry, "endAt">,
+  now: Date = new Date(),
+): boolean {
+  return parseLocalDateTime(entry.endAt).getTime() <= now.getTime();
 }
 
 export function dateKeyFromStartAt(startAt: string): string {

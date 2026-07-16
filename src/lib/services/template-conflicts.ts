@@ -17,11 +17,7 @@ import {
   toLocalDateTimeString,
 } from "@/lib/constants";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
-import {
-  sendWhatsAppTemplateConflictAckToClient,
-  sendWhatsAppTemplateConflictAckToTrainer,
-  sendWhatsAppTemplateConflictToClient,
-} from "@/lib/whatsapp";
+import { sendWhatsAppTemplateConflictToClient } from "@/lib/whatsapp";
 import { assertWhatsAppPhone } from "@/lib/whatsapp-link";
 
 export type TemplateConflictInput = {
@@ -224,14 +220,10 @@ export async function acknowledgeScheduleConflict(token: string) {
   const row = await db
     .select({
       alert: scheduleConflictAlerts,
-      clientName: clients.name,
-      clientPhone: clients.phone,
       clientToken: clients.token,
-      trainerEmail: trainers.email,
     })
     .from(scheduleConflictAlerts)
     .innerJoin(clients, eq(scheduleConflictAlerts.clientId, clients.id))
-    .innerJoin(trainers, eq(scheduleConflictAlerts.trainerId, trainers.id))
     .where(eq(scheduleConflictAlerts.acknowledgmentToken, token))
     .limit(1);
 
@@ -252,24 +244,6 @@ export async function acknowledgeScheduleConflict(token: string) {
       acknowledgedAt,
     })
     .where(eq(scheduleConflictAlerts.id, match.alert.id));
-
-  const ackBody = `${match.clientName} acknowledged the schedule clash for ${match.alert.slotLabel}.`;
-
-  await sendWhatsAppTemplateConflictAckToTrainer({
-    trainerId: match.alert.trainerId,
-    clientId: match.alert.clientId,
-    clientName: match.clientName,
-    trainerEmail: match.trainerEmail,
-    body: ackBody,
-  });
-
-  await sendWhatsAppTemplateConflictAckToClient({
-    trainerId: match.alert.trainerId,
-    clientId: match.alert.clientId,
-    phone: match.clientPhone,
-    clientName: match.clientName,
-    slotLabel: match.alert.slotLabel,
-  });
 
   return {
     clientToken: match.clientToken,

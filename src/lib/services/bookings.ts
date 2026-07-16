@@ -374,7 +374,8 @@ export async function bookSlotByClientToken(clientToken: string, slotId: string)
     clientId: client.id,
     trainerId: client.trainerId,
     isRecurring: false,
-    sendConfirmation: true,
+    // Confirmation WhatsApp is trainer-initiated from the schedule/session UI.
+    sendConfirmation: false,
   });
 }
 

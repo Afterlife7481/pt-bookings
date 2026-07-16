@@ -72,8 +72,13 @@ type WeeklyHourGridProps = {
   isPastDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is marked unavailable (e.g. full-day holiday). */
   isUnavailableDay?: (dayOfWeek: number) => boolean;
-  /** When true, the day column is highlighted as today. */
+  /** When true, the day header is highlighted as today (column body is not). */
   isToday?: (dayOfWeek: number) => boolean;
+  /**
+   * When true, hatch this cell as past (e.g. earlier times on today's column).
+   * Full past days still use {@link isPastDay} for a column-wide hatch.
+   */
+  isPastCell?: (dayOfWeek: number, rowTime: string) => boolean;
   /**
    * Optional timed overlay for each day column (absolute-positioned sessions).
    * Wrapper uses pointer-events-none so empty cells stay clickable; slot
@@ -98,6 +103,7 @@ export function WeeklyHourGrid({
   isPastDay,
   isUnavailableDay,
   isToday,
+  isPastCell,
   renderDayOverlay,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
@@ -197,23 +203,6 @@ export function WeeklyHourGrid({
                   key={`past-${day.value}`}
                   aria-hidden
                   className="pointer-events-none past-day-hatch"
-                  style={{
-                    gridColumn: dayIndex + 2,
-                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
-                  }}
-                />
-              );
-            })
-          : null}
-        {isToday
-          ? columns.map((day, dayIndex) => {
-              if (!isToday(day.value)) return null;
-
-              return (
-                <div
-                  key={`today-${day.value}`}
-                  aria-hidden
-                  className="pointer-events-none bg-sky-100/40"
                   style={{
                     gridColumn: dayIndex + 2,
                     gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
@@ -336,7 +325,8 @@ export function WeeklyHourGrid({
                   renderCell(day.value, rowTime),
                 );
                 const pastDay = isPastDay?.(day.value) ?? false;
-                const todayDay = isToday?.(day.value) ?? false;
+                const pastCell =
+                  !pastDay && (isPastCell?.(day.value, rowTime) ?? false);
 
                 if (cell.covered) {
                   return null;
@@ -357,7 +347,8 @@ export function WeeklyHourGrid({
                       denseDuration ? "p-0" : "p-0.5",
                       rowIndex > 0 && "border-t",
                       cell.rowSpan > 1 && "relative z-10",
-                      !pastDay && !todayDay && "bg-white",
+                      pastCell && "past-day-hatch",
+                      !pastDay && !pastCell && "bg-white",
                     )}
                   >
                     <div className="h-full min-h-0 min-w-0">{cell.content}</div>

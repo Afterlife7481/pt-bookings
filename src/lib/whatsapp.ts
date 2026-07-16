@@ -34,8 +34,7 @@ type WhatsAppMessageType =
   | "last_minute_declined"
   | "session_canceled"
   | "session_changed"
-  | "template_conflict"
-  | "template_conflict_ack";
+  | "template_conflict";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -63,7 +62,7 @@ async function logWhatsAppMessage(params: {
     recipient,
     body: params.body,
     channel,
-    // Logged when the trainer triggers Send (WhatsApp opens with the draft).
+    // Logged when the trainer opens WhatsApp (or email is delivered).
     status: "sent",
     createdAt: nowIso(),
   });
@@ -282,29 +281,6 @@ export async function sendWhatsAppSessionChangedToTrainer(params: {
   });
 }
 
-export async function sendWhatsAppSessionChangedToClient(params: {
-  trainerId: string;
-  clientId: string;
-  phone: string;
-  clientName: string;
-  bookingToken: string;
-  slotStartAt: string;
-  slotEndAt?: string | null;
-}): Promise<WhatsAppDraft> {
-  const link = bookingUrl(params.bookingToken);
-  const body = `Hi ${params.clientName}, your PT session has been changed to ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
-
-  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
-
-  return logWhatsAppMessage({
-    trainerId: params.trainerId,
-    clientId: params.clientId,
-    phone: params.phone,
-    messageType: "session_changed",
-    body,
-  });
-}
-
 export async function sendWhatsAppInvoice(params: {
   trainerId: string;
   clientId: string;
@@ -410,45 +386,6 @@ export async function sendWhatsAppTemplateConflictToClient(params: {
     phone: params.phone,
     messageType: "template_conflict",
     body: params.body,
-  });
-}
-
-export async function sendWhatsAppTemplateConflictAckToTrainer(params: {
-  trainerId: string;
-  clientId: string;
-  clientName: string;
-  trainerEmail: string;
-  body: string;
-}) {
-  console.log(`[WhatsApp draft → trainer ${params.trainerEmail}] ${params.body}`);
-
-  await logWhatsAppMessage({
-    trainerId: params.trainerId,
-    clientId: params.clientId,
-    phone: params.trainerEmail,
-    messageType: "template_conflict_ack",
-    recipient: "trainer",
-    body: params.body,
-  });
-}
-
-export async function sendWhatsAppTemplateConflictAckToClient(params: {
-  trainerId: string;
-  clientId: string;
-  phone: string;
-  clientName: string;
-  slotLabel: string;
-}): Promise<WhatsAppDraft> {
-  const body = `Thanks ${params.clientName}! We have recorded your acknowledgement for the schedule change (${params.slotLabel}).`;
-
-  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
-
-  return logWhatsAppMessage({
-    trainerId: params.trainerId,
-    clientId: params.clientId,
-    phone: params.phone,
-    messageType: "template_conflict_ack",
-    body,
   });
 }
 

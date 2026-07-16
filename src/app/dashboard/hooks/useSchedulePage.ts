@@ -162,7 +162,6 @@ export function useSchedulePage() {
       await runScheduleAction(async () => {
         const result = await fetchJson<{
           whatsappUrl?: string | null;
-          whatsappError?: string | null;
         }>("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -171,10 +170,6 @@ export function useSchedulePage() {
         if (waOpen) {
           waOpen.finish(result.whatsappUrl);
           whatsappOpened = true;
-        }
-        const warning = result.whatsappError ?? (!phoneCheck.ok ? phoneCheck.error : null);
-        if (warning) {
-          setScheduleError(warning);
         }
       });
     } catch (e) {

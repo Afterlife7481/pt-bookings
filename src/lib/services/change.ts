@@ -16,10 +16,7 @@ import { getAvailableSlotsForChange } from "./available-slots";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
 import { getTrainerById } from "./trainers";
-import {
-  sendWhatsAppSessionChangedToClient,
-  sendWhatsAppSessionChangedToTrainer,
-} from "@/lib/whatsapp";
+import { sendWhatsAppSessionChangedToTrainer } from "@/lib/whatsapp";
 
 export async function expireStaleChangeRequests() {
   const db = getDb();
@@ -350,15 +347,6 @@ export async function confirmChange(
       toSlotStartAt: toSlot.startAt,
       toSlotEndAt: toSlot.endAt,
     });
-    await sendWhatsAppSessionChangedToClient({
-      trainerId: booking.trainerId,
-      clientId: client.id,
-      phone: client.phone,
-      clientName: client.name,
-      bookingToken: booking.token,
-      slotStartAt: toSlot.startAt,
-      slotEndAt: toSlot.endAt,
-    });
   }
 
   return result;
@@ -460,7 +448,7 @@ export async function moveBookingForTrainer(
 
   const fromSlotId = booking.slotId;
 
-  const result = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const bookingRow = await tx.query.bookings.findFirst({
       where: eq(bookings.id, bookingId),
     });
@@ -503,27 +491,7 @@ export async function moveBookingForTrainer(
       .update(slots)
       .set({ status: "available" })
       .where(eq(slots.id, fromSlotId));
-
-    return { fromSlotId, toSlotId };
   });
-
-  const [client, fromSlotAfter, toSlotAfter] = await Promise.all([
-    db.query.clients.findFirst({ where: eq(clients.id, booking.clientId) }),
-    db.query.slots.findFirst({ where: eq(slots.id, result.fromSlotId) }),
-    db.query.slots.findFirst({ where: eq(slots.id, result.toSlotId) }),
-  ]);
-
-  if (client && fromSlotAfter && toSlotAfter) {
-    await sendWhatsAppSessionChangedToClient({
-      trainerId,
-      clientId: client.id,
-      phone: client.phone,
-      clientName: client.name,
-      bookingToken: booking.token,
-      slotStartAt: toSlotAfter.startAt,
-      slotEndAt: toSlotAfter.endAt,
-    });
-  }
 
   const detail = await getBookingDetailForTrainer(trainerId, bookingId);
   if (!detail) throw new Error("Booking not found");

@@ -9,7 +9,9 @@ import {
   findEntryForScheduleRow,
   isCalendarDatePast,
   isCalendarDateToday,
+  isPastScheduleEntry,
   isPastWeekDay,
+  isPastWeekRowTime,
   isTodayWeekDay,
 } from "./schedule-utils";
 
@@ -81,6 +83,25 @@ describe("schedule-utils week grid", () => {
     expect(isTodayWeekDay("2026-06-29", 5, today)).toBe(true);
     expect(isTodayWeekDay("2026-06-29", 4, today)).toBe(false);
     expect(isTodayWeekDay("2026-07-06", 5, today)).toBe(false);
+  });
+
+  it("hashes earlier rows on today but not the current or future rows", () => {
+    const now = new Date(2026, 6, 3, 12, 10, 0); // Fri 3 Jul 2026 12:10
+    expect(isPastWeekRowTime("2026-06-29", 5, "11:30", now)).toBe(true);
+    expect(isPastWeekRowTime("2026-06-29", 5, "12:00", now)).toBe(false);
+    expect(isPastWeekRowTime("2026-06-29", 5, "12:30", now)).toBe(false);
+    expect(isPastWeekRowTime("2026-06-29", 4, "11:30", now)).toBe(true);
+    expect(isPastWeekRowTime("2026-06-29", 6, "11:30", now)).toBe(false);
+  });
+
+  it("treats ended schedule entries as past", () => {
+    const now = new Date(2026, 6, 3, 12, 0, 0);
+    expect(
+      isPastScheduleEntry({ endAt: "2026-07-03T11:00:00" }, now),
+    ).toBe(true);
+    expect(
+      isPastScheduleEntry({ endAt: "2026-07-03T12:30:00" }, now),
+    ).toBe(false);
   });
 
   it("moves to the next and previous day within the week", () => {

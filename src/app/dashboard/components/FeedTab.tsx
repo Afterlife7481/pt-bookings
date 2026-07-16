@@ -88,7 +88,7 @@ function entryTone(entry: FeedEntry): string {
   if (entry.kind === "conflict_acknowledged") {
     return "!border-green-200 !bg-green-50";
   }
-  if (entry.isWhatsApp && entry.whatsapp?.recipient === "trainer") {
+  if (entry.kind === "activity") {
     return "!border-purple-200 !bg-purple-50";
   }
   return "";
@@ -100,6 +100,9 @@ function entryBadge(entry: FeedEntry) {
   }
   if (entry.kind === "conflict_acknowledged") {
     return <Badge tone="success">Acknowledged</Badge>;
+  }
+  if (entry.kind === "activity") {
+    return <Badge tone="default">Update</Badge>;
   }
   if (entry.isEmail) {
     return <Badge tone="default">Email</Badge>;
@@ -169,8 +172,8 @@ export function FeedTab({
       <Card className="!border-slate-200 !bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Schedule clashes, session updates, and messages you have sent by
-          WhatsApp or email.
+          Schedule clashes, session updates, and WhatsApp or email messages you
+          have sent.
         </p>
       </Card>
 
@@ -192,7 +195,7 @@ export function FeedTab({
       {entries.map((entry) => {
         const whatsappBody = entry.whatsapp?.body ?? entry.body;
         const copyId = entry.whatsapp?.id ?? entry.id;
-        const toTrainer = entry.whatsapp?.recipient === "trainer";
+        const isActivity = entry.kind === "activity";
         const isOutbound = entry.isWhatsApp || entry.isEmail;
 
         return (
@@ -222,13 +225,8 @@ export function FeedTab({
                   </span>
                 ) : null}
                 {isOutbound && entry.whatsapp ? (
-                  <span
-                    className={cn(
-                      "text-sm",
-                      toTrainer ? "font-medium text-purple-800" : "text-slate-500",
-                    )}
-                  >
-                    {toTrainer ? "To you" : entry.whatsapp.phone}
+                  <span className="text-sm text-slate-500">
+                    {entry.whatsapp.phone}
                   </span>
                 ) : null}
               </div>
@@ -244,7 +242,7 @@ export function FeedTab({
                   ? "text-amber-950"
                   : entry.kind === "conflict_acknowledged"
                     ? "text-green-900"
-                    : toTrainer
+                    : isActivity
                       ? "text-purple-900"
                       : "text-slate-900",
               )}
@@ -256,7 +254,7 @@ export function FeedTab({
               text={entry.body}
               className={cn(
                 "mt-1 text-sm",
-                toTrainer && "text-purple-950",
+                isActivity && "text-purple-950",
               )}
             />
 

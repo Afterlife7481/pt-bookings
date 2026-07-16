@@ -10,6 +10,7 @@ import type { NotifyChannel } from "@/lib/notify-channels";
 export type FeedEntryKind =
   | "template_conflict"
   | "conflict_acknowledged"
+  | "activity"
   | "whatsapp"
   | "email";
 
@@ -21,7 +22,7 @@ export type FeedEntry = {
   body: string;
   clientId?: string;
   clientName?: string;
-  /** True when this entry represents a WhatsApp message (sent or logged). */
+  /** True when this entry is a WhatsApp draft the trainer sent. */
   isWhatsApp: boolean;
   /** True when this entry is an emailed notification. */
   isEmail: boolean;
@@ -42,6 +43,14 @@ export type FeedEntry = {
     sendUrl: string | null;
   };
 };
+
+/** Message types logged when the trainer opens WhatsApp to send. */
+const TRAINER_SENT_WHATSAPP_TYPES = new Set([
+  "confirmation",
+  "last_minute",
+  "invoice",
+  "template_conflict",
+]);
 
 export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
   const [alerts, messages] = await Promise.all([
@@ -84,20 +93,82 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
 
   for (const message of messages) {
     const channel = (message.channel ?? "whatsapp") as NotifyChannel;
-    const sendUrl =
-      channel === "whatsapp" && message.recipient === "client"
-        ? whatsappClickToChatUrl(message.phone, message.body)
-        : null;
+
+    if (channel === "email") {
+      entries.push({
+        id: `wa-${message.id}`,
+        kind: "email",
+        createdAt: message.createdAt,
+        title: feedTitleForMessage(
+          message.messageType,
+          message.recipient,
+          channel,
+        ),
+        body: message.body,
+        clientId: message.clientId ?? undefined,
+        isWhatsApp: false,
+        isEmail: true,
+        whatsapp: {
+          id: message.id,
+          phone: message.phone,
+          messageType: message.messageType,
+          recipient: message.recipient,
+          body: message.body,
+          createdAt: message.createdAt,
+          channel,
+          sendUrl: null,
+        },
+      });
+      continue;
+    }
+
+    // In-app notices to the trainer (cancel, offer accepted, etc.) — not WhatsApp.
+    if (message.recipient === "trainer") {
+      entries.push({
+        id: `wa-${message.id}`,
+        kind: "activity",
+        createdAt: message.createdAt,
+        title: feedTitleForMessage(
+          message.messageType,
+          message.recipient,
+          channel,
+        ),
+        body: message.body,
+        clientId: message.clientId ?? undefined,
+        isWhatsApp: false,
+        isEmail: false,
+        whatsapp: {
+          id: message.id,
+          phone: message.phone,
+          messageType: message.messageType,
+          recipient: message.recipient,
+          body: message.body,
+          createdAt: message.createdAt,
+          channel,
+          sendUrl: null,
+        },
+      });
+      continue;
+    }
+
+    // Only show client WhatsApp rows the trainer actually sent.
+    if (!TRAINER_SENT_WHATSAPP_TYPES.has(message.messageType)) {
+      continue;
+    }
 
     entries.push({
       id: `wa-${message.id}`,
-      kind: channel === "email" ? "email" : "whatsapp",
+      kind: "whatsapp",
       createdAt: message.createdAt,
-      title: feedTitleForMessage(message.messageType, message.recipient, channel),
+      title: feedTitleForMessage(
+        message.messageType,
+        message.recipient,
+        channel,
+      ),
       body: message.body,
       clientId: message.clientId ?? undefined,
-      isWhatsApp: channel === "whatsapp",
-      isEmail: channel === "email",
+      isWhatsApp: true,
+      isEmail: false,
       whatsapp: {
         id: message.id,
         phone: message.phone,
@@ -106,7 +177,7 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
         body: message.body,
         createdAt: message.createdAt,
         channel,
-        sendUrl,
+        sendUrl: whatsappClickToChatUrl(message.phone, message.body),
       },
     });
   }

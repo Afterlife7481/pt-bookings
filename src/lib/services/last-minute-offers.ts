@@ -290,7 +290,8 @@ export async function acceptLastMinuteOffer(offerToken: string) {
     slotId: offer.slotId,
     clientId: offer.clientId,
     trainerId: slot.trainerId,
-    sendConfirmation: true,
+    // Confirmation WhatsApp is trainer-initiated; do not auto-log a draft.
+    sendConfirmation: false,
   });
 
   await db

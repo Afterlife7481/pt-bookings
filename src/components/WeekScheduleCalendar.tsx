@@ -33,7 +33,9 @@ import {
   entryStartTime,
   isCalendarDatePast,
   isCalendarDateToday,
+  isPastScheduleEntry,
   isPastWeekDay,
+  isPastWeekRowTime,
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
@@ -87,6 +89,7 @@ function DayScheduleGrid({
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
   const isPastDay = isPastWeekDay(weekStart, selectedDay);
+  const isToday = isTodayWeekDay(weekStart, selectedDay);
   const minRowRem = 2.75;
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
@@ -122,11 +125,16 @@ function DayScheduleGrid({
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${selectedDay}-${rowTime}`,
         );
+        const pastRow =
+          !isPastDay &&
+          isToday &&
+          isPastWeekRowTime(weekStart, selectedDay, rowTime);
         const canAdd =
           editable &&
           onRequestAdd &&
           !occupied &&
           !isPastDay &&
+          !pastRow &&
           !blockedByHoliday;
 
         return (
@@ -146,7 +154,8 @@ function DayScheduleGrid({
               className={cn(
                 "relative z-[1] min-h-0 p-0.5",
                 rowIndex > 0 && "border-t border-slate-100",
-                !isPastDay && "bg-white",
+                pastRow && "past-day-hatch",
+                !isPastDay && !pastRow && "bg-white",
               )}
             >
               {blockedByHoliday && !occupied ? (
@@ -181,23 +190,31 @@ function DayScheduleGrid({
         <TimedSlotOverlay
           scheduleStartTime={scheduleStartTime}
           scheduleEndTime={scheduleEndTime}
-          items={dayEntries.map((entry) => ({
-            key: entry.slotId,
-            startTime: entryStartTime(entry),
-            endTime: entryEndTime(entry),
-            content: (
-              <div className="h-full min-h-0 p-0.5">
-                <ScheduleCell
-                  entry={entry}
-                  editable={editable}
-                  onOpen={editable ? onOpenSlot : undefined}
-                  selected={selectedOpenSlot?.slotId === entry.slotId}
-                  mobile
-                  onPastDay={isPastDay}
-                />
-              </div>
-            ),
-          }))}
+          items={dayEntries.map((entry) => {
+            const entryPast = isPastDay || isPastScheduleEntry(entry);
+            return {
+              key: entry.slotId,
+              startTime: entryStartTime(entry),
+              endTime: entryEndTime(entry),
+              content: (
+                <div
+                  className={cn(
+                    "h-full min-h-0 p-0.5",
+                    !isPastDay && entryPast && "past-day-hatch rounded-lg",
+                  )}
+                >
+                  <ScheduleCell
+                    entry={entry}
+                    editable={editable}
+                    onOpen={editable ? onOpenSlot : undefined}
+                    selected={selectedOpenSlot?.slotId === entry.slotId}
+                    mobile
+                    onPastDay={entryPast}
+                  />
+                </div>
+              ),
+            };
+          })}
         />
       </div>
       </div>
@@ -329,6 +346,9 @@ function WeekGrid({
         holidayIndex.unavailableDays.has(dayOfWeek)
       }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
+      isPastCell={(dayOfWeek, rowTime) =>
+        isPastWeekRowTime(weekStart, dayOfWeek, rowTime)
+      }
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
         secondary: day.label.charAt(0),
@@ -339,9 +359,9 @@ function WeekGrid({
         const blockedByHoliday = holidayIndex.blockedSlotKeys.has(
           `${dayOfWeek}-${rowTime}`,
         );
-        const pastDay = isPastWeekDay(weekStart, dayOfWeek);
+        const pastRow = isPastWeekRowTime(weekStart, dayOfWeek, rowTime);
         const canAdd =
-          editable && onRequestAdd && !pastDay && !blockedByHoliday && !occupied;
+          editable && onRequestAdd && !pastRow && !blockedByHoliday && !occupied;
 
         if (blockedByHoliday && !occupied) {
           return (
@@ -380,23 +400,32 @@ function WeekGrid({
           <TimedSlotOverlay
             scheduleStartTime={scheduleStartTime}
             scheduleEndTime={scheduleEndTime}
-            items={dayEntries.map((entry) => ({
-              key: entry.slotId,
-              startTime: entryStartTime(entry),
-              endTime: entryEndTime(entry),
-              content: (
-                <div className={cn("h-full min-h-0", denseCells ? "p-0" : "p-0.5")}>
-                  <ScheduleCell
-                    entry={entry}
-                    editable={editable}
-                    onOpen={editable ? onOpenSlot : undefined}
-                    selected={selectedOpenSlot?.slotId === entry.slotId}
-                    compact={denseCells}
-                    onPastDay={pastDay}
-                  />
-                </div>
-              ),
-            }))}
+            items={dayEntries.map((entry) => {
+              const entryPast = pastDay || isPastScheduleEntry(entry);
+              return {
+                key: entry.slotId,
+                startTime: entryStartTime(entry),
+                endTime: entryEndTime(entry),
+                content: (
+                  <div
+                    className={cn(
+                      "h-full min-h-0",
+                      denseCells ? "p-0" : "p-0.5",
+                      !pastDay && entryPast && "past-day-hatch rounded-lg",
+                    )}
+                  >
+                    <ScheduleCell
+                      entry={entry}
+                      editable={editable}
+                      onOpen={editable ? onOpenSlot : undefined}
+                      selected={selectedOpenSlot?.slotId === entry.slotId}
+                      compact={denseCells}
+                      onPastDay={entryPast}
+                    />
+                  </div>
+                ),
+              };
+            })}
           />
         );
       }}

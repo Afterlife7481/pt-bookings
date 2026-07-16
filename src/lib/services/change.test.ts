@@ -64,7 +64,7 @@ describe("confirmChange", () => {
       messages.some(
         (m) => m.messageType === "session_changed" && m.recipient === "client",
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("rejects confirm without the matching booking token", async () => {
@@ -197,14 +197,7 @@ describe("moveBookingForTrainer", () => {
       where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
     });
     expect(
-      messages.some(
-        (m) => m.messageType === "session_changed" && m.recipient === "client",
-      ),
-    ).toBe(true);
-    expect(
-      messages.some(
-        (m) => m.messageType === "session_changed" && m.recipient === "trainer",
-      ),
+      messages.some((m) => m.messageType === "session_changed"),
     ).toBe(false);
   });
 });

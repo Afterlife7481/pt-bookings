@@ -36,7 +36,7 @@ describe("bookSlotByClientToken", () => {
     const messages = await db.query.whatsappMessages.findMany({
       where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
     });
-    expect(messages.some((m) => m.messageType === "confirmation")).toBe(true);
+    expect(messages.some((m) => m.messageType === "confirmation")).toBe(false);
   });
 
   it("rejects an unknown client token", async () => {
