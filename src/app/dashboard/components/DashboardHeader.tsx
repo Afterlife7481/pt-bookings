@@ -52,6 +52,54 @@ function MenuIcon({ className }: { className?: string }) {
   );
 }
 
+function ScheduleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden
+    >
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FeedIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden
+    >
+      <path
+        d="M4 6h12M4 12h16M4 18h10"
+        strokeLinecap="round"
+      />
+      <circle cx="19" cy="6" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+const HEADER_SHORTCUTS = [
+  {
+    href: "/dashboard/schedule",
+    label: "Schedule",
+    Icon: ScheduleIcon,
+  },
+  {
+    href: "/dashboard/feed",
+    label: "Feed",
+    Icon: FeedIcon,
+  },
+] as const;
+
 export function DashboardHeader({ settings }: { settings: TrainerSettings | null }) {
   const pathname = usePathname();
   const menuId = useId();
@@ -132,16 +180,37 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
             {settings?.name ? `${settings.name} · Trainer dashboard` : "Trainer dashboard"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openMenu}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-          aria-label="Open menu"
-          aria-expanded={open}
-          aria-controls={menuId}
-        >
-          <MenuIcon className="h-5 w-5" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {HEADER_SHORTCUTS.map(({ href, label, Icon }) => {
+            const active = isNavActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-label={label}
+                title={label}
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition",
+                  active
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            onClick={openMenu}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+            aria-label="Open menu"
+            aria-expanded={open}
+            aria-controls={menuId}
+          >
+            <MenuIcon className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {mounted ? (
