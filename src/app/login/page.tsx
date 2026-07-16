@@ -13,6 +13,7 @@ function LoginForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [devLink, setDevLink] = useState<string | null>(null);
@@ -35,6 +36,7 @@ function LoginForm() {
       body: JSON.stringify({
         email,
         name: mode === "signup" ? name : undefined,
+        inviteCode: mode === "signup" ? inviteCode : undefined,
         purpose: mode,
       }),
     });
@@ -85,17 +87,35 @@ function LoginForm() {
 
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "signup" && (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Your name</span>
-              <input
-                type="text"
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Alex Trainer"
-                required
-              />
-            </label>
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Your name</span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Alex Trainer"
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-slate-600">Invite code</span>
+                <input
+                  type="text"
+                  className="rounded-lg border border-slate-300 px-3 py-2 uppercase tracking-wider"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="ABCD-1234"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                />
+                <span className="text-xs text-slate-500">
+                  Sign up is invite-only. Use the code you were given.
+                </span>
+              </label>
+            </>
           )}
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-slate-600">Email</span>

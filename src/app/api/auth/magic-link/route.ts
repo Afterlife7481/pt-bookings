@@ -32,6 +32,8 @@ export async function POST(request: Request) {
       email: body.email,
       name: body.name,
       purpose: body.purpose === "signup" ? "signup" : "login",
+      inviteCode:
+        typeof body.inviteCode === "string" ? body.inviteCode : undefined,
     });
     return Response.json({
       ok: true,

@@ -12,6 +12,7 @@ const MAIN_MENU_HREFS = new Set([
   "/dashboard/clients",
   "/dashboard/sessions",
   "/dashboard/feed",
+  "/dashboard/invitations",
 ]);
 
 const SUPPORT_MENU_HREFS = new Set([

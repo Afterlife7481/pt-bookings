@@ -7,6 +7,8 @@ import {
   clientLastMinutePreferences,
   clientNotes,
   clients,
+  inviteCodes,
+  inviteRedemptions,
   lastMinuteInterests,
   locations,
   trainerPaymentMethods,
@@ -79,6 +81,12 @@ export async function deleteTrainerAccount(
     await tx
       .delete(trainerMagicLinks)
       .where(eq(trainerMagicLinks.email, trainer.email));
+    await tx
+      .delete(inviteRedemptions)
+      .where(eq(inviteRedemptions.trainerId, trainerId));
+    await tx
+      .delete(inviteCodes)
+      .where(eq(inviteCodes.ownerTrainerId, trainerId));
     await tx.delete(trainers).where(eq(trainers.id, trainerId));
   });
 }

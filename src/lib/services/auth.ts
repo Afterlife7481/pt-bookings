@@ -5,7 +5,13 @@ import { trainerMagicLinks, trainerSessions } from "@/lib/db/schema";
 import { addMinutes, appBaseUrl, nowIso, SESSION_COOKIE } from "@/lib/constants";
 import { sendMagicLinkEmail } from "@/lib/email";
 import { shouldExposeMagicLinkForEmail } from "@/lib/auth/dev-mode";
-import { createTrainer, getTrainerByEmail } from "./trainers";
+import { getTrainerByEmail } from "./trainers";
+import {
+  assertInviteCodeAvailable,
+  createTrainerWithInvite,
+  ensureTrainerInviteCode,
+  normalizeInviteCode,
+} from "./invites";
 
 const MAGIC_LINK_MINUTES = 15;
 const SESSION_DAYS = 30;
@@ -20,8 +26,11 @@ export async function requestMagicLink(params: {
   email: string;
   name?: string;
   purpose: "signup" | "login";
+  inviteCode?: string;
 }) {
   const email = normalizeEmail(params.email);
+
+  let inviteCode: string | null = null;
 
   if (params.purpose === "signup") {
     if (!params.name?.trim()) {
@@ -31,6 +40,8 @@ export async function requestMagicLink(params: {
     if (existing) {
       throw new Error("An account with this email already exists. Try logging in.");
     }
+    const invite = await assertInviteCodeAvailable(params.inviteCode ?? "");
+    inviteCode = invite.code;
   } else {
     const existing = await getTrainerByEmail(email);
     if (!existing) {
@@ -47,6 +58,7 @@ export async function requestMagicLink(params: {
     email,
     name: params.purpose === "signup" ? params.name!.trim() : null,
     purpose: params.purpose,
+    inviteCode,
     token,
     expiresAt: addMinutes(ts, MAGIC_LINK_MINUTES),
     createdAt: ts,
@@ -95,13 +107,23 @@ export async function verifyMagicLink(token: string): Promise<string> {
   let trainerId: string;
 
   if (link.purpose === "signup") {
-    trainerId = await createTrainer(link.name ?? "Trainer", link.email);
+    const inviteCode = normalizeInviteCode(link.inviteCode ?? "");
+    if (!inviteCode) {
+      throw new Error("An invite code is required to sign up.");
+    }
+    trainerId = await createTrainerWithInvite({
+      name: link.name ?? "Trainer",
+      email: link.email,
+      inviteCode,
+    });
   } else {
     const trainer = await getTrainerByEmail(link.email);
     if (!trainer) {
       throw new Error("Trainer account not found.");
     }
     trainerId = trainer.id;
+    // Existing trainers (pre-invite system) get a code on first login verify.
+    await ensureTrainerInviteCode(trainerId);
   }
 
   await db

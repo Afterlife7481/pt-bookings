@@ -42,11 +42,56 @@ export const trainerMagicLinks = pgTable("trainer_magic_links", {
   email: text("email").notNull(),
   name: text("name"),
   purpose: text("purpose", { enum: ["signup", "login"] }).notNull(),
+  /** Normalized invite code captured at signup request; redeemed on verify. */
+  inviteCode: text("invite_code"),
   token: text("token").notNull().unique(),
   expiresAt: text("expires_at").notNull(),
   usedAt: text("used_at"),
   createdAt: text("created_at").notNull(),
 });
+
+/** Invite / referral codes. Admin seed codes have null ownerTrainerId. */
+export const inviteCodes = pgTable(
+  "invite_codes",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull(),
+    ownerTrainerId: text("owner_trainer_id").references(() => trainers.id, {
+      onDelete: "set null",
+    }),
+    /** null = unlimited uses. */
+    maxUses: integer("max_uses"),
+    usedCount: integer("used_count").notNull().default(0),
+    status: text("status", { enum: ["active", "disabled"] })
+      .notNull()
+      .default("active"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    codeUnique: uniqueIndex("invite_codes_code_uidx").on(table.code),
+    ownerIdx: index("invite_codes_owner_idx").on(table.ownerTrainerId),
+  }),
+);
+
+export const inviteRedemptions = pgTable(
+  "invite_redemptions",
+  {
+    id: text("id").primaryKey(),
+    inviteCodeId: text("invite_code_id")
+      .notNull()
+      .references(() => inviteCodes.id, { onDelete: "cascade" }),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerUnique: uniqueIndex("invite_redemptions_trainer_uidx").on(
+      table.trainerId,
+    ),
+    codeIdx: index("invite_redemptions_code_idx").on(table.inviteCodeId),
+  }),
+);
 
 export const trainerSessions = pgTable("trainer_sessions", {
   id: text("id").primaryKey(),
@@ -473,6 +518,8 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
 export type Trainer = typeof trainers.$inferSelect;
 export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type InviteRedemption = typeof inviteRedemptions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
 export type ClientEmailVerification =
   typeof clientEmailVerifications.$inferSelect;

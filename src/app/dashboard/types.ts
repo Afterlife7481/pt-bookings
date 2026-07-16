@@ -44,6 +44,7 @@ export type BookingRow = {
 export const MENU_ITEMS = [
   { label: "Schedule", href: "/dashboard/schedule" },
   { label: "Activity Feed", href: "/dashboard/feed" },
+  { label: "Invitations", href: "/dashboard/invitations" },
   { label: "Clients", href: "/dashboard/clients" },
   { label: "Sessions", href: "/dashboard/sessions" },
   { label: "Settings", href: "/dashboard/settings" },
