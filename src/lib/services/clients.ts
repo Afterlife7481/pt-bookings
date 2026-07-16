@@ -15,9 +15,39 @@ import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/te
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import { normalizeClientPhone } from "@/lib/whatsapp-link";
 import {
+  hasClientEmail,
   parsePreferredNotifyChannel,
   type PreferredNotifyChannel,
 } from "@/lib/notify-channels";
+
+function normalizeOptionalClientPhone(phone: string | undefined): string {
+  const trimmed = (phone ?? "").trim();
+  if (!trimmed) return "";
+  return normalizeClientPhone(trimmed);
+}
+
+function assertClientHasContact(email: string, phone: string) {
+  if (!hasClientEmail(email) && !phone) {
+    throw new Error("Add a phone number or an email address");
+  }
+}
+
+function assertNotifyChannelContact(
+  channel: PreferredNotifyChannel,
+  email: string,
+  phone: string,
+) {
+  if (channel === "whatsapp" && !phone) {
+    throw new Error(
+      "Add a phone number for WhatsApp, or switch preference to Email",
+    );
+  }
+  if (channel === "email" && !hasClientEmail(email)) {
+    throw new Error(
+      "Add an email for email notifications, or switch preference to WhatsApp",
+    );
+  }
+}
 
 export type RecurringSlotRef = {
   dayOfWeek: number;
@@ -179,17 +209,33 @@ export async function createClient(params: {
     throw new Error("Session price must be zero or greater");
   }
 
-  const preferredNotifyChannel = params.preferredNotifyChannel
+  const email = (params.email ?? "").trim();
+  const phone = normalizeOptionalClientPhone(params.phone);
+  assertClientHasContact(email, phone);
+
+  let preferredNotifyChannel = params.preferredNotifyChannel
     ? parsePreferredNotifyChannel(params.preferredNotifyChannel)
-    : "whatsapp";
+    : phone
+      ? "whatsapp"
+      : "email";
+  if (preferredNotifyChannel === "whatsapp" && !phone && hasClientEmail(email)) {
+    preferredNotifyChannel = "email";
+  } else if (
+    preferredNotifyChannel === "email" &&
+    !hasClientEmail(email) &&
+    phone
+  ) {
+    preferredNotifyChannel = "whatsapp";
+  }
+  assertNotifyChannelContact(preferredNotifyChannel, email, phone);
 
   await db.insert(clients).values({
     id,
     token,
     trainerId: params.trainerId,
     name: params.name,
-    email: (params.email ?? "").trim(),
-    phone: normalizeClientPhone(params.phone),
+    email,
+    phone,
     preferredNotifyChannel,
     lastMinuteOptIn: params.lastMinuteOptIn ?? false,
     sessionPrice: params.sessionPrice ?? null,
@@ -279,7 +325,7 @@ export async function updateClient(
     patch.name = name;
   }
   if (updates.phone !== undefined) {
-    patch.phone = normalizeClientPhone(updates.phone);
+    patch.phone = normalizeOptionalClientPhone(updates.phone);
   }
   if (updates.email !== undefined) {
     patch.email = updates.email.trim();
@@ -303,6 +349,12 @@ export async function updateClient(
   }
 
   if (Object.keys(patch).length === 0) return;
+
+  const nextEmail = patch.email ?? client.email;
+  const nextPhone = patch.phone ?? client.phone;
+  const nextChannel = patch.preferredNotifyChannel ?? client.preferredNotifyChannel;
+  assertClientHasContact(nextEmail, nextPhone);
+  assertNotifyChannelContact(nextChannel, nextEmail, nextPhone);
 
   const db = getDb();
   await db.update(clients).set(patch).where(eq(clients.id, clientId));

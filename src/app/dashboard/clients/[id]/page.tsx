@@ -467,9 +467,10 @@ export default function ClientDetailPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+447700900000"
-                required
               />
-              <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
+              <span className="text-xs text-slate-500">
+                Phone or email required. {WHATSAPP_PHONE_HINT}
+              </span>
             </label>
             <fieldset className="flex flex-col gap-2 text-sm sm:col-span-2">
               <legend className="text-slate-600">Communication preference</legend>

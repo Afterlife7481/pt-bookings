@@ -20,8 +20,8 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  if (!body.name?.trim() || !body.phone?.trim()) {
-    return Response.json({ error: "Name and phone are required" }, { status: 400 });
+  if (!body.name?.trim()) {
+    return Response.json({ error: "Name is required" }, { status: 400 });
   }
 
   try {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const id = await createClient({
       trainerId,
       name: body.name.trim(),
-      phone: body.phone.trim(),
+      phone: typeof body.phone === "string" ? body.phone : "",
       email: body.email?.trim(),
       preferredNotifyChannel,
       lastMinuteOptIn: body.lastMinuteOptIn ?? false,

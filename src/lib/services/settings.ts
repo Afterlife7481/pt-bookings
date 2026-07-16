@@ -13,6 +13,7 @@ import {
   MAX_CLIENT_BOOKING_WINDOW_WEEKS,
   isValidIanaTimezone,
   parseTimeToHour,
+  snapTimeToBookingStep,
   nowIso,
 } from "@/lib/constants";
 
@@ -202,6 +203,13 @@ export async function updateTrainerSettings(
 
   if (updates.paymentPayeeName !== undefined) {
     updates.paymentPayeeName = normalizeOptionalText(updates.paymentPayeeName);
+  }
+
+  if (updates.scheduleStartTime !== undefined) {
+    updates.scheduleStartTime = snapTimeToBookingStep(updates.scheduleStartTime);
+  }
+  if (updates.scheduleEndTime !== undefined) {
+    updates.scheduleEndTime = snapTimeToBookingStep(updates.scheduleEndTime);
   }
 
   if (updates.scheduleStartTime !== undefined || updates.scheduleEndTime !== undefined) {

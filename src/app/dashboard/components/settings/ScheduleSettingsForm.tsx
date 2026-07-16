@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Button, InlineNotice } from "@/components/ui";
+import { TimeSelect5Min } from "@/components/TimeSelect5Min";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
-import { SCHEDULE_TIME_INPUT_STEP_SECONDS } from "@/lib/constants";
+import { snapTimeToBookingStep } from "@/lib/constants";
 import type { TrainerSettings } from "../../types";
 
 function SegmentedControl<T extends string>({
@@ -59,8 +60,8 @@ export function ScheduleSettingsForm({
 
   useEffect(() => {
     if (settings) {
-      setScheduleStartTime(settings.scheduleStartTime);
-      setScheduleEndTime(settings.scheduleEndTime);
+      setScheduleStartTime(snapTimeToBookingStep(settings.scheduleStartTime));
+      setScheduleEndTime(snapTimeToBookingStep(settings.scheduleEndTime));
       setScheduleDefaultView(settings.scheduleDefaultView);
     }
   }, [settings]);
@@ -75,8 +76,8 @@ export function ScheduleSettingsForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scheduleStartTime,
-          scheduleEndTime,
+          scheduleStartTime: snapTimeToBookingStep(scheduleStartTime),
+          scheduleEndTime: snapTimeToBookingStep(scheduleEndTime),
           scheduleDefaultView,
         }),
       });
@@ -95,29 +96,24 @@ export function ScheduleSettingsForm({
         <div>
           <p className="text-sm font-medium text-slate-700">Schedule hours</p>
           <p className="mt-1 text-xs text-slate-500">
-            Only show these hours on the weekly schedule grid.
+            Only show these hours on the weekly schedule grid. Times use 5-minute
+            steps.
           </p>
           <div className="mt-3 flex flex-wrap gap-4">
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-slate-600">Start</span>
-              <input
-                type="time"
-                step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-                className="rounded-lg border border-slate-300 px-3 py-2"
+              <TimeSelect5Min
                 value={scheduleStartTime}
-                onChange={(e) => setScheduleStartTime(e.target.value)}
-                required
+                onChange={setScheduleStartTime}
+                aria-label="Schedule start"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span className="text-slate-600">End</span>
-              <input
-                type="time"
-                step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
-                className="rounded-lg border border-slate-300 px-3 py-2"
+              <TimeSelect5Min
                 value={scheduleEndTime}
-                onChange={(e) => setScheduleEndTime(e.target.value)}
-                required
+                onChange={setScheduleEndTime}
+                aria-label="Schedule end"
               />
             </label>
           </div>

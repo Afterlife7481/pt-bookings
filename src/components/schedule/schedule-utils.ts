@@ -232,21 +232,21 @@ export function entryRowSpan(entry: ScheduleEntry): number {
 export function bookedSlotColorClasses(recurring: boolean, onPastDay = false) {
   if (onPastDay) {
     return recurring
-      ? "border-sky-300/90 bg-slate-800/45 text-white"
-      : "border-slate-500/80 bg-slate-800/45 text-white";
+      ? "border-2 border-sky-400/70 bg-sky-100/55 text-sky-900/70"
+      : "border border-sky-200/70 bg-sky-100/55 text-sky-900/70";
   }
 
   return recurring
-    ? "border-sky-300 bg-slate-800 text-white active:bg-slate-700"
-    : "border-slate-500 bg-slate-800 text-white active:bg-slate-700";
+    ? "border-2 border-sky-500 bg-sky-100 text-sky-900 active:bg-sky-200"
+    : "border border-sky-200 bg-sky-100 text-sky-900 active:bg-sky-50";
 }
 
 export function bookedSlotSubtextClasses(_recurring: boolean, onPastDay = false) {
   if (onPastDay) {
-    return "text-slate-200";
+    return "text-sky-800/55";
   }
 
-  return "text-slate-300";
+  return "text-sky-700";
 }
 
 export function openSlotColorClasses(

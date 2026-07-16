@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
+import { hasClientEmail, type PreferredNotifyChannel } from "@/lib/notify-channels";
 import {
   normalizeClientPhone,
   WHATSAPP_PHONE_HINT,
 } from "@/lib/whatsapp-link";
-import type { PreferredNotifyChannel } from "@/lib/notify-channels";
 
 export default function AddClientPage() {
   const router = useRouter();
@@ -31,13 +31,22 @@ export default function AddClientPage() {
     setLoading(true);
     setError(null);
 
-    let normalisedPhone: string;
-    try {
-      normalisedPhone = normalizeClientPhone(phone);
-    } catch (err) {
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone && !hasClientEmail(email)) {
       setLoading(false);
-      setError(err instanceof Error ? err.message : "Invalid phone number");
+      setError("Add a phone number or an email address");
       return;
+    }
+
+    let normalisedPhone = "";
+    if (trimmedPhone) {
+      try {
+        normalisedPhone = normalizeClientPhone(trimmedPhone);
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : "Invalid phone number");
+        return;
+      }
     }
 
     const res = await fetch("/api/clients", {
@@ -101,9 +110,10 @@ export default function AddClientPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+447700900000"
-              required
             />
-            <span className="text-xs text-slate-500">{WHATSAPP_PHONE_HINT}</span>
+            <span className="text-xs text-slate-500">
+              Phone or email required. {WHATSAPP_PHONE_HINT}
+            </span>
           </label>
           <fieldset className="space-y-2 text-sm">
             <legend className="text-slate-600">Communication preference</legend>

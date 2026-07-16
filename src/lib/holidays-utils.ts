@@ -5,6 +5,7 @@ import {
   parseDateOnly,
   parseLocalDateTime,
   parseTimeOnDate,
+  snapDateTimeLocalToBookingStep,
   toLocalDateTimeString,
   SCHEDULE_DISPLAY_STEP_MINUTES,
 } from "@/lib/constants";
@@ -22,12 +23,12 @@ export const HOLIDAY_TEMPLATE_CONFLICT_RECOMMENDATIONS = [
 ] as const;
 
 export function normalizeHolidayDateTime(value: string): string {
-  const trimmed = value.trim();
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
-    return `${trimmed}:00`;
+  const snapped = snapDateTimeLocalToBookingStep(value.trim());
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(snapped)) {
+    return `${snapped}:00`;
   }
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
-    return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(snapped)) {
+    return snapped;
   }
   throw new Error("Invalid date and time");
 }

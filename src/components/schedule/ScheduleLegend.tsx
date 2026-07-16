@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils";
 export function ScheduleLegend({ className }: { className?: string }) {
   const items = [
     {
-      swatch: "border border-slate-500 bg-slate-800",
+      swatch: "border border-sky-200 bg-sky-100",
       label: "Booked slot",
     },
     {
-      swatch: "border-2 border-sky-300 bg-slate-800",
+      swatch: "border-2 border-sky-500 bg-sky-100",
       label: "Recurring booked",
     },
     { swatch: "border border-green-200 bg-green-50", label: "Open slot" },

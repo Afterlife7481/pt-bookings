@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import {
   SCHEDULE_BOOKING_STEP_MINUTES,
-  formatMinutesAsTime,
-  parseTimeToMinutes,
+  snapTimeToBookingStep,
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+
+export { snapTimeToBookingStep };
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) =>
   String(hour).padStart(2, "0"),
@@ -16,15 +17,6 @@ const MINUTE_OPTIONS = Array.from(
   { length: 60 / SCHEDULE_BOOKING_STEP_MINUTES },
   (_, index) => String(index * SCHEDULE_BOOKING_STEP_MINUTES).padStart(2, "0"),
 );
-
-export function snapTimeToBookingStep(time: string): string {
-  const total = parseTimeToMinutes(time);
-  if (!Number.isFinite(total)) return "09:00";
-  const snapped =
-    Math.round(total / SCHEDULE_BOOKING_STEP_MINUTES) *
-    SCHEDULE_BOOKING_STEP_MINUTES;
-  return formatMinutesAsTime(snapped);
-}
 
 /** Hour + minute selects limited to the booking snap (5 minutes). */
 export function TimeSelect5Min({

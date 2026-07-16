@@ -341,6 +341,23 @@ export function isScheduleTimeAligned(
   return parseTimeToMinutes(time) % stepMinutes === 0;
 }
 
+/** Round HH:MM to the nearest booking snap (5 minutes). */
+export function snapTimeToBookingStep(time: string): string {
+  const total = parseTimeToMinutes(time);
+  if (!Number.isFinite(total)) return "09:00";
+  const snapped =
+    Math.round(total / SCHEDULE_BOOKING_STEP_MINUTES) *
+    SCHEDULE_BOOKING_STEP_MINUTES;
+  return formatMinutesAsTime(snapped);
+}
+
+/** Snap the time portion of a datetime-local value to 5-minute increments. */
+export function snapDateTimeLocalToBookingStep(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(value.trim());
+  if (!match) return value;
+  return `${match[1]}T${snapTimeToBookingStep(`${match[2]}:${match[3]}`)}`;
+}
+
 export function assertValidScheduleSlotTimes(startTime: string, endTime: string) {
   assertValidTimeRange(startTime, endTime);
   if (!isScheduleTimeAligned(startTime)) {

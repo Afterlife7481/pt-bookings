@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
-import { SCHEDULE_TIME_INPUT_STEP_SECONDS } from "@/lib/constants";
+import {
+  SCHEDULE_TIME_INPUT_STEP_SECONDS,
+  snapDateTimeLocalToBookingStep,
+} from "@/lib/constants";
 import { formatHolidayRange } from "@/lib/holidays-utils";
 import type { HolidayRow } from "../types";
 
@@ -154,7 +157,11 @@ export function HolidaysSection({
                         step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                         className="rounded-lg border border-slate-300 px-3 py-1.5"
                         value={editStartAt}
-                        onChange={(e) => setEditStartAt(e.target.value)}
+                        onChange={(e) =>
+                          setEditStartAt(
+                            snapDateTimeLocalToBookingStep(e.target.value),
+                          )
+                        }
                         required
                       />
                     </label>
@@ -165,7 +172,11 @@ export function HolidaysSection({
                         step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
                         className="rounded-lg border border-slate-300 px-3 py-1.5"
                         value={editEndAt}
-                        onChange={(e) => setEditEndAt(e.target.value)}
+                        onChange={(e) =>
+                          setEditEndAt(
+                            snapDateTimeLocalToBookingStep(e.target.value),
+                          )
+                        }
                         required
                       />
                     </label>
@@ -244,7 +255,9 @@ export function HolidaysSection({
               step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
               className="rounded-lg border border-slate-300 px-3 py-2"
               value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
+              onChange={(e) =>
+                setStartAt(snapDateTimeLocalToBookingStep(e.target.value))
+              }
               required
             />
           </label>
@@ -255,7 +268,9 @@ export function HolidaysSection({
               step={SCHEDULE_TIME_INPUT_STEP_SECONDS}
               className="rounded-lg border border-slate-300 px-3 py-2"
               value={endAt}
-              onChange={(e) => setEndAt(e.target.value)}
+              onChange={(e) =>
+                setEndAt(snapDateTimeLocalToBookingStep(e.target.value))
+              }
               required
             />
           </label>

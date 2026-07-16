@@ -14,6 +14,15 @@ describe("holidays-utils", () => {
     );
   });
 
+  it("snaps holiday times to 5-minute increments", () => {
+    expect(normalizeHolidayDateTime("2026-08-01T09:03")).toBe(
+      "2026-08-01T09:05:00",
+    );
+    expect(normalizeHolidayDateTime("2026-08-01T09:02:00")).toBe(
+      "2026-08-01T09:00:00",
+    );
+  });
+
   it("detects overlapping datetime ranges", () => {
     expect(
       datetimeRangesOverlap(
