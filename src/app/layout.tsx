@@ -1,9 +1,49 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Figtree, Syne } from "next/font/google";
+import { SerwistProvider } from "@serwist/next/react";
+import {
+  SITE_LANGUAGE,
+  SITE_NAME,
+  DEFAULT_DESCRIPTION,
+  getSiteUrl,
+} from "@/lib/seo";
 import "./globals.css";
 
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700", "800"],
+});
+
+const body = Figtree({
+  subsets: ["latin"],
+  variable: "--font-body",
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "PT Bookings",
-  description: "Personal trainer session booking",
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: `${SITE_NAME} — Personal Trainer Scheduling Software UK`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  category: "Business",
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#020617",
 };
 
 export default function RootLayout({
@@ -12,8 +52,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+    <html lang={SITE_LANGUAGE}>
+      <body
+        className={`${display.variable} ${body.variable} min-h-screen antialiased`}
+      >
+        <SerwistProvider swUrl="/sw.js">{children}</SerwistProvider>
+      </body>
     </html>
   );
 }

@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { eq, and, ne, desc, inArray } from "drizzle-orm";
+import { eq, and, ne, desc, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   clients,
@@ -9,10 +9,45 @@ import {
   slots,
   locations,
 } from "@/lib/db/schema";
-import { nowIso } from "@/lib/constants";
+import { clientHomeUrl, nowIso } from "@/lib/constants";
 import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
+import { normalizeClientPhone } from "@/lib/whatsapp-link";
+import {
+  hasClientEmail,
+  parsePreferredNotifyChannel,
+  type PreferredNotifyChannel,
+} from "@/lib/notify-channels";
+
+function normalizeOptionalClientPhone(phone: string | undefined): string {
+  const trimmed = (phone ?? "").trim();
+  if (!trimmed) return "";
+  return normalizeClientPhone(trimmed);
+}
+
+function assertClientHasContact(email: string, phone: string) {
+  if (!hasClientEmail(email) && !phone) {
+    throw new Error("Add a phone number or an email address");
+  }
+}
+
+function assertNotifyChannelContact(
+  channel: PreferredNotifyChannel,
+  email: string,
+  phone: string,
+) {
+  if (channel === "whatsapp" && !phone) {
+    throw new Error(
+      "Add a phone number for WhatsApp, or switch preference to Email",
+    );
+  }
+  if (channel === "email" && !hasClientEmail(email)) {
+    throw new Error(
+      "Add an email for email notifications, or switch preference to WhatsApp",
+    );
+  }
+}
 
 export type RecurringSlotRef = {
   dayOfWeek: number;
@@ -71,6 +106,40 @@ export async function getRecurringSlotAssignments(
     });
 }
 
+async function getLastSessionsByClientId(
+  trainerId: string,
+  clientIds: string[],
+): Promise<Map<string, { startAt: string; endAt: string }>> {
+  if (clientIds.length === 0) return new Map();
+
+  const db = getDb();
+  const rows = await db
+    .select({
+      clientId: bookings.clientId,
+      startAt: slots.startAt,
+      endAt: slots.endAt,
+    })
+    .from(bookings)
+    .innerJoin(slots, eq(bookings.slotId, slots.id))
+    .where(
+      and(
+        eq(bookings.trainerId, trainerId),
+        inArray(bookings.clientId, clientIds),
+        ne(bookings.status, "canceled"),
+        lt(slots.startAt, nowIso()),
+      ),
+    )
+    .orderBy(desc(slots.startAt));
+
+  const map = new Map<string, { startAt: string; endAt: string }>();
+  for (const row of rows) {
+    if (!map.has(row.clientId)) {
+      map.set(row.clientId, { startAt: row.startAt, endAt: row.endAt });
+    }
+  }
+  return map;
+}
+
 export async function listClients(trainerId: string) {
   const db = getDb();
   const rows = await db
@@ -97,6 +166,8 @@ export async function listClients(trainerId: string) {
     enabledByClient.set(row.clientId, list);
   }
 
+  const lastSessions = await getLastSessionsByClientId(trainerId, clientIds);
+
   return Promise.all(
     rows.map(async (c) => {
       const prefs = await db
@@ -111,6 +182,7 @@ export async function listClients(trainerId: string) {
           startTime: p.startTime,
           locationId: p.locationId,
         })),
+        lastSession: lastSessions.get(c.id) ?? null,
       };
     }),
   );
@@ -121,6 +193,7 @@ export async function createClient(params: {
   name: string;
   phone: string;
   email?: string;
+  preferredNotifyChannel?: PreferredNotifyChannel;
   lastMinuteOptIn?: boolean;
   sessionPrice?: number | null;
 }) {
@@ -136,13 +209,34 @@ export async function createClient(params: {
     throw new Error("Session price must be zero or greater");
   }
 
+  const email = (params.email ?? "").trim();
+  const phone = normalizeOptionalClientPhone(params.phone);
+  assertClientHasContact(email, phone);
+
+  let preferredNotifyChannel = params.preferredNotifyChannel
+    ? parsePreferredNotifyChannel(params.preferredNotifyChannel)
+    : phone
+      ? "whatsapp"
+      : "email";
+  if (preferredNotifyChannel === "whatsapp" && !phone && hasClientEmail(email)) {
+    preferredNotifyChannel = "email";
+  } else if (
+    preferredNotifyChannel === "email" &&
+    !hasClientEmail(email) &&
+    phone
+  ) {
+    preferredNotifyChannel = "whatsapp";
+  }
+  assertNotifyChannelContact(preferredNotifyChannel, email, phone);
+
   await db.insert(clients).values({
     id,
     token,
     trainerId: params.trainerId,
     name: params.name,
-    email: (params.email ?? "").trim(),
-    phone: params.phone,
+    email,
+    phone,
+    preferredNotifyChannel,
     lastMinuteOptIn: params.lastMinuteOptIn ?? false,
     sessionPrice: params.sessionPrice ?? null,
     createdAt,
@@ -182,6 +276,7 @@ export async function getClientDetail(trainerId: string, clientId: string) {
 
   return {
     ...client,
+    portalUrl: clientHomeUrl(client.token),
     recurringPreferences: prefs.map((p) => ({
       dayOfWeek: p.dayOfWeek,
       startTime: p.startTime,
@@ -207,6 +302,7 @@ export async function updateClient(
     name?: string;
     phone?: string;
     email?: string;
+    preferredNotifyChannel?: PreferredNotifyChannel;
     lastMinuteOptIn?: boolean;
     sessionPrice?: number | null;
   },
@@ -218,6 +314,7 @@ export async function updateClient(
     name?: string;
     phone?: string;
     email?: string;
+    preferredNotifyChannel?: PreferredNotifyChannel;
     lastMinuteOptIn?: boolean;
     sessionPrice?: number | null;
   } = {};
@@ -228,12 +325,15 @@ export async function updateClient(
     patch.name = name;
   }
   if (updates.phone !== undefined) {
-    const phone = updates.phone.trim();
-    if (!phone) throw new Error("Phone is required");
-    patch.phone = phone;
+    patch.phone = normalizeOptionalClientPhone(updates.phone);
   }
   if (updates.email !== undefined) {
     patch.email = updates.email.trim();
+  }
+  if (updates.preferredNotifyChannel !== undefined) {
+    patch.preferredNotifyChannel = parsePreferredNotifyChannel(
+      updates.preferredNotifyChannel,
+    );
   }
   if (updates.lastMinuteOptIn !== undefined) {
     patch.lastMinuteOptIn = updates.lastMinuteOptIn;
@@ -249,6 +349,12 @@ export async function updateClient(
   }
 
   if (Object.keys(patch).length === 0) return;
+
+  const nextEmail = patch.email ?? client.email;
+  const nextPhone = patch.phone ?? client.phone;
+  const nextChannel = patch.preferredNotifyChannel ?? client.preferredNotifyChannel;
+  assertClientHasContact(nextEmail, nextPhone);
+  assertNotifyChannelContact(nextChannel, nextEmail, nextPhone);
 
   const db = getDb();
   await db.update(clients).set(patch).where(eq(clients.id, clientId));

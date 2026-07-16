@@ -1,4 +1,4 @@
-import { eq, and, gte, lt, asc, inArray } from "drizzle-orm";
+import { eq, and, gte, gt, lt, asc, inArray, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getDb } from "@/lib/db";
 import {
@@ -16,6 +16,7 @@ import {
   assertValidScheduleSlotTimes,
   defaultSlotEndTime,
   formatDate,
+  formatSlotLabel,
   isInactiveBookingStatus,
   nowIso,
   parseDateOnly,
@@ -26,6 +27,10 @@ import {
 } from "@/lib/constants";
 import { createBookingForSlot } from "./bookings";
 import { assertTrainerLocation } from "./locations";
+import {
+  assertSlotNotDuringHoliday,
+  listHolidaysOverlappingRange,
+} from "./holidays";
 import {
   buildEligibleCountIndex,
   buildEligibleClientsBySlotId,
@@ -40,6 +45,39 @@ export type {
 } from "./schedule-types";
 export { hasActiveLastMinuteOffer } from "./schedule-types";
 
+async function assertNoOverlappingSlot(
+  trainerId: string,
+  startAt: string,
+  endAt: string,
+  excludeSlotId?: string,
+) {
+  const db = getDb();
+  const conditions = [
+    eq(slots.trainerId, trainerId),
+    lt(slots.startAt, endAt),
+    gt(slots.endAt, startAt),
+  ];
+  if (excludeSlotId) {
+    conditions.push(ne(slots.id, excludeSlotId));
+  }
+
+  const overlapping = await db
+    .select({
+      startAt: slots.startAt,
+      endAt: slots.endAt,
+    })
+    .from(slots)
+    .where(and(...conditions))
+    .limit(1);
+
+  const other = overlapping[0];
+  if (!other) return;
+
+  throw new Error(
+    `This slot overlaps an existing slot (${formatSlotLabel(other.startAt, other.endAt)}). Choose a different time.`,
+  );
+}
+
 async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   const db = getDb();
   const row = await db.query.appliedWeeks.findFirst({
@@ -51,6 +89,13 @@ async function isWeekScheduleApplied(trainerId: string, weekStart: string) {
   return !!row;
 }
 
+export type ScheduleHoliday = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  label: string | null;
+};
+
 export async function getWeekSchedule(
   trainerId: string,
   weekStart: string,
@@ -60,37 +105,42 @@ export async function getWeekSchedule(
   entries: ScheduleEntry[];
   weekApplied: boolean;
   lockHours: number;
+  holidays: ScheduleHoliday[];
 }> {
   await clearExpiredSlotHolds(trainerId);
 
   const db = getDb();
-  const settings = await getTrainerSettings(trainerId);
-  const prefIndex = await buildEligibleCountIndex(trainerId);
   const start = parseDateOnly(weekStart);
   const end = addDays(start, 7);
 
   const startAtMin = `${formatDate(start)}T00:00:00`;
   const startAtMax = `${formatDate(end)}T00:00:00`;
 
-  const rows = await db
-    .select({
-      slot: slots,
-      booking: bookings,
-      client: clients,
-      location: locations,
-    })
-    .from(slots)
-    .leftJoin(bookings, eq(bookings.slotId, slots.id))
-    .leftJoin(clients, eq(bookings.clientId, clients.id))
-    .leftJoin(locations, eq(slots.locationId, locations.id))
-    .where(
-      and(
-        eq(slots.trainerId, trainerId),
-        gte(slots.startAt, startAtMin),
-        lt(slots.startAt, startAtMax),
-      ),
-    )
-    .orderBy(asc(slots.startAt));
+  const [settings, prefIndex, holidays, weekApplied, rows] = await Promise.all([
+    getTrainerSettings(trainerId),
+    buildEligibleCountIndex(trainerId),
+    listHolidaysOverlappingRange(trainerId, startAtMin, startAtMax),
+    isWeekScheduleApplied(trainerId, weekStart),
+    db
+      .select({
+        slot: slots,
+        booking: bookings,
+        client: clients,
+        location: locations,
+      })
+      .from(slots)
+      .leftJoin(bookings, eq(bookings.slotId, slots.id))
+      .leftJoin(clients, eq(bookings.clientId, clients.id))
+      .leftJoin(locations, eq(slots.locationId, locations.id))
+      .where(
+        and(
+          eq(slots.trainerId, trainerId),
+          gte(slots.startAt, startAtMin),
+          lt(slots.startAt, startAtMax),
+        ),
+      )
+      .orderBy(asc(slots.startAt)),
+  ]);
 
   const filteredRows = rows.filter(
     (row) => !row.booking || !isInactiveBookingStatus(row.booking.status),
@@ -203,14 +253,18 @@ export async function getWeekSchedule(
     };
   });
 
-  const weekApplied = await isWeekScheduleApplied(trainerId, weekStart);
-
   return {
     weekStart: formatDate(start),
     weekEnd: formatDate(addDays(start, 6)),
     entries,
     weekApplied,
     lockHours: settings.lastMinuteOfferLockHours,
+    holidays: holidays.map((holiday) => ({
+      id: holiday.id,
+      startAt: holiday.startAt,
+      endAt: holiday.endAt,
+      label: holiday.label,
+    })),
   };
 }
 
@@ -264,24 +318,35 @@ export async function addScheduleSlot(
   );
   const startAt = parseTimeOnDate(formatDate(slotDate), startTime);
   const endAt = parseTimeOnDate(formatDate(slotDate), effectiveEndTime);
+  const startAtStr = toLocalDateTimeString(startAt);
+  const endAtStr = toLocalDateTimeString(endAt);
+
+  const holidays = await listHolidaysOverlappingRange(
+    trainerId,
+    `${formatDate(slotDate)}T00:00:00`,
+    `${formatDate(addDays(slotDate, 1))}T00:00:00`,
+  );
+  assertSlotNotDuringHoliday(startAtStr, endAtStr, holidays);
 
   const existing = await db.query.slots.findFirst({
     where: and(
       eq(slots.trainerId, trainerId),
-      eq(slots.startAt, toLocalDateTimeString(startAt)),
+      eq(slots.startAt, startAtStr),
     ),
   });
   if (existing) {
     throw new Error("A slot already exists at this time.");
   }
 
+  await assertNoOverlappingSlot(trainerId, startAtStr, endAtStr);
+
   const slotId = nanoid();
   await db.insert(slots).values({
     id: slotId,
     trainerId,
     appliedWeekId: applied.id,
-    startAt: toLocalDateTimeString(startAt),
-    endAt: toLocalDateTimeString(endAt),
+    startAt: startAtStr,
+    endAt: endAtStr,
     status: "available",
     locationId,
     createdAt: nowIso(),

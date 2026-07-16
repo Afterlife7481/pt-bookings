@@ -11,7 +11,7 @@ export function ScheduleViewToggle({
 }) {
   return (
     <div
-      className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1"
+      className="inline-flex w-fit shrink-0 self-start rounded-lg border border-slate-200 bg-slate-50 p-1"
       role="tablist"
       aria-label="Schedule view"
     >

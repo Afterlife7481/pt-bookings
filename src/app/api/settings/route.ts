@@ -29,6 +29,7 @@ export async function PATCH(request: Request) {
       scheduleEndTime: body.scheduleEndTime,
       scheduleDefaultView: body.scheduleDefaultView,
       timezone: body.timezone,
+      currency: body.currency,
       cancelDeadlineHours:
         body.cancelDeadlineHours !== undefined
           ? Number(body.cancelDeadlineHours)

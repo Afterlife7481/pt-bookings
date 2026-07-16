@@ -66,6 +66,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     optIn: client.lastMinuteOptIn,
+    pruneNotify: client.lastMinutePruneNotify,
+    email: client.email ?? "",
     preferences,
     scheduleStartTime: settings.scheduleStartTime,
     scheduleEndTime: settings.scheduleEndTime,

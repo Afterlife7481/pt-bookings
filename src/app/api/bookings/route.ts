@@ -1,10 +1,10 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
-import { listBookings } from "@/lib/services/templates";
 import {
   cancelBookingForTrainer,
   createBookingForSlot,
   getBookingDetailForTrainer,
+  listBookings,
   sendConfirmationForBooking,
 } from "@/lib/services/bookings";
 

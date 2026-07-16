@@ -7,7 +7,9 @@ import {
   type RecurringSlotRef,
 } from "@/lib/services/clients";
 import { setClientLocations } from "@/lib/services/locations";
+import { getTrainerSettings } from "@/lib/services/settings";
 import { sessionPriceFromBody } from "@/lib/validation/client";
+import { parsePreferredNotifyChannel } from "@/lib/notify-channels";
 
 export async function GET(
   _request: Request,
@@ -42,6 +44,7 @@ export async function PATCH(
       name?: string;
       phone?: string;
       email?: string;
+      preferredNotifyChannel?: "email" | "whatsapp";
       lastMinuteOptIn?: boolean;
       sessionPrice?: number | null;
     } = {};
@@ -49,11 +52,20 @@ export async function PATCH(
     if (body.name !== undefined) detailUpdates.name = body.name;
     if (body.phone !== undefined) detailUpdates.phone = body.phone;
     if (body.email !== undefined) detailUpdates.email = body.email;
+    if (body.preferredNotifyChannel !== undefined) {
+      detailUpdates.preferredNotifyChannel = parsePreferredNotifyChannel(
+        body.preferredNotifyChannel,
+      );
+    }
     if (typeof body.lastMinuteOptIn === "boolean") {
       detailUpdates.lastMinuteOptIn = body.lastMinuteOptIn;
     }
     if ("sessionPrice" in body) {
-      detailUpdates.sessionPrice = sessionPriceFromBody(body.sessionPrice);
+      const settings = await getTrainerSettings(trainerId);
+      detailUpdates.sessionPrice = sessionPriceFromBody(
+        body.sessionPrice,
+        settings.currency,
+      );
     }
 
     if (Object.keys(detailUpdates).length > 0) {

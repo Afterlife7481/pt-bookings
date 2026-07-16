@@ -3,28 +3,26 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import { SheetModal } from "@/components/SheetModal";
-import {
-  SESSION_PAYMENT_TYPES,
-  type SessionPaymentType,
-} from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function MarkSessionPaidModal({
   open,
   busy,
+  paymentMethods,
   initialPaymentType,
+  mode = "mark",
   onClose,
   onConfirm,
 }: {
   open: boolean;
   busy: boolean;
-  initialPaymentType: SessionPaymentType | null;
+  paymentMethods: { id: string; name: string }[];
+  initialPaymentType: string | null;
+  mode?: "mark" | "edit";
   onClose: () => void;
-  onConfirm: (paymentType: SessionPaymentType) => void;
+  onConfirm: (paymentType: string) => void;
 }) {
-  const [selected, setSelected] = useState<SessionPaymentType | null>(
-    initialPaymentType,
-  );
+  const [selected, setSelected] = useState<string | null>(initialPaymentType);
 
   useEffect(() => {
     if (open) {
@@ -34,53 +32,59 @@ export function MarkSessionPaidModal({
 
   if (!open) return null;
 
+  const title = mode === "edit" ? "Change payment method" : "Mark as paid";
+  const confirmLabel = mode === "edit" ? "Save" : "Mark as paid";
+
   return (
     <SheetModal
-      title="Mark as paid"
+      title={title}
       subtitle="Choose how the client paid for this session."
       onClose={onClose}
       footer={
-        <>
-          <Button
-            disabled={!selected || busy}
-            className="w-full"
-            onClick={() => selected && onConfirm(selected)}
-          >
-            Mark as paid
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            disabled={busy}
-            onClick={onClose}
-          >
-            Cancel
-          </Button>
-        </>
+        <Button
+          disabled={!selected || busy}
+          className="w-full"
+          onClick={() => selected && onConfirm(selected)}
+        >
+          {confirmLabel}
+        </Button>
       }
     >
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        {SESSION_PAYMENT_TYPES.map((option) => {
-          const isSelected = selected === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              disabled={busy}
-              onClick={() => setSelected(option.value)}
-              className={cn(
-                "min-w-0 rounded-lg border px-3 py-2.5 text-sm font-medium transition",
-                isSelected
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                busy && "opacity-60",
-              )}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+      {paymentMethods.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">
+          Add payment methods in{" "}
+          <a
+            href="/dashboard/settings/payment"
+            className="underline hover:text-slate-800"
+          >
+            Settings → Payment details
+          </a>
+          .
+        </p>
+      ) : (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {paymentMethods.map((option) => {
+            const isSelected = selected === option.name;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                disabled={busy}
+                onClick={() => setSelected(option.name)}
+                className={cn(
+                  "min-w-0 rounded-lg border px-3 py-2.5 text-sm font-medium transition",
+                  isSelected
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                  busy && "opacity-60",
+                )}
+              >
+                {option.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </SheetModal>
   );
 }

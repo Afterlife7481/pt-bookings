@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
 import { getBookingByToken } from "@/lib/services/bookings";
+import { getBookingCalendarPayload } from "@/lib/services/booking-calendar";
+import { getTrainerById } from "@/lib/services/trainers";
 import { getTrainerSettings } from "@/lib/services/settings";
 import { Card, Badge, Button } from "@/components/ui";
+import { AddToCalendarButton } from "@/components/AddToCalendarButton";
 import { formatSlot, formatDurationMinutes } from "@/lib/utils";
-import { isWithinBookingDeadline, isInactiveBookingStatus, parseLocalDateTime } from "@/lib/constants";
+import { isWithinBookingDeadline, isInactiveBookingStatus } from "@/lib/constants";
+import { wallClockToUtcMs } from "@/lib/zoned-time";
 import { ChangeSessionFlow } from "@/components/ChangeSessionFlow";
 import { SessionActions } from "@/components/SessionActions";
+import { SessionChangePrompt } from "@/components/SessionChangePrompt";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -30,25 +35,35 @@ export default async function SessionPage({
   const sessionEndAt = slot?.endAt ?? null;
   if (!sessionStartAt) notFound();
 
+  const [trainerSettings, trainer, calendar] = await Promise.all([
+    getTrainerSettings(booking.trainerId),
+    getTrainerById(booking.trainerId),
+    !isInactiveBookingStatus(booking.status)
+      ? getBookingCalendarPayload(token)
+      : Promise.resolve(null),
+  ]);
+
   const durationMinutes =
     sessionEndAt != null
       ? Math.round(
-          (parseLocalDateTime(sessionEndAt).getTime() -
-            parseLocalDateTime(sessionStartAt).getTime()) /
+          (wallClockToUtcMs(sessionEndAt, trainerSettings.timezone) -
+            wallClockToUtcMs(sessionStartAt, trainerSettings.timezone)) /
             60_000,
         )
       : 60;
 
-  const trainerSettings = await getTrainerSettings(booking.trainerId);
   const blockedByDeadline = slot
     ? isWithinBookingDeadline(
         slot.startAt,
         trainerSettings.cancelDeadlineHours,
+        trainerSettings.timezone,
       )
     : true;
   const isInactive = isInactiveBookingStatus(booking.status);
   const isCanceled = booking.status === "canceled";
   const isVoided = booking.status === "voided";
+  const isChanging = booking.status === "pending_change";
+  const showChangeFlow = change === "1" && !isInactive;
 
   return (
     <main className="mx-auto max-w-lg space-y-4 p-6">
@@ -56,7 +71,7 @@ export default async function SessionPage({
         href={`/c/${client.token}`}
         className="inline-block text-sm text-slate-500 hover:text-slate-900"
       >
-        ← All my sessions
+        ← Home
       </Link>
 
       <div>
@@ -80,22 +95,36 @@ export default async function SessionPage({
         </div>
       </div>
 
-      <Card>
-        <p className="text-sm text-slate-600">Hi {client.name}, here are your session details.</p>
-        <div className="mt-4 space-y-2 text-sm">
-          <p>
-            <span className="font-medium">Duration:</span>{" "}
-            {formatDurationMinutes(durationMinutes)}
-          </p>
-          <p><span className="font-medium">Trainer:</span> Alex Trainer</p>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button disabled variant="secondary">Add to calendar (soon)</Button>
-          <Button disabled variant="secondary">Pay (soon)</Button>
-        </div>
-        {change !== "1" &&
-          booking.status !== "pending_change" &&
-          !isInactive && (
+      {!showChangeFlow && (
+        <Card>
+          <p className="text-sm text-slate-600">Hi {client.name}, here are your session details.</p>
+          <div className="mt-4 space-y-2 text-sm">
+            <p>
+              <span className="font-medium">Duration:</span>{" "}
+              {formatDurationMinutes(durationMinutes)}
+            </p>
+            <p>
+              <span className="font-medium">Trainer:</span>{" "}
+              {trainer?.name ?? "Your trainer"}
+            </p>
+            {calendar?.event.location ? (
+              <p>
+                <span className="font-medium">Location:</span>{" "}
+                {calendar.event.location}
+              </p>
+            ) : null}
+          </div>
+          {!isInactive && calendar ? (
+            <AddToCalendarButton
+              className="mt-4"
+              options={calendar.options}
+              sessionLabel={formatSlot(sessionStartAt, sessionEndAt)}
+            />
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button disabled variant="secondary">Pay (soon)</Button>
+          </div>
+          {!isChanging && !isInactive && (
             <SessionActions
               bookingToken={token}
               clientHomeToken={client.token}
@@ -103,9 +132,14 @@ export default async function SessionPage({
               cancelDeadlineHours={trainerSettings.cancelDeadlineHours}
             />
           )}
-      </Card>
+        </Card>
+      )}
 
-      {(change === "1" || booking.status === "pending_change") && !isInactive && (
+      {isChanging && !showChangeFlow && !isInactive && (
+        <SessionChangePrompt bookingToken={token} />
+      )}
+
+      {showChangeFlow && (
         <ChangeSessionFlow
           bookingToken={token}
           clientHomeToken={client.token}
@@ -121,7 +155,7 @@ export default async function SessionPage({
             href={`/c/${client.token}`}
             className="mt-3 inline-block text-sm font-medium text-slate-900 hover:underline"
           >
-            Back to all sessions
+            Back to home
           </Link>
         </Card>
       )}
@@ -135,7 +169,7 @@ export default async function SessionPage({
             href={`/c/${client.token}`}
             className="mt-3 inline-block text-sm font-medium text-slate-900 hover:underline"
           >
-            Back to all sessions
+            Back to home
           </Link>
         </Card>
       )}

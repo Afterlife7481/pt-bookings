@@ -36,37 +36,32 @@ describe("appUrl", () => {
     process.env = { ...env };
   });
 
-  it("builds absolute paths from NEXT_PUBLIC_APP_URL", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://pt-bookings-production.up.railway.app";
-    delete process.env.APP_BASE_URL;
+  it("builds absolute paths from APP_BASE_URL", () => {
+    process.env.APP_BASE_URL = "https://pt-bookings-production.up.railway.app";
     expect(appUrl("/dashboard/schedule").href).toBe(
       "https://pt-bookings-production.up.railway.app/dashboard/schedule",
     );
   });
 
-  it("prefers APP_BASE_URL over NEXT_PUBLIC_APP_URL", () => {
+  it("prefers APP_BASE_URL over platform-provided domains", () => {
     process.env.APP_BASE_URL = "https://book.example.com";
-    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    process.env.RAILWAY_PUBLIC_DOMAIN = "pt-bookings-production.up.railway.app";
     expect(resolveAppBaseUrlRaw()).toBe("https://book.example.com");
     expect(appUrl("/s/token").href).toBe("https://book.example.com/s/token");
   });
 
   it("uses Railway public domain when no explicit base URL is set", () => {
     delete process.env.APP_BASE_URL;
-    delete process.env.NEXT_PUBLIC_APP_URL;
     process.env.RAILWAY_PUBLIC_DOMAIN = "pt-bookings-production.up.railway.app";
     expect(resolveAppBaseUrlRaw()).toBe(
       "https://pt-bookings-production.up.railway.app",
     );
   });
 
-  it("ignores stale localhost NEXT_PUBLIC in production on Railway", () => {
+  it("falls back to localhost when nothing is configured", () => {
     delete process.env.APP_BASE_URL;
-    process.env.NODE_ENV = "production";
-    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-    process.env.RAILWAY_PUBLIC_DOMAIN = "pt-bookings-production.up.railway.app";
-    expect(resolveAppBaseUrlRaw()).toBe(
-      "https://pt-bookings-production.up.railway.app",
-    );
+    delete process.env.RAILWAY_PUBLIC_DOMAIN;
+    delete process.env.VERCEL_URL;
+    expect(resolveAppBaseUrlRaw()).toBe("http://localhost:3000");
   });
 });

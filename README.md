@@ -26,8 +26,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Purpose |
 |----------|---------|
-| `APP_BASE_URL` | Public base URL for magic links and WhatsApp messages (read at runtime on the server; recommended on Railway) |
-| `NEXT_PUBLIC_APP_URL` | Same URL for client-side code (must be set at build time if used in the browser) |
+| `APP_BASE_URL` | Public base URL for all generated links (magic links, WhatsApp messages, client portal/session URLs). Read at runtime on the server; falls back to the Railway/Vercel domain when unset |
 | `RESEND_API_KEY` | Resend API key for sending magic-link emails. **Required in production.** Without it, links are printed to the server console (local dev only) |
 | `EMAIL_FROM` | Verified sender address for sign-in emails (e.g. `PT Bookings <noreply@yourdomain.com>`) |
 | `NODE_ENV` | Non-`production` exposes magic-link URLs in API responses; production never does |
@@ -42,7 +41,7 @@ The trainer dashboard is split into route-based sections:
 | `/dashboard/schedule` | Week calendar, open slots, last-minute holds |
 | `/dashboard/clients` | Client list and detail |
 | `/dashboard/sessions` | All bookings |
-| `/dashboard/whatsapp` | Message log |
+| `/dashboard/feed` | Message log, template clash alerts |
 | `/dashboard/settings` | Trainer settings and locations |
 | `/dashboard/settings/templates` | Weekly templates → apply for upcoming weeks |
 
@@ -82,9 +81,21 @@ First-time e2e setup:
 npx playwright install chromium
 ```
 
-## WhatsApp
+## Invoices (email & WhatsApp)
 
-Messages are logged to the database and printed to the server console. Wire Twilio or WhatsApp Cloud API in `src/lib/whatsapp.ts`.
+**Send invoice** opens a channel picker:
+
+- **Email** — if the client has an email (sent via Resend; needs `RESEND_API_KEY`)
+- **WhatsApp** — if the client has a valid mobile; opens `wa.me` so the trainer
+  sends from their own number
+- **Both** — email now, then open WhatsApp
+
+Each send is logged to the Feed (Email and/or WhatsApp badges). Client phones
+should include a country code (e.g. `+447…`); UK `07…` mobiles are normalised
+automatically.
+
+Other WhatsApp drafts (confirmations, last-minute offers) still use click-to-chat
+the same way. Fully automatic WhatsApp (Twilio / Cloud API) is not wired.
 
 ## Security model
 

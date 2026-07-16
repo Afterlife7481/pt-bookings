@@ -20,12 +20,10 @@ function formatOfferExpiry(expiresAt: string): string {
 }
 
 export function LastMinuteOfferClaim({
-  slotId,
-  clientId,
+  offerToken,
   preview,
 }: {
-  slotId: string;
-  clientId: string;
+  offerToken: string;
   preview: LastMinuteOfferPreview;
 }) {
   const router = useRouter();
@@ -47,14 +45,19 @@ export function LastMinuteOfferClaim({
       const res = await fetch("/api/client/last-minute/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, clientId }),
+        body: JSON.stringify({ offerToken }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to accept offer");
         return;
       }
-      router.push(`/s/${data.token}`);
+      if (typeof data.token !== "string" || !data.token) {
+        setError("Booking confirmed but session link is missing. Check your sessions list.");
+        return;
+      }
+      // Hard navigation so the session page always reflects the new booked status.
+      window.location.assign(`/s/${data.token}`);
     } catch {
       setError("Failed to accept offer");
     } finally {
@@ -69,7 +72,7 @@ export function LastMinuteOfferClaim({
       const res = await fetch("/api/client/last-minute/decline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId, clientId }),
+        body: JSON.stringify({ offerToken }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -92,7 +95,7 @@ export function LastMinuteOfferClaim({
         href={`/c/${preview.clientToken}`}
         className="inline-block text-sm text-slate-500 hover:text-slate-900"
       >
-        ← All my sessions
+        ← Home
       </Link>
 
       <div>

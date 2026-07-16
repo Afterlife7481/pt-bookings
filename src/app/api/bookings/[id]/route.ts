@@ -1,6 +1,7 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { parseSessionPaymentType } from "@/lib/constants";
+import { bookingSessionPriceFromBody } from "@/lib/validation/booking";
 import {
   cancelBookingForTrainer,
   getBookingDetailForTrainer,
@@ -44,7 +45,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     const updates: {
       sessionPaid?: boolean;
       paymentType?: ReturnType<typeof parseSessionPaymentType>;
+      sessionPrice?: number | null;
     } = {};
+
+    if ("sessionPrice" in body) {
+      updates.sessionPrice = bookingSessionPriceFromBody(body.sessionPrice);
+    }
 
     if ("sessionPaid" in body) {
       if (typeof body.sessionPaid !== "boolean") {
@@ -105,7 +111,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (body.action === "send_invoice") {
-      const detail = await sendInvoiceForBooking(id);
+      const detail = await sendInvoiceForBooking(id, body.channels);
       if (!detail) {
         return Response.json({ error: "Session not found" }, { status: 404 });
       }

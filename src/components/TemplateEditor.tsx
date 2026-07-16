@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Button, Card } from "@/components/ui";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Card } from "@/components/ui";
 import { TemplateWeekCalendar } from "@/components/TemplateWeekCalendar";
 import { defaultSlotEndTime, slotDurationMinutes } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export type TemplateSlotView = {
   dayOfWeek: number;
@@ -90,26 +97,32 @@ function averageDurationLabel(slots: DraftSlot[] | TemplateSlotView[]) {
   return `${avg} min avg`;
 }
 
+type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+
 export function TemplateEditorForm({
   initialSlots = [],
   locations,
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
-  submitLabel,
   onSubmit,
-  onCancel,
 }: {
   initialSlots?: DraftSlot[];
   locations: LocationOption[];
   scheduleStartTime?: string;
   scheduleEndTime?: string;
-  submitLabel: string;
   onSubmit: (slots: DraftSlot[]) => Promise<void>;
-  onCancel?: () => void;
 }) {
   const [draftSlots, setDraftSlots] = useState<DraftSlot[]>(initialSlots);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const draftSlotsRef = useRef(draftSlots);
+  draftSlotsRef.current = draftSlots;
+  const savedSignatureRef = useRef(slotsSignature(initialSlots));
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
 
   const locationSummary = useMemo(
     () => templateLocationSummary(draftSlots),
@@ -119,107 +132,123 @@ export function TemplateEditorForm({
     () => averageDurationLabel(draftSlots),
     [draftSlots],
   );
-  const savedSignature = useMemo(() => slotsSignature(initialSlots), [initialSlots]);
-  const isDirty = slotsSignature(draftSlots) !== savedSignature;
 
   useEffect(() => {
-    if (!isDirty || saving) return;
+    const nextSig = slotsSignature(initialSlots);
+    if (nextSig === savedSignatureRef.current) return;
+    if (saveTimerRef.current) return;
+    setDraftSlots(initialSlots);
+    savedSignatureRef.current = nextSig;
+  }, [initialSlots]);
 
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      e.preventDefault();
-      e.returnValue = "";
-    }
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty, saving]);
-
-  useEffect(() => {
-    if (!isDirty || saving) return;
-
-    function handleNavigateAway(e: MouseEvent) {
-      const anchor = (e.target as HTMLElement).closest("a");
-      if (!anchor || anchor.target === "_blank") return;
-
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("mailto:")) return;
-
-      const message =
-        "You have unsaved template changes. Leave without saving?";
-      if (!window.confirm(message)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }
-
-    document.addEventListener("click", handleNavigateAway, true);
-    return () => document.removeEventListener("click", handleNavigateAway, true);
-  }, [isDirty, saving]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (draftSlots.length === 0) {
+  const persist = useCallback(async (slots: DraftSlot[]) => {
+    if (slots.length === 0) {
       setError("Add at least one slot to the template");
+      setSaveStatus("error");
       return;
     }
-    setSaving(true);
+
+    setSaveStatus("saving");
     setError(null);
     try {
-      await onSubmit(draftSlots);
+      await onSubmitRef.current(slots);
+      savedSignatureRef.current = slotsSignature(slots);
+      setSaveStatus("saved");
+      if (savedFadeTimerRef.current) clearTimeout(savedFadeTimerRef.current);
+      savedFadeTimerRef.current = setTimeout(() => {
+        setSaveStatus("idle");
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save template");
-    } finally {
-      setSaving(false);
+      setSaveStatus("error");
     }
-  }
+  }, []);
 
-  function handleCancel() {
-    if (!onCancel) return;
-    if (
-      isDirty &&
-      !window.confirm("You have unsaved template changes. Discard them?")
-    ) {
+  const scheduleAutoSave = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus("pending");
+
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void persist(draftSlotsRef.current);
+    }, 600);
+  }, [persist]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (savedFadeTimerRef.current) {
+        clearTimeout(savedFadeTimerRef.current);
+      }
+
+      const slots = draftSlotsRef.current;
+      if (slotsSignature(slots) === savedSignatureRef.current) return;
+      if (slots.length === 0) return;
+
+      void fetch("/api/templates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slots: draftToPayload(slots) }),
+        keepalive: true,
+      });
+    };
+  }, []);
+
+  function handleSlotsChange(next: DraftSlot[]) {
+    setDraftSlots(next);
+    draftSlotsRef.current = next;
+    if (slotsSignature(next) === savedSignatureRef.current) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      setSaveStatus("idle");
+      setError(null);
       return;
     }
-    onCancel();
+    scheduleAutoSave();
   }
 
-  const actionButtons = (
-    <div className="flex flex-wrap gap-2">
-      <Button type="submit" disabled={saving}>
-        {saving ? "Saving…" : submitLabel}
-      </Button>
-      {onCancel && (
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={saving}
-          onClick={handleCancel}
-        >
-          Cancel
-        </Button>
-      )}
-    </div>
-  );
+  const statusMessage =
+    saveStatus === "pending" || saveStatus === "saving"
+      ? "Saving…"
+      : saveStatus === "saved"
+        ? "Saved"
+        : null;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-0">
+    <div className="space-y-0">
       <div className="space-y-4 px-4 sm:px-5">
-        {actionButtons}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="min-w-0 text-sm font-medium text-slate-900">
             {draftSlots.length} slot{draftSlots.length === 1 ? "" : "s"}
             {durationSummary ? ` · ${durationSummary}` : ""}
           </p>
-          {locationSummary && (
-            <p className="min-w-0 max-w-[min(100%,12rem)] truncate text-right text-sm text-slate-500 sm:max-w-xs">
-              {locationSummary}
-            </p>
-          )}
+          <div className="flex min-w-0 items-center gap-3">
+            {locationSummary && (
+              <p className="min-w-0 max-w-[min(100%,12rem)] truncate text-right text-sm text-slate-500 sm:max-w-xs">
+                {locationSummary}
+              </p>
+            )}
+            {statusMessage && (
+              <p
+                className={cn(
+                  "shrink-0 text-xs font-medium",
+                  saveStatus === "saved" ? "text-green-700" : "text-slate-500",
+                )}
+              >
+                {statusMessage}
+              </p>
+            )}
+          </div>
         </div>
         <p className="mb-3 text-sm text-slate-500">
-          Click <span className="font-medium text-slate-700">+</span> to add a
-          slot.
+          Tap empty space or the{" "}
+          <span className="font-medium text-slate-700">+</span> to add a slot.
+          Changes save automatically. Slots cannot overlap.
         </p>
         {locations.length === 0 && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -234,19 +263,14 @@ export function TemplateEditorForm({
         locations={locations}
         scheduleStartTime={scheduleStartTime}
         scheduleEndTime={scheduleEndTime}
-        onSlotsChange={setDraftSlots}
-        disabled={saving}
+        onSlotsChange={handleSlotsChange}
+        disabled={saveStatus === "saving"}
       />
 
       <div className="space-y-4 px-4 pt-4 sm:px-5 sm:pb-5">
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {isDirty && !saving && (
-          <p className="text-sm text-amber-800">Unsaved changes — save before leaving.</p>
-        )}
-
-        {actionButtons}
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -266,15 +290,10 @@ export function WeeklyTemplatePanel({
   scheduleEndTime?: string;
   onSaved: () => void;
 }) {
-  const [editing, setEditing] = useState(!template);
   const viewSlots = useMemo(
     () => (template ? slotsToDraft(template.slots, locations) : []),
     [template, locations],
   );
-  const locationSummary = template
-    ? templateLocationSummary(template.slots)
-    : null;
-  const durationSummary = template ? averageDurationLabel(template.slots) : null;
 
   async function saveTemplate(slots: DraftSlot[]) {
     const res = await fetch("/api/templates", {
@@ -286,61 +305,23 @@ export function WeeklyTemplatePanel({
     if (!res.ok) {
       throw new Error(data.error ?? "Failed to save template");
     }
-    setEditing(false);
     onSaved();
-  }
-
-  if (editing || !template) {
-    return (
-      <Card className="overflow-hidden !p-0">
-        <div className="p-4 sm:p-5 sm:pb-4">
-          <h2 className="font-semibold">Weekly template</h2>
-          <p className="mt-1 text-sm text-slate-500">{TEMPLATE_APPLY_HINT}</p>
-        </div>
-        <TemplateEditorForm
-          key={template?.id ?? "new"}
-          initialSlots={viewSlots}
-          locations={locations}
-          scheduleStartTime={scheduleStartTime}
-          scheduleEndTime={scheduleEndTime}
-          submitLabel={template ? "Save changes" : "Save template"}
-          onSubmit={saveTemplate}
-          onCancel={template ? () => setEditing(false) : undefined}
-        />
-      </Card>
-    );
   }
 
   return (
     <Card className="overflow-hidden !p-0">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5 sm:pb-4">
-        <div>
-          <h2 className="font-semibold">Weekly template</h2>
-          <p className="mt-1 text-sm text-slate-500">{TEMPLATE_APPLY_HINT}</p>
-          <p className="mt-2 text-sm text-slate-500">
-            {template.slots.length} slot{template.slots.length === 1 ? "" : "s"}
-            {durationSummary ? ` · ${durationSummary}` : ""}
-            {locationSummary ? ` · ${locationSummary}` : ""}
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => setEditing(true)}>
-          Edit
-        </Button>
+      <div className="p-4 sm:p-5 sm:pb-4">
+        <h2 className="font-semibold">Weekly template</h2>
+        <p className="mt-1 text-sm text-slate-500">{TEMPLATE_APPLY_HINT}</p>
       </div>
-
-      {template.slots.length > 0 ? (
-        <TemplateWeekCalendar
-          slots={viewSlots}
-          locations={locations}
-          scheduleStartTime={scheduleStartTime}
-          scheduleEndTime={scheduleEndTime}
-          readOnly
-        />
-      ) : (
-        <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
-          No slots in this template.
-        </p>
-      )}
+      <TemplateEditorForm
+        key={template?.id ?? "new"}
+        initialSlots={viewSlots}
+        locations={locations}
+        scheduleStartTime={scheduleStartTime}
+        scheduleEndTime={scheduleEndTime}
+        onSubmit={saveTemplate}
+      />
     </Card>
   );
 }

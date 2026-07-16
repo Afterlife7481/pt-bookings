@@ -1,26 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchJson } from "@/lib/api/fetch-json";
-import type {
-  DashboardTemplate,
-  TrainerLocation,
-  TrainerSettings,
-} from "../types";
+import type { DashboardTemplate, TrainerLocation } from "../types";
+import { useTrainerSettings } from "./useTrainerSettings";
 
 export function useTemplatesPage() {
+  const { settings } = useTrainerSettings();
   const [template, setTemplate] = useState<DashboardTemplate | null>(null);
   const [locations, setLocations] = useState<TrainerLocation[]>([]);
-  const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [t, locs, sett] = await Promise.all([
+    const [t, locs] = await Promise.all([
       fetchJson<{ template: DashboardTemplate | null }>("/api/templates"),
       fetchJson<TrainerLocation[]>("/api/locations"),
-      fetchJson<TrainerSettings>("/api/settings"),
     ]);
     setTemplate(t.template);
     setLocations(Array.isArray(locs) ? locs : []);
-    setSettings(sett);
     setLoading(false);
   }, []);
 

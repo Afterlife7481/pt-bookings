@@ -26,15 +26,6 @@ export function isLocal(): boolean {
   return appEnv() === "local";
 }
 
-export function isStaging(): boolean {
-  return appEnv() === "staging";
-}
-
 export function isProduction(): boolean {
   return appEnv() === "production";
-}
-
-/** True for any server deployment (staging or production), i.e. not local dev. */
-export function isDeployed(): boolean {
-  return !isLocal();
 }

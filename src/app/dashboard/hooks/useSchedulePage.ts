@@ -1,42 +1,48 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
-import type { ScheduleEntry } from "@/lib/services/schedule";
-import type {
-  DashboardClient,
-  TrainerLocation,
-  TrainerSettings,
-} from "../types";
+import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
+import type { DashboardClient, TrainerLocation } from "../types";
+import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
+import { useTrainerSettings } from "./useTrainerSettings";
+
+export type ApplyTemplateOutcome = {
+  ok: boolean;
+  conflicts: string[];
+  recommendations: string[];
+  slotsCreated: number;
+};
 
 export function useSchedulePage() {
+  const { settings } = useTrainerSettings();
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [scheduleHolidays, setScheduleHolidays] = useState<ScheduleHoliday[]>([]);
   const [scheduleRange, setScheduleRange] = useState({ weekStart: "", weekEnd: "" });
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [hasTemplate, setHasTemplate] = useState(false);
-  const [settings, setSettings] = useState<TrainerSettings | null>(null);
   const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const activeWeek = weekStart || defaultWeekStart();
-    const [c, t, sched, sett, locs] = await Promise.all([
+    const [c, t, sched, locs] = await Promise.all([
       fetchJson<DashboardClient[]>("/api/clients"),
       fetchJson<{ template: unknown | null }>("/api/templates"),
       fetchJson<{
         entries: ScheduleEntry[];
         weekStart: string;
         weekEnd: string;
+        holidays: ScheduleHoliday[];
       }>(`/api/schedule?weekStart=${activeWeek}`),
-      fetchJson<TrainerSettings>("/api/settings"),
       fetchJson<TrainerLocation[]>("/api/locations"),
     ]);
     setClients(c);
     setHasTemplate(t.template !== null);
     setScheduleEntries(sched.entries);
+    setScheduleHolidays(sched.holidays ?? []);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
-    setSettings(sett);
     setTrainerLocations(Array.isArray(locs) ? locs : []);
   }, [weekStart]);
 
@@ -52,21 +58,32 @@ export function useSchedulePage() {
     setWeekStart(defaultWeekStart());
   }
 
+  function goToWeek(nextWeekStart: string) {
+    setWeekStart(nextWeekStart);
+  }
+
   async function runScheduleAction(action: () => Promise<void>) {
     setScheduleError(null);
     try {
       await action();
       await refresh();
     } catch (e) {
-      setScheduleError(e instanceof ApiError ? e.message : "Something went wrong");
+      const message =
+        e instanceof ApiError ? e.message : "Something went wrong";
+      setScheduleError(message);
+      throw e instanceof Error ? e : new Error(message);
     }
   }
 
-  async function applyTemplateToCurrentWeek() {
+  async function applyTemplateToCurrentWeek(): Promise<ApplyTemplateOutcome> {
     setApplyingTemplate(true);
     setScheduleError(null);
     try {
-      await fetchJson("/api/templates", {
+      const result = await fetchJson<{
+        slotsCreated: number;
+        conflicts: string[];
+        recommendations: string[];
+      }>("/api/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,12 +92,22 @@ export function useSchedulePage() {
         }),
       });
       await refresh();
-      return true;
+      return {
+        ok: true,
+        conflicts: result.conflicts ?? [],
+        recommendations: result.recommendations ?? [],
+        slotsCreated: result.slotsCreated ?? 0,
+      };
     } catch (e) {
       setScheduleError(
         e instanceof ApiError ? e.message : "Failed to apply template",
       );
-      return false;
+      return {
+        ok: false,
+        conflicts: [],
+        recommendations: [],
+        slotsCreated: 0,
+      };
     } finally {
       setApplyingTemplate(false);
     }
@@ -126,18 +153,35 @@ export function useSchedulePage() {
   }
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
-    await runScheduleAction(async () => {
-      await fetchJson("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "allocate", slotId, clientId }),
+    const client = clients.find((c) => c.id === clientId);
+    const phoneCheck = validateWhatsAppPhone(client?.phone);
+    const waOpen = phoneCheck.ok ? prepareWhatsAppOpen() : null;
+    let whatsappOpened = false;
+
+    try {
+      await runScheduleAction(async () => {
+        const result = await fetchJson<{
+          whatsappUrl?: string | null;
+        }>("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "allocate", slotId, clientId }),
+        });
+        if (waOpen) {
+          waOpen.finish(result.whatsappUrl);
+          whatsappOpened = true;
+        }
       });
-    });
+    } catch (e) {
+      if (!whatsappOpened) waOpen?.finish(null);
+      throw e;
+    }
   }
 
   return {
     weekStart,
     scheduleEntries,
+    scheduleHolidays,
     scheduleRange,
     applyingTemplate,
     clients,
@@ -149,6 +193,7 @@ export function useSchedulePage() {
     refresh,
     changeWeek,
     goToThisWeek,
+    goToWeek,
     applyTemplateToCurrentWeek,
     addScheduleSlot,
     updateScheduleSlotLocation,

@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "@/lib/currency";
 import type { TrainerSettings } from "@/lib/services/settings";
 import { formatSessionPrice } from "@/lib/utils";
 
@@ -40,8 +41,11 @@ export function formatPaymentOptionsText(details: PaymentDetailsForMessage): str
   return lines.join("\n");
 }
 
-export function formatInvoiceAmount(pence: number): string {
-  return formatSessionPrice(pence);
+export function formatInvoiceAmount(
+  minorUnits: number,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  return formatSessionPrice(minorUnits, currency);
 }
 
 export type PaymentStatus = "unpaid" | "requested" | "paid";

@@ -1,12 +1,6 @@
-import { ensureDb } from "@/lib/db/init";
-import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
-import { listWhatsAppLog } from "@/lib/whatsapp";
+import { NextResponse } from "next/server";
 
-export async function GET() {
-  await ensureDb();
-  const trainerId = await getTrainerIdFromRequest();
-  if (!trainerId) return unauthorizedResponse();
-
-  const messages = await listWhatsAppLog(trainerId);
-  return Response.json(messages);
+/** @deprecated Use GET /api/feed */
+export async function GET(request: Request) {
+  return NextResponse.redirect(new URL("/api/feed", request.url));
 }

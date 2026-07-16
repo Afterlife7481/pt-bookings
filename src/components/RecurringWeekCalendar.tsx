@@ -6,15 +6,14 @@ import {
 } from "@/lib/constants";
 import {
   dayHeaderInitial,
-  hourToStartTime,
   parseRecurringSlotKey,
   recurringSlotKey,
   slotCoversGridRow,
-  slotGridRowSpan,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
+import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 
 export type RecurringSlotAssignment = {
   dayOfWeek: number;
@@ -151,45 +150,71 @@ type GridLayer = {
   onOpen: () => void;
 };
 
-function layerAtRow(
+function layersForDay(
   dayOfWeek: number,
-  rowTime: string,
   assignmentMap: Map<string, RecurringSlotAssignment>,
   overlayMap: Map<string, TemplateSlotOverlay>,
   selectedSlots: Map<string, SelectedRecurringSlot>,
   onCellClick: (dayOfWeek: number, startTime: string) => void,
-): GridLayer | null {
+): GridLayer[] {
+  const layers: GridLayer[] = [];
+  const seenStarts = new Set<string>();
+
   for (const [key, assignment] of assignmentMap) {
     if (assignment.dayOfWeek !== dayOfWeek) continue;
-    const endTime = defaultSlotEndTime(assignment.startTime);
-    if (slotCoversGridRow(assignment.startTime, endTime, rowTime)) {
-      const startTime = assignment.startTime;
-      return {
-        startTime,
-        endTime,
-        assignment,
-        templateOverlay: overlayMap.get(key) ?? null,
-        selected: selectedSlots.get(recurringSlotKey(dayOfWeek, startTime)) ?? null,
-        onOpen: () => onCellClick(dayOfWeek, startTime),
-      };
-    }
+    const startTime = assignment.startTime;
+    seenStarts.add(startTime);
+    layers.push({
+      startTime,
+      endTime: defaultSlotEndTime(startTime),
+      assignment,
+      templateOverlay: overlayMap.get(key) ?? null,
+      selected: selectedSlots.get(recurringSlotKey(dayOfWeek, startTime)) ?? null,
+      onOpen: () => onCellClick(dayOfWeek, startTime),
+    });
   }
 
   for (const [key, overlay] of overlayMap) {
     if (overlay.dayOfWeek !== dayOfWeek) continue;
-    if (slotCoversGridRow(overlay.startTime, overlay.endTime, rowTime)) {
-      return {
-        startTime: overlay.startTime,
-        endTime: overlay.endTime,
-        assignment: null,
-        templateOverlay: overlay,
-        selected: selectedSlots.get(key) ?? null,
-        onOpen: () => onCellClick(dayOfWeek, overlay.startTime),
-      };
-    }
+    if (seenStarts.has(overlay.startTime)) continue;
+    layers.push({
+      startTime: overlay.startTime,
+      endTime: overlay.endTime,
+      assignment: null,
+      templateOverlay: overlay,
+      selected: selectedSlots.get(key) ?? null,
+      onOpen: () => onCellClick(dayOfWeek, overlay.startTime),
+    });
   }
 
-  return null;
+  return layers;
+}
+
+function rowOccupied(
+  dayOfWeek: number,
+  rowTime: string,
+  assignmentMap: Map<string, RecurringSlotAssignment>,
+  overlayMap: Map<string, TemplateSlotOverlay>,
+): boolean {
+  for (const assignment of assignmentMap.values()) {
+    if (assignment.dayOfWeek !== dayOfWeek) continue;
+    if (
+      slotCoversGridRow(
+        assignment.startTime,
+        defaultSlotEndTime(assignment.startTime),
+        rowTime,
+      )
+    ) {
+      return true;
+    }
+  }
+  for (const overlay of overlayMap.values()) {
+    if (overlay.dayOfWeek !== dayOfWeek) continue;
+    if (slotCoversGridRow(overlay.startTime, overlay.endTime, rowTime)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function RecurringWeekCalendar({
@@ -221,40 +246,45 @@ export function RecurringWeekCalendar({
       className={WEEK_GRID_EDGE_CLASS}
       getDayHeader={dayHeaderInitial}
       renderCell={(dayOfWeek, rowTime) => {
-        const layer = layerAtRow(
+        if (rowOccupied(dayOfWeek, rowTime, assignmentMap, overlayMap)) {
+          return <div className="h-full" />;
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={() => onCellClick(dayOfWeek, rowTime)}
+            className="h-full w-full rounded border border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
+          />
+        );
+      }}
+      renderDayOverlay={(dayOfWeek) => {
+        const layers = layersForDay(
           dayOfWeek,
-          rowTime,
           assignmentMap,
           overlayMap,
           selectedSlots,
           onCellClick,
         );
-
-        if (!layer) {
-          return (
-            <button
-              type="button"
-              onClick={() => onCellClick(dayOfWeek, rowTime)}
-              className="h-full w-full rounded border border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
-            />
-          );
-        }
-
-        if (layer.startTime !== rowTime) {
-          return { covered: true };
-        }
-
-        return {
-          rowSpan: slotGridRowSpan(layer.startTime, layer.endTime),
-          content: (
-            <SlotCell
-              assignment={layer.assignment}
-              templateOverlay={layer.templateOverlay}
-              selected={layer.selected}
-              onOpen={layer.onOpen}
-            />
-          ),
-        };
+        return (
+          <TimedSlotOverlay
+            scheduleStartTime={scheduleStartTime}
+            scheduleEndTime={scheduleEndTime}
+            items={layers.map((layer) => ({
+              key: `${dayOfWeek}-${layer.startTime}`,
+              startTime: layer.startTime,
+              endTime: layer.endTime,
+              content: (
+                <SlotCell
+                  assignment={layer.assignment}
+                  templateOverlay={layer.templateOverlay}
+                  selected={layer.selected}
+                  onOpen={layer.onOpen}
+                />
+              ),
+            }))}
+          />
+        );
       }}
     />
   );

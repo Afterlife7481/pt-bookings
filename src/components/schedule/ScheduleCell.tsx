@@ -1,7 +1,12 @@
 import { cn } from "@/lib/utils";
 import type { ScheduleEntry } from "@/lib/services/schedule";
 import { formatTimeRange, slotTimeLabel } from "@/lib/constants";
-import { openSlotColorClasses, openSlotTextClasses } from "./schedule-utils";
+import {
+  bookedSlotColorClasses,
+  bookedSlotSubtextClasses,
+  openSlotColorClasses,
+  openSlotTextClasses,
+} from "./schedule-utils";
 
 function entryTimeRange(entry: ScheduleEntry) {
   return formatTimeRange(slotTimeLabel(entry.startAt), slotTimeLabel(entry.endAt));
@@ -14,6 +19,7 @@ export function ScheduleCell({
   selected,
   mobile = false,
   compact = false,
+  onPastDay = false,
 }: {
   entry: ScheduleEntry;
   editable?: boolean;
@@ -21,6 +27,7 @@ export function ScheduleCell({
   selected?: boolean;
   mobile?: boolean;
   compact?: boolean;
+  onPastDay?: boolean;
 }) {
   const booked = entry.booking && entry.status !== "available";
   const sizeClass = mobile
@@ -37,23 +44,11 @@ export function ScheduleCell({
 
   if (booked && entry.booking) {
     const recurring = entry.booking.isRecurring;
-
-    return (
-      <a
-        href={`/dashboard/sessions/${entry.booking.id}`}
-        title={
-          entry.location
-            ? `${timeLabel} · ${entry.booking.clientName} · ${entry.location.name}`
-            : `${timeLabel} · ${entry.booking.clientName}`
-        }
-        className={cn(
-          sizeClass,
-          "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
-          recurring
-            ? "border-blue-300 bg-blue-600 text-white active:bg-blue-700"
-            : "border-slate-400 bg-slate-800 text-white active:bg-slate-700",
-        )}
-      >
+    const title = entry.location
+      ? `${timeLabel} · ${entry.booking.clientName} · ${entry.location.name}`
+      : `${timeLabel} · ${entry.booking.clientName}`;
+    const content = (
+      <>
         <span className={cn(nameClass, "w-full truncate")}>
           {entry.booking.clientName}
         </span>
@@ -62,12 +57,41 @@ export function ScheduleCell({
             className={cn(
               subClass,
               "w-full truncate",
-              recurring ? "text-blue-100" : "text-slate-300",
+              bookedSlotSubtextClasses(recurring, onPastDay),
             )}
           >
             {entry.location.name}
           </span>
         )}
+      </>
+    );
+    const className = cn(
+      sizeClass,
+      "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
+      bookedSlotColorClasses(recurring, onPastDay),
+      selected && "ring-2 ring-slate-900 ring-offset-1",
+    );
+
+    if (onOpen) {
+      return (
+        <button
+          type="button"
+          title={title}
+          onClick={() => onOpen(entry)}
+          className={className}
+        >
+          {content}
+        </button>
+      );
+    }
+
+    return (
+      <a
+        href={`/dashboard/sessions/${entry.booking.id}?from=schedule`}
+        title={title}
+        className={className}
+      >
+        {content}
       </a>
     );
   }
@@ -93,18 +117,30 @@ export function ScheduleCell({
         className={cn(
           sizeClass,
           "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
-          openSlotColorClasses(lm, !!selected),
+          openSlotColorClasses(lm, !!selected, onPastDay),
         )}
       >
         {isHeld ? (
           <>
             {lm?.heldClientName && (
-              <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
+              <span
+                className={cn(
+                  nameClass,
+                  "w-full truncate",
+                  openSlotTextClasses(lm, "primary", onPastDay),
+                )}
+              >
                 {lm.heldClientName}
               </span>
             )}
             {entry.location && (
-              <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+              <span
+                className={cn(
+                  subClass,
+                  "w-full truncate text-center",
+                  openSlotTextClasses(lm, "secondary", onPastDay),
+                )}
+              >
                 {entry.location.name}
               </span>
             )}
@@ -112,12 +148,24 @@ export function ScheduleCell({
         ) : (
           <>
             {entry.location && (
-              <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
+              <span
+                className={cn(
+                  nameClass,
+                  "w-full truncate",
+                  openSlotTextClasses(lm, "primary", onPastDay),
+                )}
+              >
                 {entry.location.name}
               </span>
             )}
             {hasMatch && (
-              <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+              <span
+                className={cn(
+                  subClass,
+                  "w-full truncate text-center",
+                  openSlotTextClasses(lm, "secondary", onPastDay),
+                )}
+              >
                 {lm!.eligibleCount} client{lm!.eligibleCount === 1 ? "" : "s"}
               </span>
             )}
@@ -134,16 +182,28 @@ export function ScheduleCell({
       className={cn(
         sizeClass,
         "flex flex-col items-center justify-center rounded-lg border text-center",
-        openSlotColorClasses(lm, false),
+        openSlotColorClasses(lm, false, onPastDay),
       )}
     >
       {entry.location && (
-        <span className={cn(nameClass, "w-full truncate", openSlotTextClasses(lm, "primary"))}>
+        <span
+          className={cn(
+            nameClass,
+            "w-full truncate",
+            openSlotTextClasses(lm, "primary", onPastDay),
+          )}
+        >
           {entry.location.name}
         </span>
       )}
       {(lm?.eligibleCount ?? 0) > 0 && (
-        <span className={cn(subClass, "w-full truncate text-center", openSlotTextClasses(lm, "secondary"))}>
+        <span
+          className={cn(
+            subClass,
+            "w-full truncate text-center",
+            openSlotTextClasses(lm, "secondary", onPastDay),
+          )}
+        >
           {lm!.eligibleCount} client{lm!.eligibleCount === 1 ? "" : "s"}
         </span>
       )}

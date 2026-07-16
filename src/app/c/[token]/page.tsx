@@ -1,65 +1,18 @@
-import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
 import { listClientSessions } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
 import { getSharedNotesForClient } from "@/lib/services/notes";
-import { Badge, Button, Card } from "@/components/ui";
+import { ClientSessionList } from "@/components/client/ClientSessionList";
+import {
+  ClientGroup,
+  ClientInset,
+  ClientRowLink,
+} from "@/components/client/client-ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
-import { formatSlot, formatCreatedDate } from "@/lib/utils";
-import { LastMinutePreferencesForm } from "@/components/LastMinutePreferencesForm";
+import { formatCreatedDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-
-function SessionList({
-  sessions,
-  emptyMessage,
-}: {
-  sessions: {
-    bookingToken: string;
-    status: string;
-    isRecurring: boolean;
-    startAt: string;
-    endAt: string | null;
-  }[];
-  emptyMessage: string;
-}) {
-  if (sessions.length === 0) {
-    return <p className="text-sm text-slate-500">{emptyMessage}</p>;
-  }
-
-  return (
-    <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-      {sessions.map((session) => (
-        <li key={session.bookingToken}>
-          <Link
-            href={`/s/${session.bookingToken}`}
-            className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50"
-          >
-            <div>
-              <p className="text-sm font-medium text-slate-900">
-                {formatSlot(session.startAt, session.endAt)}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {session.status === "canceled" ? (
-                  <Badge tone="danger">Canceled</Badge>
-                ) : session.status === "voided" ? (
-                  <Badge tone="danger">Voided</Badge>
-                ) : session.status === "pending_change" ? (
-                  <Badge tone="warning">Changing</Badge>
-                ) : (
-                  <Badge tone="success">Booked</Badge>
-                )}
-                {session.isRecurring && <Badge>Recurring</Badge>}
-              </div>
-            </div>
-            <span className="text-sm text-slate-400">View →</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default async function ClientHomePage({
   params,
@@ -76,16 +29,23 @@ export default async function ClientHomePage({
     getSharedNotesForClient(client.id),
   ]);
 
+  const historyDetail =
+    history.length === 0
+      ? undefined
+      : `${history.length} past session${history.length === 1 ? "" : "s"}`;
+
   return (
-    <main className="mx-auto min-w-0 max-w-6xl space-y-4 p-4 sm:p-6">
-      <div>
-        <p className="text-sm text-slate-500">Your sessions</p>
-        <h1 className="text-2xl font-bold">Hi {client.name}</h1>
-      </div>
+    <main className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6">
+      <header className="pt-1">
+        <p className="text-sm text-slate-500">Home</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Hi {client.name}
+        </h1>
+      </header>
 
       {sharedNotes.length > 0 && (
-        <Card>
-          <h2 className="font-semibold">Notes from your trainer</h2>
+        <ClientInset>
+          <h2 className="font-semibold text-slate-900">Notes from your trainer</h2>
           <ul className="mt-3 space-y-3">
             {sharedNotes.map((note) => (
               <li
@@ -102,33 +62,53 @@ export default async function ClientHomePage({
               </li>
             ))}
           </ul>
-        </Card>
+        </ClientInset>
       )}
 
-      <Card>
-        <h2 className="font-semibold">Upcoming sessions</h2>
+      <ClientInset>
+        <h2 className="font-semibold text-slate-900">Upcoming sessions</h2>
         <div className="mt-3">
-          <SessionList
+          <ClientSessionList
             sessions={upcoming}
             emptyMessage="No upcoming sessions booked."
           />
         </div>
-        <Link href={`/c/${token}/book`} className="mt-4 inline-block">
-          <Button>Book a new session</Button>
-        </Link>
-      </Card>
+      </ClientInset>
 
-      <Card>
-        <h2 className="font-semibold">Session history</h2>
-        <div className="mt-3">
-          <SessionList
-            sessions={history}
-            emptyMessage="No past sessions yet."
-          />
-        </div>
-      </Card>
+      <ClientGroup>
+        <ClientRowLink
+          href={`/c/${token}/book`}
+          title="Book a session"
+          subtitle="Choose from open slots in your booking window"
+        />
+        <ClientRowLink
+          href={`/c/${token}/history`}
+          title="Session history"
+          detail={historyDetail}
+        />
+        <ClientRowLink
+          href={`/c/${token}/last-minute`}
+          title="Last-minute openings"
+          subtitle="Get notified when a slot opens at short notice"
+        />
+      </ClientGroup>
 
-      <LastMinutePreferencesForm clientToken={token} />
+      <ClientGroup>
+        <ClientRowLink
+          href={`/c/${token}/email`}
+          title="Your email"
+          subtitle={
+            client.email?.trim()
+              ? client.email
+              : "Add an email for notifications"
+          }
+        />
+        <ClientRowLink
+          href={`/c/${token}/install`}
+          title="Install on your phone"
+          subtitle="Add the app to your home screen"
+        />
+      </ClientGroup>
     </main>
   );
 }

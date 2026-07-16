@@ -13,7 +13,10 @@ import {
   MAX_CLIENT_BOOKING_WINDOW_WEEKS,
   isValidIanaTimezone,
   parseTimeToHour,
+  snapTimeToBookingStep,
+  nowIso,
 } from "@/lib/constants";
+import { DEFAULT_CURRENCY, normalizeCurrency } from "@/lib/currency";
 
 export type ScheduleDefaultView = "day" | "week";
 
@@ -22,6 +25,7 @@ export type TrainerSettings = {
   email: string;
   phone: string;
   timezone: string;
+  currency: string;
   scheduleStartTime: string;
   scheduleEndTime: string;
   scheduleDefaultView: ScheduleDefaultView;
@@ -88,10 +92,14 @@ export async function getTrainerSettings(
     email: trainer.email,
     phone: trainer.phone ?? "",
     timezone: trainer.timezone,
+    currency: trainer.currency || DEFAULT_CURRENCY,
     scheduleStartTime: trainer.scheduleStartTime ?? DEFAULT_SCHEDULE_START,
     scheduleEndTime: trainer.scheduleEndTime ?? DEFAULT_SCHEDULE_END,
     scheduleDefaultView:
-      trainer.scheduleDefaultView === "day" ? "day" : DEFAULT_SCHEDULE_DEFAULT_VIEW,
+      trainer.scheduleDefaultView === "day" ||
+      trainer.scheduleDefaultView === "week"
+        ? trainer.scheduleDefaultView
+        : DEFAULT_SCHEDULE_DEFAULT_VIEW,
     cancelDeadlineHours:
       trainer.cancelDeadlineHours ?? DEFAULT_CANCEL_DEADLINE_HOURS,
     lastMinuteOfferLockHours:
@@ -116,6 +124,7 @@ export async function updateTrainerSettings(
       | "scheduleEndTime"
       | "scheduleDefaultView"
       | "timezone"
+      | "currency"
       | "cancelDeadlineHours"
       | "lastMinuteOfferLockHours"
       | "clientBookingWindowWeeks"
@@ -182,6 +191,10 @@ export async function updateTrainerSettings(
     updates.timezone = timezone;
   }
 
+  if (updates.currency !== undefined) {
+    updates.currency = normalizeCurrency(updates.currency);
+  }
+
   if (updates.bankAccountNumber !== undefined) {
     updates.bankAccountNumber = normalizeBankAccountNumber(
       updates.bankAccountNumber,
@@ -200,6 +213,13 @@ export async function updateTrainerSettings(
     updates.paymentPayeeName = normalizeOptionalText(updates.paymentPayeeName);
   }
 
+  if (updates.scheduleStartTime !== undefined) {
+    updates.scheduleStartTime = snapTimeToBookingStep(updates.scheduleStartTime);
+  }
+  if (updates.scheduleEndTime !== undefined) {
+    updates.scheduleEndTime = snapTimeToBookingStep(updates.scheduleEndTime);
+  }
+
   if (updates.scheduleStartTime !== undefined || updates.scheduleEndTime !== undefined) {
     const current = await getTrainerSettings(trainerId);
     const start = updates.scheduleStartTime ?? current.scheduleStartTime;
@@ -209,6 +229,19 @@ export async function updateTrainerSettings(
       throw new Error("End time must be after start time");
     }
   }
+
+  const existingTrainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, trainerId),
+  });
+  if (!existingTrainer) throw new Error("Trainer not found");
+
+  const markRegional =
+    (updates.timezone !== undefined || updates.currency !== undefined) &&
+    !existingTrainer.regionalSettingsConfiguredAt;
+  const markSchedule =
+    (updates.scheduleStartTime !== undefined ||
+      updates.scheduleEndTime !== undefined) &&
+    !existingTrainer.scheduleHoursConfiguredAt;
 
   await db
     .update(trainers)
@@ -225,6 +258,7 @@ export async function updateTrainerSettings(
         scheduleDefaultView: updates.scheduleDefaultView,
       }),
       ...(updates.timezone !== undefined && { timezone: updates.timezone }),
+      ...(updates.currency !== undefined && { currency: updates.currency }),
       ...(updates.cancelDeadlineHours !== undefined && {
         cancelDeadlineHours: updates.cancelDeadlineHours,
       }),
@@ -246,6 +280,8 @@ export async function updateTrainerSettings(
       ...(updates.paymentPayeeName !== undefined && {
         paymentPayeeName: updates.paymentPayeeName,
       }),
+      ...(markRegional && { regionalSettingsConfiguredAt: nowIso() }),
+      ...(markSchedule && { scheduleHoursConfiguredAt: nowIso() }),
     })
     .where(eq(trainers.id, trainerId));
 }

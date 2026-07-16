@@ -4,12 +4,32 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
+import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
+import { useTrainerSettings } from "../../hooks/useTrainerSettings";
+import {
+  currencySymbol,
+  DEFAULT_CURRENCY,
+} from "@/lib/currency";
+import { hasClientEmail, type PreferredNotifyChannel } from "@/lib/notify-channels";
+import {
+  normalizeClientPhone,
+  WHATSAPP_PHONE_HINT,
+} from "@/lib/whatsapp-link";
 
 export default function AddClientPage() {
   const router = useRouter();
+  const { settings } = useTrainerSettings();
+  const currency = settings?.currency || DEFAULT_CURRENCY;
+  const priceSymbol = currencySymbol(currency);
+  const back = useOnboardingBackLink({
+    backHref: "/dashboard/clients",
+    backLabel: "Clients",
+  });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredNotifyChannel, setPreferredNotifyChannel] =
+    useState<PreferredNotifyChannel>("whatsapp");
   const [sessionPrice, setSessionPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,10 +39,34 @@ export default function AddClientPage() {
     setLoading(true);
     setError(null);
 
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone && !hasClientEmail(email)) {
+      setLoading(false);
+      setError("Add a phone number or an email address");
+      return;
+    }
+
+    let normalisedPhone = "";
+    if (trimmedPhone) {
+      try {
+        normalisedPhone = normalizeClientPhone(trimmedPhone);
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : "Invalid phone number");
+        return;
+      }
+    }
+
     const res = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, sessionPrice }),
+      body: JSON.stringify({
+        name,
+        email,
+        phone: normalisedPhone,
+        preferredNotifyChannel,
+        sessionPrice,
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -38,8 +82,8 @@ export default function AddClientPage() {
   return (
     <main className="mx-auto max-w-lg space-y-6 p-4 sm:p-6">
       <div>
-        <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+        <Link href={back.backHref} className="text-sm text-slate-500 hover:text-slate-900">
+          ← Back to {back.backLabel}
         </Link>
         <h1 className="mt-2 text-2xl font-bold">Add client</h1>
         <p className="text-sm text-slate-500">Create a new client profile</p>
@@ -74,11 +118,42 @@ export default function AddClientPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+447700900000"
-              required
             />
+            <span className="text-xs text-slate-500">
+              Phone or email required. {WHATSAPP_PHONE_HINT}
+            </span>
           </label>
+          <fieldset className="space-y-2 text-sm">
+            <legend className="text-slate-600">Communication preference</legend>
+            <p className="text-xs text-slate-500">
+              Default for invoices. You can still choose the other option when
+              sending.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "whatsapp"}
+                  onChange={() => setPreferredNotifyChannel("whatsapp")}
+                />
+                <span>WhatsApp</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "email"}
+                  onChange={() => setPreferredNotifyChannel("email")}
+                />
+                <span>Email</span>
+              </label>
+            </div>
+          </fieldset>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-slate-600">Session price (£)</span>
+            <span className="text-slate-600">
+              Session price ({priceSymbol})
+            </span>
             <input
               type="number"
               min="0"

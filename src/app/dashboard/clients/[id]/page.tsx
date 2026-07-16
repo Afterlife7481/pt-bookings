@@ -15,7 +15,15 @@ import { RecurringSlotDetailModal } from "@/components/RecurringSlotDetailModal"
 import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
-import { clientHomeUrl, parseLocalDateTime } from "@/lib/constants";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import {
+  currencySymbol,
+  DEFAULT_CURRENCY,
+} from "@/lib/currency";
+import { isWallClockPast } from "@/lib/zoned-time";
+import { prepareWhatsAppOpenForPhone, WHATSAPP_PHONE_HINT } from "@/lib/whatsapp-link";
+import type { PreferredNotifyChannel } from "@/lib/notify-channels";
+import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 
 type ClientBooking = {
   id: string;
@@ -36,9 +44,11 @@ type ClientLocationOption = {
 type ClientDetail = {
   id: string;
   token: string;
+  portalUrl: string;
   name: string;
   email: string;
   phone: string;
+  preferredNotifyChannel: "email" | "whatsapp";
   lastMinuteOptIn: boolean;
   sessionPrice: number | null;
   createdAt: string;
@@ -54,6 +64,9 @@ type ClientDetail = {
 export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
+  const { settings } = useTrainerSettings();
+  const currency = settings?.currency || DEFAULT_CURRENCY;
+  const priceSymbol = currencySymbol(currency);
 
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +75,8 @@ export default function ClientDetailPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredNotifyChannel, setPreferredNotifyChannel] =
+    useState<PreferredNotifyChannel>("whatsapp");
   const [sessionPrice, setSessionPrice] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -109,13 +124,16 @@ export default function ClientDetailPage() {
     setName(data.name);
     setEmail(data.email);
     setPhone(data.phone);
-    setSessionPrice(sessionPriceToInput(data.sessionPrice));
+    setPreferredNotifyChannel(
+      data.preferredNotifyChannel === "email" ? "email" : "whatsapp",
+    );
+    setSessionPrice(sessionPriceToInput(data.sessionPrice, currency));
     setEnabledLocationIds(
       new Set(data.locations.filter((l) => l.enabled).map((l) => l.id)),
     );
     setLoading(false);
     return data;
-  }, [clientId]);
+  }, [clientId, currency]);
 
   const loadRecurringOptions = useCallback(
     async (
@@ -191,7 +209,13 @@ export default function ClientDetailPage() {
     const res = await fetch(`/api/clients/${clientId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, sessionPrice }),
+      body: JSON.stringify({
+        name,
+        email,
+        phone,
+        preferredNotifyChannel,
+        sessionPrice,
+      }),
     });
     const data = await res.json();
     setSavingDetails(false);
@@ -206,20 +230,42 @@ export default function ClientDetailPage() {
   }
 
   async function sendSessionWhatsApp(bookingId: string) {
-    setBusyBookingId(bookingId);
-    setBookingActionError(null);
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send_confirmation", bookingId }),
-    });
-    const data = await res.json();
-    setBusyBookingId(null);
-    if (!res.ok) {
-      setBookingActionError(data.error ?? "Failed to send WhatsApp");
+    const prepared = prepareWhatsAppOpenForPhone(phone);
+    if (!prepared.ok) {
+      setBookingActionError(prepared.error);
       return;
     }
-    await loadClient();
+    const waOpen = prepared.opener;
+    setBusyBookingId(bookingId);
+    setBookingActionError(null);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send_confirmation", bookingId }),
+      });
+      const data = await res.json();
+      setBusyBookingId(null);
+      if (!res.ok) {
+        waOpen.finish(null);
+        setBookingActionError(data.error ?? "Failed to prepare message");
+        return;
+      }
+      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
+        waOpen.finish(data.whatsappUrl);
+      } else {
+        waOpen.finish(null);
+        setBookingActionError(
+          data.error ??
+            "Add or check this client's phone number before sending on WhatsApp.",
+        );
+      }
+      await loadClient();
+    } catch {
+      waOpen.finish(null);
+      setBusyBookingId(null);
+      setBookingActionError("Failed to prepare message");
+    }
   }
 
   async function cancelSession(bookingId: string) {
@@ -363,7 +409,7 @@ export default function ClientDetailPage() {
     return (
       <main className="mx-auto max-w-4xl space-y-4 p-6">
         <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+          ← Back to Clients
         </Link>
         <Card>
           <p className="text-slate-600">Client not found.</p>
@@ -373,13 +419,14 @@ export default function ClientDetailPage() {
   }
 
   const now = mounted ? Date.now() : null;
+  const timeZone = settings?.timezone || DEFAULT_TIMEZONE;
   const upcoming =
     now === null
       ? []
       : client.bookings.filter(
           (b) =>
             b.status !== "canceled" &&
-            parseLocalDateTime(b.slotStartAt).getTime() >= now,
+            !isWallClockPast(b.slotStartAt, timeZone),
         );
   const history =
     now === null
@@ -387,14 +434,14 @@ export default function ClientDetailPage() {
       : client.bookings.filter(
           (b) =>
             b.status === "canceled" ||
-            parseLocalDateTime(b.slotStartAt).getTime() < now,
+            isWallClockPast(b.slotStartAt, timeZone),
         );
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <div>
         <Link href="/dashboard/clients" className="text-sm text-slate-500 hover:text-slate-900">
-          ← Back to dashboard
+          ← Back to Clients
         </Link>
         <h1 className="mt-2 text-2xl font-bold">{client.name}</h1>
         <p className="text-sm text-slate-500">Client profile</p>
@@ -429,11 +476,43 @@ export default function ClientDetailPage() {
                 className="rounded-lg border border-slate-300 px-3 py-2"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                required
+                placeholder="+447700900000"
               />
+              <span className="text-xs text-slate-500">
+                Phone or email required. {WHATSAPP_PHONE_HINT}
+              </span>
             </label>
+            <fieldset className="flex flex-col gap-2 text-sm sm:col-span-2">
+              <legend className="text-slate-600">Communication preference</legend>
+              <p className="text-xs text-slate-500">
+                Used as the default when sending invoices. You can still choose
+                the other channel (or both) each time.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="preferred-notify-channel"
+                    checked={preferredNotifyChannel === "whatsapp"}
+                    onChange={() => setPreferredNotifyChannel("whatsapp")}
+                  />
+                  <span>WhatsApp</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="preferred-notify-channel"
+                    checked={preferredNotifyChannel === "email"}
+                    onChange={() => setPreferredNotifyChannel("email")}
+                  />
+                  <span>Email</span>
+                </label>
+              </div>
+            </fieldset>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Session price (£)</span>
+              <span className="text-slate-600">
+                Session price ({priceSymbol})
+              </span>
               <input
                 type="number"
                 min="0"
@@ -464,11 +543,11 @@ export default function ClientDetailPage() {
           <p className="text-sm text-slate-600">Client portal link</p>
           <a
             className="mt-1 inline-block break-all text-sm text-blue-600 underline"
-            href={clientHomeUrl(client.token)}
+            href={client.portalUrl}
             target="_blank"
             rel="noreferrer"
           >
-            {clientHomeUrl(client.token)}
+            {client.portalUrl}
           </a>
           <p className="mt-2 text-xs text-slate-400">
             Added {formatCreatedDate(client.createdAt)}
@@ -636,7 +715,7 @@ export default function ClientDetailPage() {
                     disabled={busyBookingId === b.id}
                     onClick={() => sendSessionWhatsApp(b.id)}
                   >
-                    {busyBookingId === b.id ? "Sending…" : "Send WhatsApp"}
+                    {busyBookingId === b.id ? "Sending…" : "Send message"}
                   </Button>
                   <Button
                     variant="danger"

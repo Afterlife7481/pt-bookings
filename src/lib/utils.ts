@@ -1,3 +1,10 @@
+import {
+  DEFAULT_CURRENCY,
+  formatMoney,
+  moneyToInput,
+  parseMoneyInput,
+} from "@/lib/currency";
+
 export type LinkifiedSegment =
   | { type: "text"; value: string }
   | { type: "link"; href: string; value: string };
@@ -138,30 +145,38 @@ export function formatTimeOnly(startAt: string): string {
   return startAt.split("T")[1]?.slice(0, 5) ?? "";
 }
 
-/** Format pence as GBP, or em dash when unset. */
-export function formatSessionPrice(pence: number | null | undefined): string {
-  if (pence == null) return "—";
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(pence / 100);
+/** Format session price minor units in the given currency (default trainer GBP). */
+export function formatSessionPrice(
+  minorUnits: number | null | undefined,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  return formatMoney(minorUnits, currency);
 }
 
-/** Parse a pounds input (e.g. "50" or "49.50") to pence, or null if empty. */
-export function parseSessionPriceInput(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const pounds = Number(trimmed);
-  if (!Number.isFinite(pounds) || pounds < 0) {
-    throw new Error("Session price must be zero or greater");
-  }
-  return Math.round(pounds * 100);
+/** Parse a major-unit input to minor units, or null if empty. */
+export function parseSessionPriceInput(
+  value: string,
+  currency: string = DEFAULT_CURRENCY,
+): number | null {
+  return parseMoneyInput(value, currency);
 }
 
-/** Pence to a pounds string suitable for number inputs. */
-export function sessionPriceToInput(pence: number | null | undefined): string {
-  if (pence == null) return "";
-  return (pence / 100).toFixed(2).replace(/\.00$/, "");
+/** Minor units to a major-unit string suitable for number inputs. */
+export function sessionPriceToInput(
+  minorUnits: number | null | undefined,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  return moneyToInput(minorUnits, currency);
+}
+
+/** Session price stored on the booking, falling back to the client default. */
+export function resolveBookingSessionPrice(
+  sessionPrice: number | null | undefined,
+  clientDefaultPrice: number | null | undefined,
+): number | null {
+  if (sessionPrice != null) return sessionPrice;
+  if (clientDefaultPrice != null) return clientDefaultPrice;
+  return null;
 }
 
 export function groupSlotsByDay<T extends { startAt: string }>(slots: T[]) {

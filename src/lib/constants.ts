@@ -1,11 +1,27 @@
+import {
+  calendarDateInZone,
+  hoursUntilWallClock,
+  startOfWeekMondayDateKeyInZone,
+  wallClockToUtc,
+} from "@/lib/zoned-time";
+
 export const SESSION_DURATION_MINUTES = 60;
 
-/** Slot start/end times must fall on this grid (e.g. 09:00, 09:30). */
-export const SCHEDULE_TIME_STEP_MINUTES = 30;
+/**
+ * Allowed snap for booking start/end times (e.g. 14:15, 50-minute sessions).
+ * Display grids use {@link SCHEDULE_DISPLAY_STEP_MINUTES} and stay coarser.
+ */
+export const SCHEDULE_BOOKING_STEP_MINUTES = 5;
 
-/** HTML time input step attribute (seconds). */
+/** @deprecated Prefer SCHEDULE_BOOKING_STEP_MINUTES — kept as the booking snap alias. */
+export const SCHEDULE_TIME_STEP_MINUTES = SCHEDULE_BOOKING_STEP_MINUTES;
+
+/** Visual schedule row size (labels / click targets), independent of booking snap. */
+export const SCHEDULE_DISPLAY_STEP_MINUTES = 30;
+
+/** HTML time input step attribute (seconds) — always matches booking snap. */
 export const SCHEDULE_TIME_INPUT_STEP_SECONDS =
-  SCHEDULE_TIME_STEP_MINUTES * 60;
+  SCHEDULE_BOOKING_STEP_MINUTES * 60;
 export const DEFAULT_CLIENT_BOOKING_WINDOW_WEEKS = 2;
 export const MIN_CLIENT_BOOKING_WINDOW_WEEKS = 1;
 export const MAX_CLIENT_BOOKING_WINDOW_WEEKS = 52;
@@ -16,27 +32,30 @@ export function formatBookingWindowWeeks(weeks: number): string {
   return `this week and the next ${weeks - 1} weeks`;
 }
 
-/** Exclusive upper bound: Monday 00:00 after the last bookable calendar week. */
+/** Exclusive upper bound: Monday 00:00 after the last bookable calendar week (trainer zone). */
 export function clientBookingWindowEndExclusive(
   weeks: number,
+  timeZone: string,
   from: Date = new Date(),
 ): string {
-  const currentWeekStart = startOfWeekMonday(from);
-  const endExclusive = addDays(currentWeekStart, weeks * 7);
-  return toLocalDateTimeString(parseTimeOnDate(formatDate(endExclusive), "00:00"));
+  const weekStartKey = startOfWeekMondayDateKeyInZone(from, timeZone);
+  const [y, m, d] = weekStartKey.split("-").map(Number);
+  // Shift by whole days at UTC noon so DST does not skip/duplicate a calendar day.
+  const endNoon = new Date(Date.UTC(y, m - 1, d + weeks * 7, 12, 0, 0));
+  const endDateKey = calendarDateInZone(endNoon, timeZone);
+  return `${endDateKey}T00:00:00`;
 }
 
 export function isWithinClientBookingWindow(
   slotStartAt: string,
   weeks: number,
+  timeZone: string,
   now: Date = new Date(),
 ): boolean {
-  const slotTime = parseLocalDateTime(slotStartAt);
-  if (slotTime.getTime() < now.getTime()) return false;
-  const endExclusive = parseLocalDateTime(
-    clientBookingWindowEndExclusive(weeks, now),
-  );
-  return slotTime.getTime() < endExclusive.getTime();
+  const slotMs = wallClockToUtc(slotStartAt, timeZone).getTime();
+  if (slotMs < now.getTime()) return false;
+  const endExclusive = clientBookingWindowEndExclusive(weeks, timeZone, now);
+  return slotMs < wallClockToUtc(endExclusive, timeZone).getTime();
 }
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;
@@ -44,26 +63,36 @@ export const DEFAULT_LAST_MINUTE_OFFER_LOCK_HOURS = 1;
 export const CHANGE_TIMEOUT_MINUTES = 30;
 
 export const DEFAULT_TRAINER_ID = "trainer_default";
+export const PROTECTED_TRAINER_EMAIL = "alex@example.com";
+
+export function normalizeTrainerEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
+export function isProtectedTrainerEmail(email: string): boolean {
+  return normalizeTrainerEmail(email) === PROTECTED_TRAINER_EMAIL;
+}
 export const SESSION_COOKIE = "pt_session";
 export const DEFAULT_TIMEZONE = "Europe/London";
 
-export const SESSION_PAYMENT_TYPES = [
-  { value: "cash", label: "Cash" },
-  { value: "bank_transfer", label: "Bank transfer" },
-  { value: "card", label: "Card" },
-  { value: "other", label: "Other" },
-] as const;
+/** Default payment methods seeded for every trainer. */
+export const DEFAULT_PAYMENT_METHODS = ["Cash", "Transfer", "Monzo"] as const;
 
-export type SessionPaymentType = (typeof SESSION_PAYMENT_TYPES)[number]["value"];
+/** Stored on bookings as the selected method name (trainer-configurable). */
+export type SessionPaymentType = string;
+
+const LEGACY_PAYMENT_TYPE_LABELS: Record<string, string> = {
+  cash: "Cash",
+  bank_transfer: "Transfer",
+  card: "Card",
+  other: "Other",
+};
 
 export function sessionPaymentTypeLabel(
   value: SessionPaymentType | null | undefined,
 ): string {
   if (!value) return "Not set";
-  return (
-    SESSION_PAYMENT_TYPES.find((option) => option.value === value)?.label ??
-    value
-  );
+  return LEGACY_PAYMENT_TYPE_LABELS[value] ?? value;
 }
 
 export function parseSessionPaymentType(
@@ -73,12 +102,12 @@ export function parseSessionPaymentType(
   if (typeof value !== "string") {
     throw new Error("Invalid payment type");
   }
-  if (
-    !SESSION_PAYMENT_TYPES.some((option) => option.value === value)
-  ) {
-    throw new Error("Invalid payment type");
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 40) {
+    throw new Error("Payment method name is too long");
   }
-  return value as SessionPaymentType;
+  return LEGACY_PAYMENT_TYPE_LABELS[trimmed] ?? trimmed;
 }
 
 export const TRAINER_TIMEZONE_OPTIONS = [
@@ -96,6 +125,7 @@ export const TRAINER_TIMEZONE_OPTIONS = [
   { value: "Australia/Melbourne", label: "Australia (Melbourne)" },
   { value: "Pacific/Auckland", label: "New Zealand (Auckland)" },
   { value: "Asia/Dubai", label: "UAE (Dubai)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong" },
   { value: "Asia/Singapore", label: "Singapore" },
 ] as const;
 
@@ -183,9 +213,8 @@ export function formatSlotLabel(isoStart: string, isoEnd?: string | null): strin
   return `${dateLabel} ${start}–${end}`;
 }
 
-export function hoursUntil(iso: string): number {
-  const d = parseLocalDateTime(iso);
-  return (d.getTime() - Date.now()) / (1000 * 60 * 60);
+export function hoursUntil(iso: string, timeZone: string): number {
+  return hoursUntilWallClock(iso, timeZone);
 }
 
 export function parseLocalDateTime(iso: string): Date {
@@ -198,8 +227,9 @@ export function parseLocalDateTime(iso: string): Date {
 export function isWithinBookingDeadline(
   slotStartAt: string,
   deadlineHours: number,
+  timeZone: string,
 ): boolean {
-  return hoursUntil(slotStartAt) < deadlineHours;
+  return hoursUntil(slotStartAt, timeZone) < deadlineHours;
 }
 
 export function isInactiveBookingStatus(status: string): boolean {
@@ -218,23 +248,14 @@ export function normalizeAppBaseUrl(raw: string): string {
   return `https://${trimmed}`;
 }
 
-function isLocalhostBaseUrl(raw: string): boolean {
-  return /(^|\/\/)(localhost|127\.0\.0\.1)([:/]|$)/i.test(raw.trim());
-}
-
-/** True when NEXT_PUBLIC was baked to localhost but the app runs in production. */
-function isStaleLocalhostPublicUrl(raw: string): boolean {
-  return process.env.NODE_ENV === "production" && isLocalhostBaseUrl(raw);
-}
-
+/**
+ * Server-only: resolves the public base URL at runtime. Client components must
+ * not call this (or the URL helpers below); they receive finished URLs from
+ * the API instead.
+ */
 export function resolveAppBaseUrlRaw(): string {
   if (process.env.APP_BASE_URL?.trim()) {
     return process.env.APP_BASE_URL;
-  }
-
-  const nextPublic = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (nextPublic && !isStaleLocalhostPublicUrl(nextPublic)) {
-    return nextPublic;
   }
 
   const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
@@ -245,10 +266,6 @@ export function resolveAppBaseUrlRaw(): string {
   const vercelUrl = process.env.VERCEL_URL?.trim();
   if (vercelUrl) {
     return `https://${vercelUrl}`;
-  }
-
-  if (nextPublic) {
-    return nextPublic;
   }
 
   return "http://localhost:3000";
@@ -271,17 +288,21 @@ export function bookingUrl(token: string): string {
   return `${appBaseUrl()}/s/${token}`;
 }
 
+export function bookingCalendarUrl(token: string): string {
+  return `${appBaseUrl()}/s/${token}/calendar.ics`;
+}
+
 export function interestUrl(token: string): string {
   return `${appBaseUrl()}/interest/${token}`;
 }
 
-export function interestClaimUrl(slotId: string, clientId: string): string {
-  return `${appBaseUrl()}/interest/claim?slotId=${slotId}&clientId=${clientId}`;
+export function conflictUrl(token: string): string {
+  return `${appBaseUrl()}/conflict/${token}`;
 }
 
 export const DEFAULT_SCHEDULE_START = "07:00";
 export const DEFAULT_SCHEDULE_END = "21:00";
-export const DEFAULT_SCHEDULE_DEFAULT_VIEW = "week" as const;
+export const DEFAULT_SCHEDULE_DEFAULT_VIEW = "day" as const;
 
 export function parseTimeToHour(time: string): number {
   return parseInt(time.split(":")[0] ?? "0", 10);
@@ -326,21 +347,38 @@ export function assertValidTimeRange(startTime: string, endTime: string) {
 
 export function isScheduleTimeAligned(
   time: string,
-  stepMinutes = SCHEDULE_TIME_STEP_MINUTES,
+  stepMinutes = SCHEDULE_BOOKING_STEP_MINUTES,
 ): boolean {
   return parseTimeToMinutes(time) % stepMinutes === 0;
+}
+
+/** Round HH:MM to the nearest booking snap (5 minutes). */
+export function snapTimeToBookingStep(time: string): string {
+  const total = parseTimeToMinutes(time);
+  if (!Number.isFinite(total)) return "09:00";
+  const snapped =
+    Math.round(total / SCHEDULE_BOOKING_STEP_MINUTES) *
+    SCHEDULE_BOOKING_STEP_MINUTES;
+  return formatMinutesAsTime(snapped);
+}
+
+/** Snap the time portion of a datetime-local value to 5-minute increments. */
+export function snapDateTimeLocalToBookingStep(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(value.trim());
+  if (!match) return value;
+  return `${match[1]}T${snapTimeToBookingStep(`${match[2]}:${match[3]}`)}`;
 }
 
 export function assertValidScheduleSlotTimes(startTime: string, endTime: string) {
   assertValidTimeRange(startTime, endTime);
   if (!isScheduleTimeAligned(startTime)) {
     throw new Error(
-      "Start time must use 30-minute increments (for example 09:00 or 09:30, not 09:45).",
+      "Start time must use 5-minute increments (for example 09:00, 09:15, or 14:15).",
     );
   }
   if (!isScheduleTimeAligned(endTime)) {
     throw new Error(
-      "End time must use 30-minute increments (for example 10:00 or 10:30, not 10:15).",
+      "End time must use 5-minute increments (for example 09:50, 10:00, or 10:05).",
     );
   }
 }

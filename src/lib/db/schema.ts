@@ -14,11 +14,13 @@ export const trainers = pgTable("trainers", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull().default(""),
   timezone: text("timezone").notNull().default("Europe/London"),
+  /** ISO 4217 default currency for session prices (clients may override later). */
+  currency: text("currency").notNull().default("GBP"),
   scheduleStartTime: text("schedule_start_time").notNull().default("07:00"),
   scheduleEndTime: text("schedule_end_time").notNull().default("21:00"),
   scheduleDefaultView: text("schedule_default_view", { enum: ["day", "week"] })
     .notNull()
-    .default("week"),
+    .default("day"),
   cancelDeadlineHours: integer("cancel_deadline_hours").notNull().default(36),
   lastMinuteOfferLockHours: integer("last_minute_offer_lock_hours")
     .notNull()
@@ -30,6 +32,8 @@ export const trainers = pgTable("trainers", {
   bankSortCode: text("bank_sort_code"),
   bankName: text("bank_name"),
   paymentPayeeName: text("payment_payee_name"),
+  regionalSettingsConfiguredAt: text("regional_settings_configured_at"),
+  scheduleHoursConfiguredAt: text("schedule_hours_configured_at"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -63,8 +67,30 @@ export const clients = pgTable("clients", {
   name: text("name").notNull(),
   email: text("email").notNull().default(""),
   phone: text("phone").notNull(),
+  preferredNotifyChannel: text("preferred_notify_channel", {
+    enum: ["email", "whatsapp"],
+  })
+    .notNull()
+    .default("whatsapp"),
   lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
+  lastMinutePruneNotify: boolean("last_minute_prune_notify")
+    .notNull()
+    .default(false),
   sessionPrice: integer("session_price"),
+  /** ISO 4217 override; null inherits the trainer default. */
+  currency: text("currency"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const clientEmailVerifications = pgTable("client_email_verifications", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => clients.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -77,6 +103,92 @@ export const locations = pgTable("locations", {
   address: text("address"),
   createdAt: text("created_at").notNull(),
 });
+
+export const trainerHolidays = pgTable(
+  "trainer_holidays",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    startAt: text("start_at").notNull(),
+    endAt: text("end_at").notNull(),
+    label: text("label"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerStartIdx: index("trainer_holidays_trainer_start_idx").on(
+      table.trainerId,
+      table.startAt,
+    ),
+  }),
+);
+
+export const scheduleConflictAlerts = pgTable(
+  "schedule_conflict_alerts",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    weekStart: text("week_start").notNull(),
+    dayOfWeek: integer("day_of_week").notNull(),
+    startTime: text("start_time").notNull(),
+    endTime: text("end_time").notNull(),
+    locationId: text("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    locationName: text("location_name"),
+    holidayId: text("holiday_id").references(() => trainerHolidays.id, {
+      onDelete: "set null",
+    }),
+    holidayLabel: text("holiday_label"),
+    slotLabel: text("slot_label").notNull(),
+    status: text("status", {
+      enum: ["open", "notified", "acknowledged"],
+    })
+      .notNull()
+      .default("open"),
+    acknowledgmentToken: text("acknowledgment_token").notNull().unique(),
+    notifiedAt: text("notified_at"),
+    acknowledgedAt: text("acknowledged_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerIdx: index("schedule_conflict_alerts_trainer_idx").on(
+      table.trainerId,
+    ),
+    tokenIdx: index("schedule_conflict_alerts_token_idx").on(
+      table.acknowledgmentToken,
+    ),
+  }),
+);
+
+export const trainerPaymentMethods = pgTable(
+  "trainer_payment_methods",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    trainerNameIdx: uniqueIndex("trainer_payment_methods_trainer_name_idx").on(
+      table.trainerId,
+      table.name,
+    ),
+    trainerSortIdx: index("trainer_payment_methods_trainer_sort_idx").on(
+      table.trainerId,
+      table.sortOrder,
+    ),
+  }),
+);
 
 export const clientLocations = pgTable(
   "client_locations",
@@ -195,9 +307,10 @@ export const bookings = pgTable(
     override36h: boolean("override_36h").notNull().default(false),
     isRecurring: boolean("is_recurring").notNull().default(false),
     sessionPaid: boolean("session_paid").notNull().default(false),
-    paymentType: text("payment_type", {
-      enum: ["cash", "bank_transfer", "card", "other"],
-    }),
+    paymentType: text("payment_type"),
+    sessionPrice: integer("session_price"),
+    /** ISO 4217 snapshot at book time; null falls back via client → trainer. */
+    currency: text("currency"),
     invoiceSentAt: text("invoice_sent_at"),
     confirmationSentAt: text("confirmation_sent_at"),
     createdAt: text("created_at").notNull(),
@@ -339,12 +452,17 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
       "last_minute_declined",
       "session_canceled",
       "session_changed",
+      "template_conflict",
+      "template_conflict_ack",
     ],
   }).notNull(),
   recipient: text("recipient", { enum: ["client", "trainer"] })
     .notNull()
     .default("client"),
   body: text("body").notNull(),
+  channel: text("channel", { enum: ["whatsapp", "email"] })
+    .notNull()
+    .default("whatsapp"),
   status: text("status", {
     enum: ["pending", "sent", "failed"],
   }).notNull(),
@@ -355,7 +473,12 @@ export type Trainer = typeof trainers.$inferSelect;
 export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
 export type Client = typeof clients.$inferSelect;
+export type ClientEmailVerification =
+  typeof clientEmailVerifications.$inferSelect;
 export type Location = typeof locations.$inferSelect;
+export type TrainerHoliday = typeof trainerHolidays.$inferSelect;
+export type ScheduleConflictAlert = typeof scheduleConflictAlerts.$inferSelect;
+export type TrainerPaymentMethod = typeof trainerPaymentMethods.$inferSelect;
 export type ClientLocation = typeof clientLocations.$inferSelect;
 export type WeeklyTemplate = typeof weeklyTemplates.$inferSelect;
 export type TemplateSlot = typeof templateSlots.$inferSelect;

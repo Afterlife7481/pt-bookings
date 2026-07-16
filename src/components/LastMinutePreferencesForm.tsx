@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card } from "@/components/ui";
+import { ClientEmailEditor } from "@/components/ClientEmailEditor";
 import { LastMinutePreferenceCell } from "@/components/LastMinutePreferenceCell";
+import { hasClientEmail } from "@/lib/notify-channels";
 import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
 import { useScheduleViewportHeight } from "@/components/schedule/useScheduleViewportHeight";
 import { formatTimeRange } from "@/lib/constants";
@@ -11,10 +13,10 @@ import {
   dayHeaderInitial,
   recurringSlotKey,
   slotCoversGridRow,
-  slotGridRowSpan,
   timeRowsInScheduleRange,
 } from "@/lib/schedule-grid";
 import { cn } from "@/lib/utils";
+import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 
 type Preference = { dayOfWeek: number; startTime: string };
 
@@ -66,8 +68,10 @@ function templateSlotAtRow(
 
 export function LastMinutePreferencesForm({
   clientToken,
+  showHeader = true,
 }: {
   clientToken: string;
+  showHeader?: boolean;
 }) {
   const [optIn, setOptIn] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -80,6 +84,9 @@ export function LastMinutePreferencesForm({
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [pruneNotify, setPruneNotify] = useState(false);
+  const [pruneNotifyBusy, setPruneNotifyBusy] = useState(false);
 
   const selectedKeysRef = useRef(selectedKeys);
   const savedSignatureRef = useRef("");
@@ -104,6 +111,8 @@ export function LastMinutePreferencesForm({
       }
       const data: {
         optIn: boolean;
+        pruneNotify?: boolean;
+        email?: string;
         preferences: Preference[];
         scheduleStartTime: string;
         scheduleEndTime: string;
@@ -114,6 +123,8 @@ export function LastMinutePreferencesForm({
         data.preferences.map((p) => recurringSlotKey(p.dayOfWeek, p.startTime)),
       );
       setOptIn(data.optIn);
+      setPruneNotify(data.pruneNotify === true);
+      setEmail(data.email ?? "");
       setSelectedKeys(keys);
       savedSignatureRef.current = keysSignature(keys);
       setScheduleStartTime(data.scheduleStartTime);
@@ -260,6 +271,35 @@ export function LastMinutePreferencesForm({
     await persistPreferences(new Set());
   }
 
+  async function togglePruneNotify(enabled: boolean) {
+    setPruneNotifyBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/client/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_prune_notify",
+          token: clientToken,
+          enabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update notification preference");
+        return;
+      }
+      setPruneNotify(enabled);
+      setSaveStatus("saved");
+      if (savedFadeTimerRef.current) clearTimeout(savedFadeTimerRef.current);
+      savedFadeTimerRef.current = setTimeout(() => {
+        setSaveStatus("idle");
+      }, 2000);
+    } finally {
+      setPruneNotifyBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500">
@@ -269,54 +309,124 @@ export function LastMinutePreferencesForm({
   }
 
   const statusMessage =
-    saveStatus === "pending"
-      ? "Saving soon…"
-      : saveStatus === "saving"
-        ? "Saving…"
-        : saveStatus === "saved"
-          ? "Preferences saved"
-          : saveStatus === "error"
-            ? null
-            : optIn && selectedKeys.size > 0
-              ? "Changes save automatically"
-              : null;
+    saveStatus === "pending" || saveStatus === "saving"
+      ? "Saving…"
+      : saveStatus === "saved"
+        ? "Saved"
+        : null;
 
   const locationSummary =
     enabledLocations.length > 0
       ? enabledLocations.map((loc) => loc.name).join(", ")
       : null;
 
+  const emailReady = hasClientEmail(email);
+
   return (
     <Card className="min-w-0 !p-0">
       <div className="space-y-4 p-4 sm:p-5 sm:pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className="font-medium">Last-minute openings</p>
-            <p className="text-sm text-slate-600">
-              Tap open slots to opt in for last-minute offers. Only session times
-              from your trainer&apos;s template at your available locations are
-              shown.
-            </p>
-            {locationSummary && (
-              <p className="mt-1 text-sm text-slate-500">
-                Your locations:{" "}
-                <span className="font-medium text-slate-700">{locationSummary}</span>
+        {showHeader ? (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-medium">Last-minute openings</p>
+              <p className="text-sm text-slate-600">
+                Tap open slots to opt in for last-minute offers. Only session times
+                from your trainer&apos;s template at your available locations are
+                shown.
+              </p>
+              {locationSummary && (
+                <p className="mt-1 text-sm text-slate-500">
+                  Your locations:{" "}
+                  <span className="font-medium text-slate-700">{locationSummary}</span>
+                </p>
+              )}
+            </div>
+            {statusMessage && (
+              <p
+                className={cn(
+                  "text-xs font-medium",
+                  saveStatus === "saved" ? "text-green-700" : "text-slate-500",
+                )}
+              >
+                {statusMessage}
               </p>
             )}
           </div>
-          {statusMessage && (
-            <p
-              className={cn(
-                "text-xs font-medium",
-                saveStatus === "saved"
-                  ? "text-green-700"
-                  : saveStatus === "error"
-                    ? "text-red-600"
-                    : "text-slate-500",
+        ) : (
+          (statusMessage || locationSummary) && (
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              {locationSummary ? (
+                <p className="text-sm text-slate-500">
+                  Your locations:{" "}
+                  <span className="font-medium text-slate-700">{locationSummary}</span>
+                </p>
+              ) : (
+                <span />
               )}
-            >
-              {statusMessage}
-            </p>
+              {statusMessage ? (
+                <p
+                  className={cn(
+                    "text-xs font-medium",
+                    saveStatus === "saved" ? "text-green-700" : "text-slate-500",
+                  )}
+                >
+                  {statusMessage}
+                </p>
+              ) : null}
+            </div>
+          )
+        )}
+
+        <p className="text-sm text-slate-600">
+          If your trainer updates their weekly template, some of your selections
+          may be removed when those times are no longer available.
+        </p>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+          <p className="text-sm font-medium text-slate-800">
+            Email alerts for removed selections
+          </p>
+          {!emailReady ? (
+            <ClientEmailEditor
+              clientToken={clientToken}
+              email={email}
+              onEmailSaved={(next) => {
+                setEmail(next);
+                setSaveStatus("saved");
+                if (savedFadeTimerRef.current) {
+                  clearTimeout(savedFadeTimerRef.current);
+                }
+                savedFadeTimerRef.current = setTimeout(() => {
+                  setSaveStatus("idle");
+                }, 2000);
+              }}
+            />
+          ) : (
+            <>
+              <p className="text-sm text-slate-600">
+                Alerts go to{" "}
+                <span className="font-medium text-slate-900">{email}</span>.{" "}
+                <a
+                  href={`/c/${clientToken}/email`}
+                  className="font-medium text-blue-600 hover:underline"
+                >
+                  Change email
+                </a>
+              </p>
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={pruneNotify}
+                  disabled={pruneNotifyBusy}
+                  onChange={(e) => void togglePruneNotify(e.target.checked)}
+                />
+                <span>
+                  Email me when my last-minute selections are removed because the
+                  trainer updated their template
+                </span>
+              </label>
+            </>
           )}
         </div>
 
@@ -375,41 +485,51 @@ export function LastMinutePreferencesForm({
               viewportHeight={gridViewportHeight}
               className={WEEK_GRID_EDGE_CLASS}
               getDayHeader={dayHeaderInitial}
-            renderCell={(dayOfWeek, rowTime) => {
-              const match = templateSlotAtRow(
-                templateSlots,
-                dayOfWeek,
-                rowTime,
-              );
-
-              if (!match) {
-                return <div className="h-full bg-white" />;
-              }
-
-              if (!match.isStart) {
-                return { covered: true };
-              }
-
-              const { slot } = match;
-              const selected = selectedKeys.has(
-                recurringSlotKey(dayOfWeek, slot.startTime),
-              );
-              const label = formatTimeRange(slot.startTime, slot.endTime);
-
-              return {
-                rowSpan: slotGridRowSpan(slot.startTime, slot.endTime),
-                content: (
-                  <LastMinutePreferenceCell
-                    locationName={slot.locationName}
-                    selected={selected}
-                    disabled={saveStatus === "saving"}
-                    onToggle={() => toggleSlot(dayOfWeek, slot.startTime)}
-                    title={`${dayOfWeekLabel(dayOfWeek)} ${label} · ${slot.locationName}`}
+              renderCell={(dayOfWeek, rowTime) => {
+                const match = templateSlotAtRow(
+                  templateSlots,
+                  dayOfWeek,
+                  rowTime,
+                );
+                if (!match) {
+                  return <div className="h-full bg-white" />;
+                }
+                return <div className="h-full" />;
+              }}
+              renderDayOverlay={(dayOfWeek) => {
+                const daySlots = templateSlots.filter(
+                  (slot) => slot.dayOfWeek === dayOfWeek,
+                );
+                return (
+                  <TimedSlotOverlay
+                    scheduleStartTime={scheduleStartTime}
+                    scheduleEndTime={scheduleEndTime}
+                    items={daySlots.map((slot) => {
+                      const selected = selectedKeys.has(
+                        recurringSlotKey(dayOfWeek, slot.startTime),
+                      );
+                      const label = formatTimeRange(slot.startTime, slot.endTime);
+                      return {
+                        key: recurringSlotKey(dayOfWeek, slot.startTime),
+                        startTime: slot.startTime,
+                        endTime: slot.endTime,
+                        content: (
+                          <LastMinutePreferenceCell
+                            locationName={slot.locationName}
+                            selected={selected}
+                            disabled={saveStatus === "saving"}
+                            onToggle={() =>
+                              toggleSlot(dayOfWeek, slot.startTime)
+                            }
+                            title={`${dayOfWeekLabel(dayOfWeek)} ${label} · ${slot.locationName}`}
+                          />
+                        ),
+                      };
+                    })}
                   />
-                ),
-              };
-            }}
-          />
+                );
+              }}
+            />
           </div>
 
           <div ref={gridFooterRef} className="space-y-4 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">

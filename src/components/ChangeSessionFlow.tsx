@@ -119,6 +119,7 @@ export function ChangeSessionFlow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "confirm",
+          bookingToken,
           changeRequestId,
           toSlotId: selectedSlot,
         }),
@@ -181,10 +182,20 @@ export function ChangeSessionFlow({
 
   return (
     <Card>
-      <h2 className="text-lg font-semibold">Pick a new time</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Current session: {currentSlotLabel}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Pick a new time</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Current session: {currentSlotLabel}
+          </p>
+        </div>
+        <Link
+          href={`/s/${bookingToken}`}
+          className="shrink-0 text-sm font-medium text-slate-500 hover:text-slate-900"
+        >
+          Cancel
+        </Link>
+      </div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <div className="mt-4 space-y-4">
         {groupSlotsByDay(slots).map((group) => (

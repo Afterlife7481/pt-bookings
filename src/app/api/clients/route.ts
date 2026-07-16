@@ -1,7 +1,9 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listClients, createClient } from "@/lib/services/clients";
+import { getTrainerSettings } from "@/lib/services/settings";
 import { sessionPriceFromBody } from "@/lib/validation/client";
+import { parsePreferredNotifyChannel } from "@/lib/notify-channels";
 
 export async function GET() {
   await ensureDb();
@@ -19,18 +21,25 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  if (!body.name?.trim() || !body.phone?.trim()) {
-    return Response.json({ error: "Name and phone are required" }, { status: 400 });
+  if (!body.name?.trim()) {
+    return Response.json({ error: "Name is required" }, { status: 400 });
   }
 
   try {
+    const preferredNotifyChannel =
+      body.preferredNotifyChannel !== undefined
+        ? parsePreferredNotifyChannel(body.preferredNotifyChannel)
+        : undefined;
+    const settings = await getTrainerSettings(trainerId);
+
     const id = await createClient({
       trainerId,
       name: body.name.trim(),
-      phone: body.phone.trim(),
+      phone: typeof body.phone === "string" ? body.phone : "",
       email: body.email?.trim(),
+      preferredNotifyChannel,
       lastMinuteOptIn: body.lastMinuteOptIn ?? false,
-      sessionPrice: sessionPriceFromBody(body.sessionPrice),
+      sessionPrice: sessionPriceFromBody(body.sessionPrice, settings.currency),
     });
     return Response.json({ id }, { status: 201 });
   } catch (e) {

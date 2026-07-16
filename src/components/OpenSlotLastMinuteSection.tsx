@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
-import { parseLocalDateTime } from "@/lib/constants";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { isWallClockPast } from "@/lib/zoned-time";
+import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
+import type { NotifyChannel } from "@/lib/notify-channels";
+import {
+  prepareWhatsAppOpen,
+  prepareWhatsAppOpenForPhone,
+} from "@/lib/whatsapp-link";
 import type {
   ScheduleEligibleClient,
   ScheduleLastMinuteInfo,
@@ -47,15 +55,26 @@ export function OpenSlotLastMinuteSection({
   const [heldClientName, setHeldClientName] = useState<string | null>(
     lastMinute.heldClientName,
   );
+  const [heldForClientId, setHeldForClientId] = useState<string | null>(
+    lastMinute.heldForClientId,
+  );
   const [loading, setLoading] = useState(prefetchedClients == null);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slotInPast = parseLocalDateTime(slotStartAt).getTime() < Date.now();
+  const [offerTarget, setOfferTarget] = useState<EligibleClient | null>(null);
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
+  const slotInPast = isWallClockPast(slotStartAt, timeZone);
+  const slotHeldForOther =
+    Boolean(heldForClientId) &&
+    Boolean(holdExpiresAt) &&
+    new Date(holdExpiresAt!).getTime() > Date.now();
 
   useEffect(() => {
     setHoldExpiresAt(lastMinute.holdExpiresAt);
     setOffers(lastMinute.offers);
     setHeldClientName(lastMinute.heldClientName);
+    setHeldForClientId(lastMinute.heldForClientId);
     if (lastMinute.eligibleClients != null) {
       setClients(lastMinute.eligibleClients);
       setLoading(false);
@@ -74,6 +93,7 @@ export function OpenSlotLastMinuteSection({
     }
     setClients(body.clients);
     setHoldExpiresAt(body.holdExpiresAt);
+    setHeldForClientId(body.heldClientId ?? null);
   }, [slotId]);
 
   useEffect(() => {
@@ -81,22 +101,59 @@ export function OpenSlotLastMinuteSection({
     loadEligible();
   }, [loadEligible, prefetchedClients]);
 
-  async function sendOffer(clientId: string) {
-    setBusyKey(clientId);
-    setError(null);
-    const res = await fetch("/api/last-minute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slotId, clientId }),
-    });
-    const body = await res.json();
-    setBusyKey(null);
-    if (!res.ok) {
-      setError(body.error ?? "Failed to send offer");
-      return;
+  async function sendOffer(channels: NotifyChannel[]) {
+    if (!offerTarget) return;
+    const wantWhatsApp = channels.includes("whatsapp");
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (wantWhatsApp) {
+      const prepared = prepareWhatsAppOpenForPhone(offerTarget.phone);
+      if (!prepared.ok) {
+        setError(prepared.error);
+        return;
+      }
+      waOpen = prepared.opener;
     }
-    await onOfferSent();
-    await loadEligible();
+
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/last-minute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId,
+          clientId: offerTarget.id,
+          channels,
+        }),
+      });
+      const body = await res.json();
+      setBusy(false);
+      if (!res.ok) {
+        waOpen?.finish(null);
+        setError(body.error ?? "Failed to send offer");
+        return;
+      }
+      setOfferTarget(null);
+      if (wantWhatsApp) {
+        if (
+          typeof body.whatsappUrl === "string" &&
+          body.whatsappUrl.length > 0
+        ) {
+          waOpen?.finish(body.whatsappUrl);
+        } else {
+          waOpen?.finish(null);
+          setError(
+            "Offer logged, but WhatsApp could not open. Check the client phone number.",
+          );
+        }
+      }
+      await onOfferSent();
+      await loadEligible();
+    } catch {
+      waOpen?.finish(null);
+      setBusy(false);
+      setError("Failed to send offer");
+    }
   }
 
   return (
@@ -104,7 +161,8 @@ export function OpenSlotLastMinuteSection({
       <h3 className="text-sm font-medium text-slate-900">Last-minute offers</h3>
       <p className="mt-1 text-xs text-slate-500">
         Send to opted-in clients who match this day and time. Each offer locks
-        the slot for {lockHours} hour{lockHours === 1 ? "" : "s"}.
+        the slot for {lockHours} hour{lockHours === 1 ? "" : "s"} — you cannot
+        offer it to someone else until that hold expires.
       </p>
 
       {slotInPast && (
@@ -149,6 +207,14 @@ export function OpenSlotLastMinuteSection({
             {clients.map((client) => {
               const hasActiveOffer =
                 client.isHeld && client.latestOffer?.status === "offered";
+              const blockedByOtherHold =
+                slotHeldForOther && heldForClientId !== client.id;
+              const disabled =
+                slotInPast ||
+                hasActiveOffer ||
+                blockedByOtherHold ||
+                busy;
+
               return (
                 <li
                   key={client.id}
@@ -162,21 +228,23 @@ export function OpenSlotLastMinuteSection({
                       {client.latestOffer?.status === "offered"
                         ? " · offer active"
                         : ""}
+                      {blockedByOtherHold ? " · slot held for someone else" : ""}
                     </p>
                   </div>
                   <Button
-                    disabled={
-                      slotInPast || hasActiveOffer || busyKey === client.id
-                    }
+                    disabled={disabled}
                     className="px-3 py-1.5 text-xs"
-                    onClick={() => sendOffer(client.id)}
+                    onClick={() => {
+                      setError(null);
+                      setOfferTarget(client);
+                    }}
                   >
-                    {busyKey === client.id
-                      ? "Sending…"
-                      : slotInPast
-                        ? "Past slot"
-                        : hasActiveOffer
-                          ? "Held"
+                    {slotInPast
+                      ? "Past slot"
+                      : hasActiveOffer
+                        ? "Held"
+                        : blockedByOtherHold
+                          ? "Unavailable"
                           : "Send offer"}
                   </Button>
                 </li>
@@ -187,6 +255,27 @@ export function OpenSlotLastMinuteSection({
       </div>
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+      {offerTarget ? (
+        <SendInvoiceChannelSheet
+          clientName={offerTarget.name}
+          email={offerTarget.email}
+          phone={offerTarget.phone}
+          preferredNotifyChannel={offerTarget.preferredNotifyChannel}
+          busy={busy}
+          error={error}
+          title="Send last-minute offer"
+          subtitle={`Choose how to send the offer to ${offerTarget.name}.`}
+          emptyHint="Add an email or a valid mobile number on this client's profile before sending an offer."
+          onClose={() => {
+            if (!busy) {
+              setOfferTarget(null);
+              setError(null);
+            }
+          }}
+          onSend={sendOffer}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { ensureDb } from "@/lib/db/init";
 import { getClientByToken } from "@/lib/services/clients";
-import { getAvailableSlotsForChange } from "@/lib/services/templates";
+import { getAvailableSlotsForChange } from "@/lib/services/available-slots";
 import { getTrainerSettings } from "@/lib/services/settings";
 import { BookSessionFlow } from "@/components/BookSessionFlow";
+import { ClientPageLayout } from "@/components/client/client-ui";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -18,23 +18,28 @@ export default async function ClientBookPage({
   const client = await getClientByToken(token);
   if (!client) notFound();
 
-  const slots = await getAvailableSlotsForChange(client.trainerId, undefined, undefined, client.id);
+  const slots = await getAvailableSlotsForChange(
+    client.trainerId,
+    undefined,
+    undefined,
+    client.id,
+  );
   const { clientBookingWindowWeeks } = await getTrainerSettings(client.trainerId);
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 p-6">
-      <Link
-        href={`/c/${token}`}
-        className="inline-block text-sm text-slate-500 hover:text-slate-900"
+    <main className="p-4 sm:p-6">
+      <ClientPageLayout
+        title="Book a session"
+        description="Choose an open slot within your booking window."
+        backHref={`/c/${token}`}
       >
-        ← Back to all sessions
-      </Link>
-
-      <BookSessionFlow
-        clientToken={token}
-        slots={slots}
-        bookingWindowWeeks={clientBookingWindowWeeks}
-      />
+        <BookSessionFlow
+          clientToken={token}
+          slots={slots}
+          bookingWindowWeeks={clientBookingWindowWeeks}
+          showHeader={false}
+        />
+      </ClientPageLayout>
     </main>
   );
 }

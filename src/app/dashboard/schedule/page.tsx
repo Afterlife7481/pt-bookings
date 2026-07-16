@@ -12,6 +12,7 @@ export default function SchedulePage() {
       weekStart={schedule.weekStart}
       scheduleRange={schedule.scheduleRange}
       scheduleEntries={schedule.scheduleEntries}
+      scheduleHolidays={schedule.scheduleHolidays}
       hasTemplate={schedule.hasTemplate}
       clients={schedule.clients}
       trainerLocations={schedule.trainerLocations}
@@ -20,6 +21,7 @@ export default function SchedulePage() {
       onDismissError={() => schedule.setScheduleError(null)}
       onChangeWeek={schedule.changeWeek}
       onGoToThisWeek={schedule.goToThisWeek}
+      onGoToWeek={schedule.goToWeek}
       onApplyTemplate={schedule.applyTemplateToCurrentWeek}
       onAddSlot={schedule.addScheduleSlot}
       onRemoveSlot={schedule.removeScheduleSlot}

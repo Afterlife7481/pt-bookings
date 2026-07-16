@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { trainers } from "@/lib/db/schema";
 import { nowIso } from "@/lib/constants";
+import { ensureDefaultPaymentMethods } from "./payment-methods";
 
 export async function getTrainerByEmail(email: string) {
   const db = getDb();
@@ -33,5 +34,6 @@ export async function createTrainer(name: string, email: string) {
     email: normalizedEmail,
     createdAt: nowIso(),
   });
+  await ensureDefaultPaymentMethods(id);
   return id;
 }

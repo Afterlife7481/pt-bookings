@@ -29,7 +29,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
       E2E_TEST: "1",
-      NEXT_PUBLIC_APP_URL: "http://localhost:3001",
+      APP_BASE_URL: "http://localhost:3001",
     },
   },
 });

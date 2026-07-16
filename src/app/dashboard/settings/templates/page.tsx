@@ -1,24 +1,33 @@
 "use client";
 
-import Link from "next/link";
 import { TemplatesTab } from "../../components/TemplatesTab";
+import { SettingsPageLayout } from "../../components/settings/settings-ui";
 import { useTemplatesPage } from "../../hooks/useTemplatesPage";
+import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
 
 export default function TemplatesPage() {
   const { template, locations, settings, loading, refresh } = useTemplatesPage();
+  const back = useOnboardingBackLink();
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Loading weekly template…</p>;
+    return (
+      <SettingsPageLayout
+        title="Weekly template"
+        backHref={back.backHref}
+        backLabel={back.backLabel}
+      >
+        <p className="text-sm text-slate-500">Loading weekly template…</p>
+      </SettingsPageLayout>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <Link
-        href="/dashboard/settings"
-        className="inline-block text-sm text-slate-500 hover:text-slate-900"
-      >
-        ← Back to settings
-      </Link>
+    <SettingsPageLayout
+      title="Weekly template"
+      description="Define your weekly slot pattern and apply it to the schedule."
+      backHref={back.backHref}
+      backLabel={back.backLabel}
+    >
       <TemplatesTab
         template={template}
         locations={locations}
@@ -26,6 +35,6 @@ export default function TemplatesPage() {
         scheduleEndTime={settings?.scheduleEndTime ?? "21:00"}
         onRefresh={refresh}
       />
-    </div>
+    </SettingsPageLayout>
   );
 }

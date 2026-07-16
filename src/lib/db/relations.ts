@@ -3,6 +3,9 @@ import {
   trainers,
   clients,
   locations,
+  trainerHolidays,
+  scheduleConflictAlerts,
+  trainerPaymentMethods,
   clientLocations,
   weeklyTemplates,
   templateSlots,
@@ -20,11 +23,23 @@ import {
 export const trainersRelations = relations(trainers, ({ many }) => ({
   clients: many(clients),
   locations: many(locations),
+  holidays: many(trainerHolidays),
+  paymentMethods: many(trainerPaymentMethods),
   templates: many(weeklyTemplates),
   appliedWeeks: many(appliedWeeks),
   slots: many(slots),
   bookings: many(bookings),
 }));
+
+export const trainerPaymentMethodsRelations = relations(
+  trainerPaymentMethods,
+  ({ one }) => ({
+    trainer: one(trainers, {
+      fields: [trainerPaymentMethods.trainerId],
+      references: [trainers.id],
+    }),
+  }),
+);
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
   trainer: one(trainers, {
@@ -46,6 +61,35 @@ export const locationsRelations = relations(locations, ({ one, many }) => ({
   }),
   clientLocations: many(clientLocations),
 }));
+
+export const trainerHolidaysRelations = relations(trainerHolidays, ({ one }) => ({
+  trainer: one(trainers, {
+    fields: [trainerHolidays.trainerId],
+    references: [trainers.id],
+  }),
+}));
+
+export const scheduleConflictAlertsRelations = relations(
+  scheduleConflictAlerts,
+  ({ one }) => ({
+    trainer: one(trainers, {
+      fields: [scheduleConflictAlerts.trainerId],
+      references: [trainers.id],
+    }),
+    client: one(clients, {
+      fields: [scheduleConflictAlerts.clientId],
+      references: [clients.id],
+    }),
+    location: one(locations, {
+      fields: [scheduleConflictAlerts.locationId],
+      references: [locations.id],
+    }),
+    holiday: one(trainerHolidays, {
+      fields: [scheduleConflictAlerts.holidayId],
+      references: [trainerHolidays.id],
+    }),
+  }),
+);
 
 export const clientLocationsRelations = relations(clientLocations, ({ one }) => ({
   client: one(clients, {

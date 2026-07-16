@@ -1,4 +1,7 @@
 import type { TemplateView } from "@/components/TemplateEditor";
+import type { TrainerSettings } from "@/lib/services/settings";
+
+export type { TrainerSettings };
 
 export type DashboardClient = {
   id: string;
@@ -6,6 +9,7 @@ export type DashboardClient = {
   name: string;
   email: string;
   phone: string;
+  preferredNotifyChannel?: "email" | "whatsapp";
   lastMinuteOptIn: boolean;
   sessionPrice: number | null;
   enabledLocationIds: string[];
@@ -14,6 +18,10 @@ export type DashboardClient = {
     startTime: string;
     locationId: string | null;
   }[];
+  lastSession: {
+    startAt: string;
+    endAt: string;
+  } | null;
 };
 
 export type DashboardTemplate = TemplateView;
@@ -33,42 +41,30 @@ export type BookingRow = {
   client: { id: string; name: string };
 };
 
-export type WhatsAppRow = {
-  id: string;
-  phone: string;
-  messageType: string;
-  recipient: "client" | "trainer";
-  body: string;
-  createdAt: string;
-};
-
-export const NAV_ITEMS = [
+export const MENU_ITEMS = [
   { label: "Schedule", href: "/dashboard/schedule" },
   { label: "Clients", href: "/dashboard/clients" },
   { label: "Sessions", href: "/dashboard/sessions" },
-  { label: "WhatsApp", href: "/dashboard/whatsapp" },
+  { label: "Feed", href: "/dashboard/feed" },
+  { label: "Settings", href: "/dashboard/settings" },
+  { label: "Getting started guide", href: "/dashboard/settings/getting-started" },
+  { label: "Install on your phone", href: "/dashboard/settings/install" },
+  { label: "Account", href: "/dashboard/settings/account" },
+  { label: "Feature request", href: "/dashboard/feature-request" },
+  { label: "Feedback", href: "/dashboard/feedback" },
 ] as const;
-
-export type TrainerSettings = {
-  scheduleStartTime: string;
-  scheduleEndTime: string;
-  scheduleDefaultView: "day" | "week";
-  cancelDeadlineHours: number;
-  lastMinuteOfferLockHours: number;
-  clientBookingWindowWeeks: number;
-  timezone: string;
-  name: string;
-  email: string;
-  phone: string;
-  bankAccountNumber: string | null;
-  bankSortCode: string | null;
-  bankName: string | null;
-  paymentPayeeName: string | null;
-};
 
 export type LocationRow = {
   id: string;
   name: string;
   address: string | null;
+  createdAt: string;
+};
+
+export type HolidayRow = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  label: string | null;
   createdAt: string;
 };

@@ -34,7 +34,7 @@ describe("confirmChange", () => {
       throw new Error("Expected active change request");
     }
 
-    await confirmChange(start.changeRequestId, toSlotId);
+    await confirmChange(token, start.changeRequestId, toSlotId);
 
     const db = getDb();
     const booking = await db.query.bookings.findFirst({
@@ -64,7 +64,43 @@ describe("confirmChange", () => {
       messages.some(
         (m) => m.messageType === "session_changed" && m.recipient === "client",
       ),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("rejects confirm without the matching booking token", async () => {
+    const fixtures = await seedTestFixtures();
+
+    const { slotId: toSlotId } = await addScheduleSlot(
+      DEFAULT_TRAINER_ID,
+      fixtures.weekStart,
+      fixtures.slotDayOfWeek,
+      "11:00",
+      fixtures.locationId,
+    );
+
+    const { token } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const start = await startChangeRequest(token);
+    expect(start.changeRequestId).toBeTruthy();
+    if (!start.changeRequestId) {
+      throw new Error("Expected active change request");
+    }
+
+    await expect(
+      confirmChange("not-the-booking-token", start.changeRequestId, toSlotId),
+    ).rejects.toThrow(/Booking not found|no longer active/);
+
+    const db = getDb();
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.token, token),
+    });
+    expect(booking?.slotId).toBe(fixtures.slotId);
+    expect(booking?.status).toBe("pending_change");
   });
 
   it("rejects confirming onto an already booked slot", async () => {
@@ -116,7 +152,7 @@ describe("confirmChange", () => {
     }
 
     await expect(
-      confirmChange(start.changeRequestId, bookedTargetId),
+      confirmChange(token, start.changeRequestId, bookedTargetId),
     ).rejects.toThrow(/no longer available/);
   });
 });
@@ -161,14 +197,7 @@ describe("moveBookingForTrainer", () => {
       where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
     });
     expect(
-      messages.some(
-        (m) => m.messageType === "session_changed" && m.recipient === "client",
-      ),
-    ).toBe(true);
-    expect(
-      messages.some(
-        (m) => m.messageType === "session_changed" && m.recipient === "trainer",
-      ),
+      messages.some((m) => m.messageType === "session_changed"),
     ).toBe(false);
   });
 });
