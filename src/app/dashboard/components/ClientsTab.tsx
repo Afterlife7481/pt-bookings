@@ -95,28 +95,20 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
       {clients.length === 0 ? (
         <p className="p-4 text-sm text-slate-500">No clients yet.</p>
       ) : (
-        <table className="w-full min-w-0 table-fixed text-left text-sm">
-          <colgroup>
-            <col style={{ width: "44%" }} />
-            <col style={{ width: "56%" }} />
-          </colgroup>
-          <tbody className="divide-y divide-slate-100">
-            {sortedClients.map((c) => {
-              const { givenName, surname } = splitClientName(c.name);
-              return (
-                <tr key={c.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium">
-                    <Link
-                      href={`/dashboard/clients/${c.id}`}
-                      className="block text-blue-600 hover:underline"
-                    >
-                      <span className="flex flex-col leading-snug">
-                        <span>{givenName}</span>
-                        {surname ? <span>{surname}</span> : null}
-                      </span>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
+        <ul className="divide-y divide-slate-100">
+          {sortedClients.map((c) => {
+            const { givenName, surname } = splitClientName(c.name);
+            return (
+              <li key={c.id}>
+                <Link
+                  href={`/dashboard/clients/${c.id}`}
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+                >
+                  <span className="flex min-w-0 flex-[0_0_44%] flex-col text-sm font-medium leading-snug text-slate-900">
+                    <span>{givenName}</span>
+                    {surname ? <span>{surname}</span> : null}
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm text-slate-600">
                     {c.lastSession ? (
                       <SessionWhen
                         startAt={c.lastSession.startAt}
@@ -125,12 +117,15 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
                     ) : (
                       "—"
                     )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </span>
+                  <span aria-hidden className="shrink-0 text-slate-400">
+                    ›
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </Card>
   );
