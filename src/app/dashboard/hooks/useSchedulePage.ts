@@ -13,6 +13,13 @@ export type ApplyTemplateOutcome = {
   slotsCreated: number;
 };
 
+type ScheduleResponse = {
+  entries: ScheduleEntry[];
+  weekStart: string;
+  weekEnd: string;
+  holidays: ScheduleHoliday[];
+};
+
 export function useSchedulePage() {
   const { settings } = useTrainerSettings();
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
@@ -25,30 +32,62 @@ export function useSchedulePage() {
   const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>([]);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    const activeWeek = weekStart || defaultWeekStart();
-    const [c, t, sched, locs] = await Promise.all([
+  const loadSupportingData = useCallback(async () => {
+    const [c, t, locs] = await Promise.all([
       fetchJson<DashboardClient[]>("/api/clients"),
       fetchJson<{ template: unknown | null }>("/api/templates"),
-      fetchJson<{
-        entries: ScheduleEntry[];
-        weekStart: string;
-        weekEnd: string;
-        holidays: ScheduleHoliday[];
-      }>(`/api/schedule?weekStart=${activeWeek}`),
       fetchJson<TrainerLocation[]>("/api/locations"),
     ]);
     setClients(c);
     setHasTemplate(t.template !== null);
+    setTrainerLocations(Array.isArray(locs) ? locs : []);
+  }, []);
+
+  const loadWeekSchedule = useCallback(async (activeWeek: string) => {
+    const sched = await fetchJson<ScheduleResponse>(
+      `/api/schedule?weekStart=${activeWeek}`,
+    );
     setScheduleEntries(sched.entries);
     setScheduleHolidays(sched.holidays ?? []);
     setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
-    setTrainerLocations(Array.isArray(locs) ? locs : []);
-  }, [weekStart]);
+  }, []);
+
+  const refreshWeek = useCallback(async () => {
+    const activeWeek = weekStart || defaultWeekStart();
+    await loadWeekSchedule(activeWeek);
+  }, [loadWeekSchedule, weekStart]);
+
+  const refresh = useCallback(async () => {
+    const activeWeek = weekStart || defaultWeekStart();
+    await Promise.all([loadSupportingData(), loadWeekSchedule(activeWeek)]);
+  }, [loadSupportingData, loadWeekSchedule, weekStart]);
 
   useEffect(() => {
-    refresh().catch(() => {});
-  }, [refresh]);
+    loadSupportingData().catch(() => {});
+  }, [loadSupportingData]);
+
+  useEffect(() => {
+    const activeWeek = weekStart || defaultWeekStart();
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const sched = await fetchJson<ScheduleResponse>(
+          `/api/schedule?weekStart=${activeWeek}`,
+        );
+        if (cancelled) return;
+        setScheduleEntries(sched.entries);
+        setScheduleHolidays(sched.holidays ?? []);
+        setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
+      } catch {
+        // Keep previous week visible if the request fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [weekStart]);
 
   function changeWeek(delta: number) {
     setWeekStart((ws) => shiftWeekStart(ws || defaultWeekStart(), delta));
@@ -66,7 +105,7 @@ export function useSchedulePage() {
     setScheduleError(null);
     try {
       await action();
-      await refresh();
+      await refreshWeek();
     } catch (e) {
       const message =
         e instanceof ApiError ? e.message : "Something went wrong";
@@ -91,7 +130,7 @@ export function useSchedulePage() {
           weekStart,
         }),
       });
-      await refresh();
+      await refreshWeek();
       return {
         ok: true,
         conflicts: result.conflicts ?? [],
