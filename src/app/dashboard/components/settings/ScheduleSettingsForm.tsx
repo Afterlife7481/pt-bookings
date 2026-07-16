@@ -122,7 +122,8 @@ export function ScheduleSettingsForm({
         <div className="border-t border-slate-100 pt-4">
           <p className="text-sm font-medium text-slate-700">Default view</p>
           <p className="mt-1 text-xs text-slate-500">
-            Layout when you first open the Schedule tab.
+            Layout on phone and tablet when you open Schedule. Desktop always
+            opens in week view.
           </p>
           <div className="mt-3">
             <SegmentedControl

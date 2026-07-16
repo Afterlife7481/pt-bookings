@@ -76,7 +76,17 @@ export function ScheduleTab({
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
-    if (settings && !appliedDefaultView.current) {
+    if (appliedDefaultView.current) return;
+
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    // Desktop always opens in week view; smaller screens use the trainer setting.
+    if (isDesktop) {
+      setViewMode("week");
+      appliedDefaultView.current = true;
+      return;
+    }
+
+    if (settings) {
       setViewMode(settings.scheduleDefaultView);
       appliedDefaultView.current = true;
     }
