@@ -148,31 +148,29 @@ export function ScheduleTab({
             </button>
           </InlineNotice>
         )}
-        {viewMode === "week" ? (
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-            <Button
-              variant="secondary"
-              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-              onClick={() => onChangeWeek(-1)}
-            >
-              ← Prev
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-              onClick={onGoToThisWeek}
-            >
-              This week
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full px-2 text-xs sm:w-auto sm:px-4 sm:text-sm"
-              onClick={() => onChangeWeek(1)}
-            >
-              Next →
-            </Button>
-          </div>
-        ) : null}
+        <div className="hidden gap-2 sm:flex sm:flex-wrap">
+          <Button
+            variant="secondary"
+            className="px-4 text-sm"
+            onClick={() => onChangeWeek(-1)}
+          >
+            ← Prev
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-4 text-sm"
+            onClick={onGoToThisWeek}
+          >
+            This week
+          </Button>
+          <Button
+            variant="secondary"
+            className="px-4 text-sm"
+            onClick={() => onChangeWeek(1)}
+          >
+            Next →
+          </Button>
+        </div>
       </div>
       {settings ? (
         <WeekScheduleCalendar

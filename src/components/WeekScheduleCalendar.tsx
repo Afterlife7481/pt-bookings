@@ -39,6 +39,7 @@ import {
   isTodayWeekDay,
 } from "@/components/schedule/schedule-utils";
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
+import { WeekScheduleCarousel } from "@/components/schedule/WeekScheduleCarousel";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIMEZONE, formatDate } from "@/lib/constants";
@@ -689,21 +690,34 @@ export function WeekScheduleCalendar({
         </div>
       ) : (
         <div ref={gridRef}>
-          <WeekGrid
+          <WeekScheduleCarousel
             weekStart={weekStart}
-            timeRows={timeRows}
-            scheduleStartTime={scheduleStartTime}
-            scheduleEndTime={scheduleEndTime}
-            entries={entries}
-            holidayIndex={holidayIndex}
-            timeZone={timeZone}
-            editable={editable}
-            selectedOpenSlot={selectedOpenSlot}
-            onRequestAdd={onAddSlot ? requestAdd : undefined}
-            onOpenSlot={openSlotActions}
-            compact={useCompactWeekGrid}
-            viewportHeight={gridViewportHeight}
-          />
+            onChangeWeek={
+              onChangeWeek
+                ? (delta) => {
+                    if (shiftingRef.current) return;
+                    shiftingRef.current = true;
+                    onChangeWeek(delta);
+                  }
+                : undefined
+            }
+          >
+            <WeekGrid
+              weekStart={weekStart}
+              timeRows={timeRows}
+              scheduleStartTime={scheduleStartTime}
+              scheduleEndTime={scheduleEndTime}
+              entries={entries}
+              holidayIndex={holidayIndex}
+              timeZone={timeZone}
+              editable={editable}
+              selectedOpenSlot={selectedOpenSlot}
+              onRequestAdd={onAddSlot ? requestAdd : undefined}
+              onOpenSlot={openSlotActions}
+              compact={useCompactWeekGrid}
+              viewportHeight={gridViewportHeight}
+            />
+          </WeekScheduleCarousel>
         </div>
       )}
 
