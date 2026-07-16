@@ -137,20 +137,13 @@ export function TrainerSessionDetail({
             <Badge tone="danger">Voided</Badge>
           ) : booking.status === "pending_change" ? (
             <Badge tone="warning">Changing</Badge>
-          ) : isPast ? (
-            <>
-              <Badge>Past</Badge>
-              {booking.isRecurring ? (
-                <Badge tone="success">Recurring</Badge>
-              ) : (
-                <Badge>Manual</Badge>
-              )}
-            </>
-          ) : booking.isRecurring ? (
-            <Badge tone="success">Recurring</Badge>
-          ) : (
-            <Badge>Manual</Badge>
-          )}
+          ) : null}
+          {!isVoided &&
+            (booking.isRecurring ? (
+              <Badge tone="success">Recurring</Badge>
+            ) : (
+              <Badge>Manual</Badge>
+            ))}
           {!isVoided && (
             <PaymentStatusBadge
               sessionPaid={booking.sessionPaid}

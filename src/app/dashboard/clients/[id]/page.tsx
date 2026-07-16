@@ -34,8 +34,12 @@ function ClientSessionRow({
           className="text-sm"
         />
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {booking.isRecurring ? <Badge>Recurring</Badge> : null}
           {isCanceled ? <Badge tone="danger">Canceled</Badge> : null}
+          {booking.isRecurring ? (
+            <Badge tone="success">Recurring</Badge>
+          ) : (
+            <Badge>Manual</Badge>
+          )}
           <span aria-hidden className="text-slate-400">
             ›
           </span>
