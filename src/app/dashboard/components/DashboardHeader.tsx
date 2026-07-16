@@ -96,7 +96,7 @@ const HEADER_SHORTCUTS = [
   },
   {
     href: "/dashboard/feed",
-    label: "Feed",
+    label: "Activity Feed",
     Icon: FeedIcon,
   },
 ] as const;

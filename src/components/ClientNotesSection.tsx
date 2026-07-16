@@ -15,7 +15,13 @@ type ClientNote = {
   updatedAt: string;
 };
 
-export function ClientNotesSection({ clientId }: { clientId: string }) {
+export function ClientNotesSection({
+  clientId,
+  showHeading = true,
+}: {
+  clientId: string;
+  showHeading?: boolean;
+}) {
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -188,8 +194,8 @@ export function ClientNotesSection({ clientId }: { clientId: string }) {
 
   return (
     <Card>
-      <h2 className="font-semibold">Notes</h2>
-      <p className="mt-1 text-sm text-slate-600">
+      {showHeading ? <h2 className="font-semibold">Notes</h2> : null}
+      <p className={showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"}>
         Shared notes are visible to the client on their portal. Private notes are
         only ever seen by you.
       </p>
