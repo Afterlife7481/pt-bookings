@@ -7,7 +7,8 @@ import { getTrainerSettings } from "@/lib/services/settings";
 import { Card, Badge, Button } from "@/components/ui";
 import { AddToCalendarButton } from "@/components/AddToCalendarButton";
 import { formatSlot, formatDurationMinutes } from "@/lib/utils";
-import { isWithinBookingDeadline, isInactiveBookingStatus, parseLocalDateTime } from "@/lib/constants";
+import { isWithinBookingDeadline, isInactiveBookingStatus } from "@/lib/constants";
+import { wallClockToUtcMs } from "@/lib/zoned-time";
 import { ChangeSessionFlow } from "@/components/ChangeSessionFlow";
 import { SessionActions } from "@/components/SessionActions";
 import { SessionChangePrompt } from "@/components/SessionChangePrompt";
@@ -34,15 +35,6 @@ export default async function SessionPage({
   const sessionEndAt = slot?.endAt ?? null;
   if (!sessionStartAt) notFound();
 
-  const durationMinutes =
-    sessionEndAt != null
-      ? Math.round(
-          (parseLocalDateTime(sessionEndAt).getTime() -
-            parseLocalDateTime(sessionStartAt).getTime()) /
-            60_000,
-        )
-      : 60;
-
   const [trainerSettings, trainer, calendar] = await Promise.all([
     getTrainerSettings(booking.trainerId),
     getTrainerById(booking.trainerId),
@@ -50,10 +42,21 @@ export default async function SessionPage({
       ? getBookingCalendarPayload(token)
       : Promise.resolve(null),
   ]);
+
+  const durationMinutes =
+    sessionEndAt != null
+      ? Math.round(
+          (wallClockToUtcMs(sessionEndAt, trainerSettings.timezone) -
+            wallClockToUtcMs(sessionStartAt, trainerSettings.timezone)) /
+            60_000,
+        )
+      : 60;
+
   const blockedByDeadline = slot
     ? isWithinBookingDeadline(
         slot.startAt,
         trainerSettings.cancelDeadlineHours,
+        trainerSettings.timezone,
       )
     : true;
   const isInactive = isInactiveBookingStatus(booking.status);

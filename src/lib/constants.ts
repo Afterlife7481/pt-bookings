@@ -1,3 +1,10 @@
+import {
+  calendarDateInZone,
+  hoursUntilWallClock,
+  startOfWeekMondayDateKeyInZone,
+  wallClockToUtc,
+} from "@/lib/zoned-time";
+
 export const SESSION_DURATION_MINUTES = 60;
 
 /**
@@ -25,27 +32,30 @@ export function formatBookingWindowWeeks(weeks: number): string {
   return `this week and the next ${weeks - 1} weeks`;
 }
 
-/** Exclusive upper bound: Monday 00:00 after the last bookable calendar week. */
+/** Exclusive upper bound: Monday 00:00 after the last bookable calendar week (trainer zone). */
 export function clientBookingWindowEndExclusive(
   weeks: number,
+  timeZone: string,
   from: Date = new Date(),
 ): string {
-  const currentWeekStart = startOfWeekMonday(from);
-  const endExclusive = addDays(currentWeekStart, weeks * 7);
-  return toLocalDateTimeString(parseTimeOnDate(formatDate(endExclusive), "00:00"));
+  const weekStartKey = startOfWeekMondayDateKeyInZone(from, timeZone);
+  const [y, m, d] = weekStartKey.split("-").map(Number);
+  // Shift by whole days at UTC noon so DST does not skip/duplicate a calendar day.
+  const endNoon = new Date(Date.UTC(y, m - 1, d + weeks * 7, 12, 0, 0));
+  const endDateKey = calendarDateInZone(endNoon, timeZone);
+  return `${endDateKey}T00:00:00`;
 }
 
 export function isWithinClientBookingWindow(
   slotStartAt: string,
   weeks: number,
+  timeZone: string,
   now: Date = new Date(),
 ): boolean {
-  const slotTime = parseLocalDateTime(slotStartAt);
-  if (slotTime.getTime() < now.getTime()) return false;
-  const endExclusive = parseLocalDateTime(
-    clientBookingWindowEndExclusive(weeks, now),
-  );
-  return slotTime.getTime() < endExclusive.getTime();
+  const slotMs = wallClockToUtc(slotStartAt, timeZone).getTime();
+  if (slotMs < now.getTime()) return false;
+  const endExclusive = clientBookingWindowEndExclusive(weeks, timeZone, now);
+  return slotMs < wallClockToUtc(endExclusive, timeZone).getTime();
 }
 export const CHANGE_DEADLINE_HOURS = 36;
 export const DEFAULT_CANCEL_DEADLINE_HOURS = 36;
@@ -115,6 +125,7 @@ export const TRAINER_TIMEZONE_OPTIONS = [
   { value: "Australia/Melbourne", label: "Australia (Melbourne)" },
   { value: "Pacific/Auckland", label: "New Zealand (Auckland)" },
   { value: "Asia/Dubai", label: "UAE (Dubai)" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong" },
   { value: "Asia/Singapore", label: "Singapore" },
 ] as const;
 
@@ -202,9 +213,8 @@ export function formatSlotLabel(isoStart: string, isoEnd?: string | null): strin
   return `${dateLabel} ${start}–${end}`;
 }
 
-export function hoursUntil(iso: string): number {
-  const d = parseLocalDateTime(iso);
-  return (d.getTime() - Date.now()) / (1000 * 60 * 60);
+export function hoursUntil(iso: string, timeZone: string): number {
+  return hoursUntilWallClock(iso, timeZone);
 }
 
 export function parseLocalDateTime(iso: string): Date {
@@ -217,8 +227,9 @@ export function parseLocalDateTime(iso: string): Date {
 export function isWithinBookingDeadline(
   slotStartAt: string,
   deadlineHours: number,
+  timeZone: string,
 ): boolean {
-  return hoursUntil(slotStartAt) < deadlineHours;
+  return hoursUntil(slotStartAt, timeZone) < deadlineHours;
 }
 
 export function isInactiveBookingStatus(status: string): boolean {

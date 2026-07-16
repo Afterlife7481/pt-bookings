@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
-import { parseLocalDateTime } from "@/lib/constants";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { isWallClockPast } from "@/lib/zoned-time";
+import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
 import type { NotifyChannel } from "@/lib/notify-channels";
 import {
   prepareWhatsAppOpen,
@@ -60,7 +62,9 @@ export function OpenSlotLastMinuteSection({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offerTarget, setOfferTarget] = useState<EligibleClient | null>(null);
-  const slotInPast = parseLocalDateTime(slotStartAt).getTime() < Date.now();
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
+  const slotInPast = isWallClockPast(slotStartAt, timeZone);
   const slotHeldForOther =
     Boolean(heldForClientId) &&
     Boolean(holdExpiresAt) &&

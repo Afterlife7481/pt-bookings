@@ -41,7 +41,8 @@ import {
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/constants";
+import { DEFAULT_TIMEZONE, formatDate } from "@/lib/constants";
+import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
 import {
   scheduleGridTimeLabel,
   timeRowsInScheduleRange,
@@ -72,6 +73,7 @@ function DayScheduleGrid({
   onRequestAdd,
   onOpenSlot,
   viewportHeight,
+  timeZone,
 }: {
   weekStart: string;
   selectedDay: number;
@@ -85,6 +87,7 @@ function DayScheduleGrid({
   onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   viewportHeight?: number;
+  timeZone: string;
 }) {
   const dateKey = formatDate(dateForWeekDay(weekStart, selectedDay));
   const fitViewport = viewportHeight != null;
@@ -191,7 +194,7 @@ function DayScheduleGrid({
           scheduleStartTime={scheduleStartTime}
           scheduleEndTime={scheduleEndTime}
           items={dayEntries.map((entry) => {
-            const entryPast = isPastDay || isPastScheduleEntry(entry);
+            const entryPast = isPastDay || isPastScheduleEntry(entry, timeZone);
             return {
               key: entry.slotId,
               startTime: entryStartTime(entry),
@@ -315,6 +318,7 @@ function WeekGrid({
   onOpenSlot,
   compact = false,
   viewportHeight,
+  timeZone,
 }: {
   weekStart: string;
   timeRows: string[];
@@ -324,6 +328,7 @@ function WeekGrid({
   holidayIndex: HolidayScheduleIndex;
   editable: boolean;
   selectedOpenSlot: ScheduleEntry | null;
+  timeZone: string;
   onRequestAdd?: (dayOfWeek: number, startTime: string) => void;
   onOpenSlot: (entry: ScheduleEntry) => void;
   compact?: boolean;
@@ -401,7 +406,7 @@ function WeekGrid({
             scheduleStartTime={scheduleStartTime}
             scheduleEndTime={scheduleEndTime}
             items={dayEntries.map((entry) => {
-              const entryPast = pastDay || isPastScheduleEntry(entry);
+              const entryPast = pastDay || isPastScheduleEntry(entry, timeZone);
               return {
                 key: entry.slotId,
                 startTime: entryStartTime(entry),
@@ -476,6 +481,8 @@ export function WeekScheduleCalendar({
   ) => Promise<void> | void;
   onRefresh?: () => void | Promise<void>;
 }) {
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
   const timeRows = useMemo(
     () => timeRowsInScheduleRange(scheduleStartTime, scheduleEndTime),
     [scheduleStartTime, scheduleEndTime],
@@ -670,6 +677,7 @@ export function WeekScheduleCalendar({
                   entries={entries}
                   holidayIndex={holidayIndex}
                   editable={editable}
+                  timeZone={timeZone}
                   selectedOpenSlot={selectedOpenSlot}
                   onRequestAdd={onAddSlot ? requestAdd : undefined}
                   onOpenSlot={openSlotActions}
@@ -688,6 +696,7 @@ export function WeekScheduleCalendar({
             scheduleEndTime={scheduleEndTime}
             entries={entries}
             holidayIndex={holidayIndex}
+            timeZone={timeZone}
             editable={editable}
             selectedOpenSlot={selectedOpenSlot}
             onRequestAdd={onAddSlot ? requestAdd : undefined}

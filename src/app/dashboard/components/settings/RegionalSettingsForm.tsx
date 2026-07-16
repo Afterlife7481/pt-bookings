@@ -55,8 +55,8 @@ export function RegionalSettingsForm({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-slate-700">Time zone</span>
         <span className="text-xs text-slate-500">
-          Used for feed timestamps and other times shown in your
-          dashboard.
+          Used for session deadlines, calendars, feed timestamps, and times
+          shown in your dashboard.
         </span>
         <select
           className="mt-1 rounded-lg border border-slate-300 px-3 py-2"

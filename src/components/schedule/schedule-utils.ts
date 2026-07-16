@@ -9,6 +9,7 @@ import {
   slotTimeLabel,
   startOfWeekMonday,
 } from "@/lib/constants";
+import { isWallClockEnded } from "@/lib/zoned-time";
 import {
   slotCoversGridRow,
   slotGridRowSpan,
@@ -184,9 +185,10 @@ export function isPastWeekRowTime(
 /** True when a schedule entry has already ended. */
 export function isPastScheduleEntry(
   entry: Pick<ScheduleEntry, "endAt">,
+  timeZone: string,
   now: Date = new Date(),
 ): boolean {
-  return parseLocalDateTime(entry.endAt).getTime() <= now.getTime();
+  return isWallClockEnded(entry.endAt, timeZone, now);
 }
 
 export function dateKeyFromStartAt(startAt: string): string {

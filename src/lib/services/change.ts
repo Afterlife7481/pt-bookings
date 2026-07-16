@@ -9,10 +9,10 @@ import {
   isWithinBookingDeadline,
   isWithinClientBookingWindow,
   nowIso,
-  parseLocalDateTime,
 } from "@/lib/constants";
 import { assertSlotNotHeldByActiveBookingTx, getBookingDetailForTrainer } from "./bookings";
 import { getAvailableSlotsForChange } from "./available-slots";
+import { isWallClockPast } from "@/lib/zoned-time";
 import { getTrainerSettings } from "./settings";
 import { assertClientCanUseSlotLocation } from "./locations";
 import { getTrainerById } from "./trainers";
@@ -139,10 +139,10 @@ export async function startChangeRequest(
   });
   if (!slot) throw new Error("Slot not found");
 
-  const { cancelDeadlineHours } = await getTrainerSettings(booking.trainerId);
+  const { cancelDeadlineHours, timezone } = await getTrainerSettings(booking.trainerId);
 
   if (
-    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours) &&
+    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours, timezone) &&
     booking.status !== "pending_change"
   ) {
     const id = nanoid();
@@ -255,8 +255,8 @@ export async function confirmChange(
 
   await assertClientCanUseSlotLocation(booking.clientId, targetSlot.locationId);
 
-  const { clientBookingWindowWeeks } = await getTrainerSettings(booking.trainerId);
-  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks)) {
+  const { clientBookingWindowWeeks, timezone } = await getTrainerSettings(booking.trainerId);
+  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks, timezone)) {
     throw new Error("Selected slot is outside your booking window");
   }
 
@@ -386,7 +386,8 @@ export async function listAvailableSlotsForTrainerChange(
   });
   if (!slot) throw new Error("Slot not found");
 
-  if (parseLocalDateTime(slot.startAt).getTime() < Date.now()) {
+  const { timezone } = await getTrainerSettings(booking.trainerId);
+  if (isWallClockPast(slot.startAt, timezone)) {
     throw new Error("Cannot change a past session");
   }
 
@@ -418,7 +419,8 @@ export async function moveBookingForTrainer(
   });
   if (!fromSlot) throw new Error("Slot not found");
 
-  if (parseLocalDateTime(fromSlot.startAt).getTime() < Date.now()) {
+  const { clientBookingWindowWeeks, timezone } = await getTrainerSettings(trainerId);
+  if (isWallClockPast(fromSlot.startAt, timezone)) {
     throw new Error("Cannot change a past session");
   }
 
@@ -439,8 +441,7 @@ export async function moveBookingForTrainer(
     "trainer",
   );
 
-  const { clientBookingWindowWeeks } = await getTrainerSettings(trainerId);
-  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks)) {
+  if (!isWithinClientBookingWindow(targetSlot.startAt, clientBookingWindowWeeks, timezone)) {
     throw new Error("Selected slot is outside the client booking window");
   }
 

@@ -19,6 +19,8 @@ import {
   toLocalDateTimeString,
   parseLocalDateTime,
 } from "@/lib/constants";
+import { calendarDateInZone } from "@/lib/zoned-time";
+import { getTrainerSettings } from "./settings";
 import { recurringSlotKey } from "@/lib/schedule-grid";
 import { createBookingForSlot } from "./bookings";
 import { getOrCreateAppliedWeek } from "./schedule";
@@ -139,8 +141,10 @@ export async function applyTemplateToWeek(
     recommendations: [],
   };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayKey = calendarDateInZone(
+    new Date(),
+    (await getTrainerSettings(template.trainerId)).timezone,
+  );
 
   const existingStartAt = new Set(existingWeekSlots.map((row) => row.startAt));
 
@@ -173,7 +177,7 @@ export async function applyTemplateToWeek(
       (ts.dayOfWeek - weekDate.getDay() + 7) % 7,
     );
     const startAt = parseTimeOnDate(formatDate(slotDate), ts.startTime);
-    if (startAt < today) continue;
+    if (formatDate(slotDate) < todayKey) continue;
 
     const startAtStr = toLocalDateTimeString(startAt);
     if (existingStartAt.has(startAtStr)) continue;

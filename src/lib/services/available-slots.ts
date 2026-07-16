@@ -3,10 +3,9 @@ import { getDb } from "@/lib/db";
 import { locations, slots } from "@/lib/db/schema";
 import {
   clientBookingWindowEndExclusive,
-  nowIso,
-  parseLocalDateTime,
   slotDayOfWeek,
 } from "@/lib/constants";
+import { utcToWallClock, wallClockToUtcMs } from "@/lib/zoned-time";
 import { getEnabledClientLocationIds } from "./locations";
 import { getTrainerSettings } from "./settings";
 
@@ -24,9 +23,9 @@ export async function getAvailableSlotsForChange(
   clientId?: string,
 ): Promise<AvailableSlotOption[]> {
   const db = getDb();
-  const now = nowIso();
-  const { clientBookingWindowWeeks } = await getTrainerSettings(trainerId);
-  const max = clientBookingWindowEndExclusive(clientBookingWindowWeeks);
+  const { clientBookingWindowWeeks, timezone } = await getTrainerSettings(trainerId);
+  const nowWall = utcToWallClock(new Date(), timezone);
+  const max = clientBookingWindowEndExclusive(clientBookingWindowWeeks, timezone);
 
   let allowedLocationIds: string[] | null = null;
   if (clientId) {
@@ -47,7 +46,7 @@ export async function getAvailableSlotsForChange(
       and(
         eq(slots.trainerId, trainerId),
         eq(slots.status, "available"),
-        gte(slots.startAt, now),
+        gte(slots.startAt, nowWall),
         lt(slots.startAt, max),
         excludeSlotId ? ne(slots.id, excludeSlotId) : undefined,
         allowedLocationIds
@@ -71,7 +70,6 @@ export async function getAvailableSlotsForChange(
     const aSame = slotDayOfWeek(a.startAt) === originalDay ? 0 : 1;
     const bSame = slotDayOfWeek(b.startAt) === originalDay ? 0 : 1;
     if (aSame !== bSame) return aSame - bSame;
-    return parseLocalDateTime(a.startAt).getTime() - parseLocalDateTime(b.startAt).getTime();
+    return wallClockToUtcMs(a.startAt, timezone) - wallClockToUtcMs(b.startAt, timezone);
   });
 }
-

@@ -94,13 +94,14 @@ describe("schedule-utils week grid", () => {
     expect(isPastWeekRowTime("2026-06-29", 6, "11:30", now)).toBe(false);
   });
 
-  it("treats ended schedule entries as past", () => {
-    const now = new Date(2026, 6, 3, 12, 0, 0);
+  it("treats ended schedule entries as past in the trainer zone", () => {
+    // Noon BST (Europe/London summer)
+    const now = new Date("2026-07-03T11:00:00.000Z");
     expect(
-      isPastScheduleEntry({ endAt: "2026-07-03T11:00:00" }, now),
+      isPastScheduleEntry({ endAt: "2026-07-03T11:00:00" }, "Europe/London", now),
     ).toBe(true);
     expect(
-      isPastScheduleEntry({ endAt: "2026-07-03T12:30:00" }, now),
+      isPastScheduleEntry({ endAt: "2026-07-03T13:00:00" }, "Europe/London", now),
     ).toBe(false);
   });
 

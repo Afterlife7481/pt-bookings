@@ -6,7 +6,9 @@ import { useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
-import { parseLocalDateTime } from "@/lib/constants";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
+import { useTrainerSettings } from "../hooks/useTrainerSettings";
 import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
 import {
   SessionPaymentModals,
@@ -28,6 +30,8 @@ export function TrainerSessionDetail({
   backLabel?: string;
 }) {
   const router = useRouter();
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
   const [saved, setSaved] = useState(false);
   const [confirmationNotice, setConfirmationNotice] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
@@ -95,12 +99,12 @@ export function TrainerSessionDetail({
   const isCanceled = booking.status === "canceled";
   const isVoided = booking.status === "voided";
   const isInactive = isCanceled || isVoided;
-  const isPast = parseLocalDateTime(sessionStartAt).getTime() < Date.now();
+  const isPast = isWallClockPast(sessionStartAt, timeZone);
   const durationMinutes =
     sessionEndAt != null
       ? Math.round(
-          (parseLocalDateTime(sessionEndAt).getTime() -
-            parseLocalDateTime(sessionStartAt).getTime()) /
+          (wallClockToUtcMs(sessionEndAt, timeZone) -
+            wallClockToUtcMs(sessionStartAt, timeZone)) /
             60_000,
         )
       : 60;

@@ -8,9 +8,9 @@ import {
   isInactiveBookingStatus,
   isWithinClientBookingWindow,
   nowIso,
-  parseLocalDateTime,
   type SessionPaymentType,
 } from "@/lib/constants";
+import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
 import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendInvoiceEmail, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
 import { assertWhatsAppPhone, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 import {
@@ -269,9 +269,9 @@ export async function cancelBookingByToken(bookingToken: string) {
   });
   if (!slot) throw new Error("Slot not found");
 
-  const { cancelDeadlineHours } = await getTrainerSettings(booking.trainerId);
+  const { cancelDeadlineHours, timezone } = await getTrainerSettings(booking.trainerId);
   if (
-    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours)
+    isWithinBookingDeadline(slot.startAt, cancelDeadlineHours, timezone)
   ) {
     throw new Error(
       `Cancellations are not allowed within ${cancelDeadlineHours} hours of your session. Please contact your trainer.`,
@@ -312,7 +312,6 @@ export async function listClientSessions(clientId: string): Promise<{
   history: ClientSession[];
 }> {
   const db = getDb();
-  const now = Date.now();
 
   const rows = await db
     .select({
@@ -323,6 +322,11 @@ export async function listClientSessions(clientId: string): Promise<{
     .leftJoin(slots, eq(bookings.slotId, slots.id))
     .where(eq(bookings.clientId, clientId))
     .orderBy(asc(bookings.sessionStartAt));
+
+  const trainerId = rows[0]?.booking.trainerId;
+  const timezone = trainerId
+    ? (await getTrainerSettings(trainerId)).timezone
+    : "Europe/London";
 
   const upcoming: ClientSession[] = [];
   const history: ClientSession[] = [];
@@ -338,7 +342,7 @@ export async function listClientSessions(clientId: string): Promise<{
       endAt: row.slot?.endAt ?? null,
     };
 
-    const isPast = parseLocalDateTime(startAt).getTime() < now;
+    const isPast = isWallClockPast(startAt, timezone);
     if (isInactiveBookingStatus(row.booking.status) || isPast) {
       history.push(session);
     } else {
@@ -347,9 +351,7 @@ export async function listClientSessions(clientId: string): Promise<{
   }
 
   history.sort(
-    (a, b) =>
-      parseLocalDateTime(b.startAt).getTime() -
-      parseLocalDateTime(a.startAt).getTime(),
+    (a, b) => wallClockToUtcMs(b.startAt, timezone) - wallClockToUtcMs(a.startAt, timezone),
   );
 
   return { upcoming, history };
@@ -364,8 +366,8 @@ export async function bookSlotByClientToken(clientToken: string, slotId: string)
   if (!slot) throw new Error("Slot not found");
   if (slot.trainerId !== client.trainerId) throw new Error("Slot not found");
 
-  const { clientBookingWindowWeeks } = await getTrainerSettings(client.trainerId);
-  if (!isWithinClientBookingWindow(slot.startAt, clientBookingWindowWeeks)) {
+  const { clientBookingWindowWeeks, timezone } = await getTrainerSettings(client.trainerId);
+  if (!isWithinClientBookingWindow(slot.startAt, clientBookingWindowWeeks, timezone)) {
     throw new Error("This slot is outside your booking window");
   }
 
@@ -668,8 +670,9 @@ export async function voidBookingForTrainer(
       })
     : null;
   const sessionStartAt = slot?.startAt ?? booking.sessionStartAt;
+  const { timezone } = await getTrainerSettings(trainerId);
 
-  if (parseLocalDateTime(sessionStartAt).getTime() >= Date.now()) {
+  if (!isWallClockPast(sessionStartAt, timezone)) {
     throw new Error(
       "Only past sessions can be voided. Cancel upcoming sessions instead.",
     );
@@ -794,7 +797,7 @@ const SESSION_LIST_LIMIT = 100;
 /** Upcoming sessions first, then recent past — capped for the sessions list. */
 export async function listBookings(trainerId: string) {
   const db = getDb();
-  const now = Date.now();
+  const { timezone } = await getTrainerSettings(trainerId);
 
   const rows = await db
     .select({
@@ -817,7 +820,7 @@ export async function listBookings(trainerId: string) {
   const past: typeof rows = [];
 
   for (const row of rows) {
-    if (parseLocalDateTime(row.slot.startAt).getTime() >= now) {
+    if (!isWallClockPast(row.slot.startAt, timezone)) {
       upcoming.push(row);
     } else {
       past.push(row);

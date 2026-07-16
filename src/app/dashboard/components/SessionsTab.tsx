@@ -6,17 +6,19 @@ import { Badge, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import { cn } from "@/lib/utils";
-import { parseLocalDateTime } from "@/lib/constants";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
+import { useTrainerSettings } from "../hooks/useTrainerSettings";
 import type { BookingRow } from "../types";
 
 type SessionsView = "upcoming" | "past";
 
-function isPastSession(startAt: string): boolean {
-  return parseLocalDateTime(startAt).getTime() < Date.now();
+function isPastSession(startAt: string, timeZone: string): boolean {
+  return isWallClockPast(startAt, timeZone);
 }
 
-function sessionSortKey(startAt: string): number {
-  return parseLocalDateTime(startAt).getTime();
+function sessionSortKey(startAt: string, timeZone: string): number {
+  return wallClockToUtcMs(startAt, timeZone);
 }
 
 function bookingSourceBadge(isRecurring: boolean) {
@@ -125,17 +127,27 @@ function SessionsTable({ rows }: { rows: BookingRow[] }) {
 
 export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
   const [view, setView] = useState<SessionsView>("upcoming");
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
 
   const { upcoming, past } = useMemo(() => {
     const upcomingRows = bookings
-      .filter((b) => !isPastSession(b.slot.startAt))
-      .sort((a, b) => sessionSortKey(a.slot.startAt) - sessionSortKey(b.slot.startAt));
+      .filter((b) => !isPastSession(b.slot.startAt, timeZone))
+      .sort(
+        (a, b) =>
+          sessionSortKey(a.slot.startAt, timeZone) -
+          sessionSortKey(b.slot.startAt, timeZone),
+      );
     const pastRows = bookings
-      .filter((b) => isPastSession(b.slot.startAt))
-      .sort((a, b) => sessionSortKey(b.slot.startAt) - sessionSortKey(a.slot.startAt));
+      .filter((b) => isPastSession(b.slot.startAt, timeZone))
+      .sort(
+        (a, b) =>
+          sessionSortKey(b.slot.startAt, timeZone) -
+          sessionSortKey(a.slot.startAt, timeZone),
+      );
 
     return { upcoming: upcomingRows, past: pastRows };
-  }, [bookings]);
+  }, [bookings, timeZone]);
 
   const rows = view === "upcoming" ? upcoming : past;
   const emptyMessage =

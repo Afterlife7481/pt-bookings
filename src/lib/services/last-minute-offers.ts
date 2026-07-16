@@ -11,8 +11,8 @@ import {
 import {
   addHours,
   nowIso,
-  parseLocalDateTime,
 } from "@/lib/constants";
+import { isWallClockPast } from "@/lib/zoned-time";
 import {
   sendWhatsAppLastMinute,
   sendLastMinuteEmail,
@@ -48,7 +48,8 @@ export async function sendLastMinuteOffer(
   if (!slot || slot.status !== "available") {
     throw new Error("Slot is not available");
   }
-  if (parseLocalDateTime(slot.startAt).getTime() < Date.now()) {
+  const { timezone, lastMinuteOfferLockHours } = await getTrainerSettings(trainerId);
+  if (isWallClockPast(slot.startAt, timezone)) {
     throw new Error("Cannot send offers for past slots");
   }
 
@@ -92,7 +93,6 @@ export async function sendLastMinuteOffer(
     throw new Error("This slot does not match the client's time preferences");
   }
 
-  const { lastMinuteOfferLockHours } = await getTrainerSettings(trainerId);
   const offeredAt = nowIso();
   const expiresAt = addHours(offeredAt, lastMinuteOfferLockHours);
 

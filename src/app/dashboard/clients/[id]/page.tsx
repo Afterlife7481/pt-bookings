@@ -15,11 +15,12 @@ import { RecurringSlotDetailModal } from "@/components/RecurringSlotDetailModal"
 import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
-import { parseLocalDateTime } from "@/lib/constants";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import {
   currencySymbol,
   DEFAULT_CURRENCY,
 } from "@/lib/currency";
+import { isWallClockPast } from "@/lib/zoned-time";
 import { prepareWhatsAppOpenForPhone, WHATSAPP_PHONE_HINT } from "@/lib/whatsapp-link";
 import type { PreferredNotifyChannel } from "@/lib/notify-channels";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
@@ -418,13 +419,14 @@ export default function ClientDetailPage() {
   }
 
   const now = mounted ? Date.now() : null;
+  const timeZone = settings?.timezone || DEFAULT_TIMEZONE;
   const upcoming =
     now === null
       ? []
       : client.bookings.filter(
           (b) =>
             b.status !== "canceled" &&
-            parseLocalDateTime(b.slotStartAt).getTime() >= now,
+            !isWallClockPast(b.slotStartAt, timeZone),
         );
   const history =
     now === null
@@ -432,7 +434,7 @@ export default function ClientDetailPage() {
       : client.bookings.filter(
           (b) =>
             b.status === "canceled" ||
-            parseLocalDateTime(b.slotStartAt).getTime() < now,
+            isWallClockPast(b.slotStartAt, timeZone),
         );
 
   return (

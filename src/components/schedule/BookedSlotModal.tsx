@@ -11,9 +11,11 @@ import {
 } from "@/app/dashboard/components/SessionPaymentSection";
 import { useTrainerBookingActions } from "@/app/dashboard/hooks/useTrainerBookingActions";
 import {
+  DEFAULT_TIMEZONE,
   formatSlotLabel,
-  parseLocalDateTime,
 } from "@/lib/constants";
+import { isWallClockPast } from "@/lib/zoned-time";
+import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
 import type { ScheduleEntry } from "@/lib/services/schedule-types";
 
 export function BookedSlotModal({
@@ -27,6 +29,8 @@ export function BookedSlotModal({
 }) {
   const bookingId = entry.booking?.id;
   const [showChangeSlots, setShowChangeSlots] = useState(false);
+  const { settings } = useTrainerSettings();
+  const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
 
   const {
     detail,
@@ -58,7 +62,7 @@ export function BookedSlotModal({
   const client = detail?.client;
   const sessionStartAt =
     detail?.slot?.startAt ?? booking?.sessionStartAt ?? entry.startAt;
-  const isPast = parseLocalDateTime(sessionStartAt).getTime() < Date.now();
+  const isPast = isWallClockPast(sessionStartAt, timeZone);
   const isInactive =
     booking?.status === "canceled" || booking?.status === "voided";
   const sessionPageHref = bookingId

@@ -1,4 +1,4 @@
-import { parseLocalDateTime } from "@/lib/constants";
+import { wallClockToUtc } from "@/lib/zoned-time";
 
 export type CalendarEventInput = {
   uid: string;
@@ -94,36 +94,7 @@ export function icsCompactUtcDateTime(date: Date): string {
 
 /** Convert a wall-clock local datetime in `timeZone` to UTC for Google Calendar URLs. */
 export function wallClockToUtcDate(isoLocal: string, timeZone: string): Date {
-  const [datePart, timePart = "00:00:00"] = isoLocal.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm, ss = 0] = timePart.split(":").map(Number);
-
-  const utcGuess = Date.UTC(y, m - 1, d, hh, mm, ss);
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-
-  const parts = Object.fromEntries(
-    formatter.formatToParts(new Date(utcGuess)).map((part) => [part.type, part.value]),
-  ) as Record<string, string>;
-
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-
-  return new Date(utcGuess + (utcGuess - asUtc));
+  return wallClockToUtc(isoLocal, timeZone);
 }
 
 export function buildGoogleCalendarUrl(event: CalendarEventInput): string {
@@ -205,5 +176,5 @@ export function buildCalendarExportOptions(params: {
 }
 
 export function calendarSequenceFromUpdatedAt(updatedAt: string): number {
-  return Math.floor(parseLocalDateTime(updatedAt).getTime() / 1000);
+  return Math.floor(new Date(updatedAt).getTime() / 1000);
 }
