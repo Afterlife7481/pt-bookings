@@ -151,7 +151,7 @@ export function TrainerSessionDetail({
           ) : (
             <Badge>Manual</Badge>
           )}
-          {!isInactive && (
+          {!isVoided && (
             <PaymentStatusBadge
               sessionPaid={booking.sessionPaid}
               invoiceSentAt={booking.invoiceSentAt}
@@ -206,22 +206,30 @@ export function TrainerSessionDetail({
         </dl>
       </Card>
 
-      <Card className="min-w-0">
-        <h2 className="font-semibold">Payment</h2>
-        <SessionPaymentSection
-          detail={detail}
-          busy={busy}
-          disabled={isInactive}
-          variant="card"
-          showSetupHints
-          invoiceError={invoiceError}
-          invoiceNotice={invoiceNotice}
-          onPatch={patchAndMarkSaved}
-          onOpenMarkPaid={openMarkPaidModal}
-          onOpenEditPaymentMethod={openEditPaymentMethodModal}
-          onOpenInvoiceSheet={openInvoiceSheet}
-        />
-      </Card>
+      {!isVoided && (
+        <Card className="min-w-0">
+          <h2 className="font-semibold">Payment</h2>
+          {isCanceled ? (
+            <p className="mt-2 text-sm text-slate-500">
+              Canceled sessions can still be invoiced or marked paid when your
+              terms require it.
+            </p>
+          ) : null}
+          <SessionPaymentSection
+            detail={detail}
+            busy={busy}
+            disabled={false}
+            variant="card"
+            showSetupHints
+            invoiceError={invoiceError}
+            invoiceNotice={invoiceNotice}
+            onPatch={patchAndMarkSaved}
+            onOpenMarkPaid={openMarkPaidModal}
+            onOpenEditPaymentMethod={openEditPaymentMethodModal}
+            onOpenInvoiceSheet={openInvoiceSheet}
+          />
+        </Card>
+      )}
 
       {!isInactive && (
         <Card className="min-w-0">

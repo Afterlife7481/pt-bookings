@@ -225,7 +225,7 @@ export function ClientRecurringSection({
               Select at least one available location for this client before
               adding recurring slots.{" "}
               <Link
-                href={`/dashboard/clients/${clientId}/locations`}
+                href={`/dashboard/clients/${clientId}/settings`}
                 className="underline"
               >
                 Manage locations →

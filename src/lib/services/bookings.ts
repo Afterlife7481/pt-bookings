@@ -747,8 +747,8 @@ export async function sendInvoiceForBooking(
     where: eq(bookings.id, bookingId),
   });
   if (!booking) throw new Error("Booking not found");
-  if (booking.status === "canceled" || booking.status === "voided") {
-    throw new Error("Cannot send invoice for a canceled or voided session");
+  if (booking.status === "voided") {
+    throw new Error("Cannot send invoice for a voided session");
   }
 
   const slot = booking.slotId

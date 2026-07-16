@@ -1,26 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Badge, Button, Card } from "@/components/ui";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import { SessionWhen } from "@/components/SessionWhen";
 import { HubGroup, HubRowLink } from "@/components/hub-ui";
-import { formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
-import { currencySymbol, DEFAULT_CURRENCY } from "@/lib/currency";
 import { isWallClockPast } from "@/lib/zoned-time";
 import {
   prepareWhatsAppOpen,
   prepareWhatsAppOpenForPhone,
-  WHATSAPP_PHONE_HINT,
 } from "@/lib/whatsapp-link";
-import type { NotifyChannel, PreferredNotifyChannel } from "@/lib/notify-channels";
+import type { NotifyChannel } from "@/lib/notify-channels";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 import { ClientPageHeader } from "./ClientPageHeader";
-import type { ClientBooking, ClientDetail } from "./client-types";
+import { useClientSubpage } from "./useClientSubpage";
+import type { ClientBooking } from "./client-types";
 
 function ClientSessionRow({
   booking,
@@ -58,22 +56,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
   const { settings } = useTrainerSettings();
-  const currency = settings?.currency || DEFAULT_CURRENCY;
-  const priceSymbol = currencySymbol(currency);
-
-  const [client, setClient] = useState<ClientDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [preferredNotifyChannel, setPreferredNotifyChannel] =
-    useState<PreferredNotifyChannel>("whatsapp");
-  const [sessionPrice, setSessionPrice] = useState("");
-  const [savingDetails, setSavingDetails] = useState(false);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [detailsSaved, setDetailsSaved] = useState(false);
+  const { client, loading, notFound } = useClientSubpage(clientId);
 
   const [showPortalSheet, setShowPortalSheet] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
@@ -82,67 +65,12 @@ export default function ClientDetailPage() {
 
   const mounted = useMounted();
 
-  const loadClient = useCallback(async () => {
-    const res = await fetch(`/api/clients/${clientId}`);
-    if (res.status === 404) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
-    if (!res.ok) {
-      setLoading(false);
-      return;
-    }
-    const data: ClientDetail = await res.json();
-    setClient(data);
-    setName(data.name);
-    setEmail(data.email);
-    setPhone(data.phone);
-    setPreferredNotifyChannel(
-      data.preferredNotifyChannel === "email" ? "email" : "whatsapp",
-    );
-    setSessionPrice(sessionPriceToInput(data.sessionPrice, currency));
-    setLoading(false);
-  }, [clientId, currency]);
-
-  useEffect(() => {
-    loadClient();
-  }, [loadClient]);
-
-  async function saveDetails(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingDetails(true);
-    setDetailsError(null);
-    setDetailsSaved(false);
-
-    const res = await fetch(`/api/clients/${clientId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        email,
-        phone,
-        preferredNotifyChannel,
-        sessionPrice,
-      }),
-    });
-    const data = await res.json();
-    setSavingDetails(false);
-
-    if (!res.ok) {
-      setDetailsError(data.error ?? "Failed to save");
-      return;
-    }
-
-    setClient(data);
-    setDetailsSaved(true);
-  }
-
   async function sendPortalLink(channels: NotifyChannel[]) {
+    if (!client) return;
     const wantWhatsApp = channels.includes("whatsapp");
     let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
     if (wantWhatsApp) {
-      const prepared = prepareWhatsAppOpenForPhone(phone);
+      const prepared = prepareWhatsAppOpenForPhone(client.phone);
       if (!prepared.ok) {
         setPortalError(prepared.error);
         return;
@@ -233,103 +161,6 @@ export default function ClientDetailPage() {
       <ClientPageHeader clientName={client.name} />
 
       <Card>
-        <h2 className="font-semibold">Details</h2>
-        <form onSubmit={saveDetails} className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Name</span>
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Email</span>
-              <input
-                type="email"
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="client@example.com"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Phone</span>
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+447700900000"
-              />
-              <span className="text-xs text-slate-500">
-                Phone or email required. {WHATSAPP_PHONE_HINT}
-              </span>
-            </label>
-            <fieldset className="flex flex-col gap-2 text-sm sm:col-span-2">
-              <legend className="text-slate-600">Communication preference</legend>
-              <p className="text-xs text-slate-500">
-                Used as the default when sending invoices and portal links. You
-                can still choose the other channel (or both) each time.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="preferred-notify-channel"
-                    checked={preferredNotifyChannel === "whatsapp"}
-                    onChange={() => setPreferredNotifyChannel("whatsapp")}
-                  />
-                  <span>WhatsApp</span>
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="preferred-notify-channel"
-                    checked={preferredNotifyChannel === "email"}
-                    onChange={() => setPreferredNotifyChannel("email")}
-                  />
-                  <span>Email</span>
-                </label>
-              </div>
-            </fieldset>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">
-                Session price ({priceSymbol})
-              </span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={sessionPrice}
-                onChange={(e) => setSessionPrice(e.target.value)}
-                placeholder="50.00"
-              />
-            </label>
-          </div>
-
-          <p className="text-sm text-slate-500">
-            Last-minute alerts are managed by the client from their portal link.
-          </p>
-
-          {detailsError && <p className="text-sm text-red-600">{detailsError}</p>}
-          {detailsSaved && (
-            <p className="text-sm text-green-700">Client details saved.</p>
-          )}
-
-          <Button type="submit" disabled={savingDetails}>
-            {savingDetails ? "Saving…" : "Save details"}
-          </Button>
-        </form>
-
-        <p className="mt-4 text-xs text-slate-400">
-          Added {formatCreatedDate(client.createdAt)}
-        </p>
-      </Card>
-
-      <Card>
         <h2 className="font-semibold">Client portal</h2>
         <p className="mt-1 text-sm text-slate-600">
           Share this link so the client can view sessions, book, and manage
@@ -391,12 +222,20 @@ export default function ClientDetailPage() {
 
       <HubGroup>
         <HubRowLink
-          href={`/dashboard/clients/${client.id}/notes`}
-          title="Notes"
+          href={`/dashboard/clients/${client.id}/details`}
+          title="Client details"
         />
         <HubRowLink
-          href={`/dashboard/clients/${client.id}/locations`}
-          title="Locations"
+          href={`/dashboard/clients/${client.id}/settings`}
+          title="Client settings"
+        />
+        <HubRowLink
+          href={`/dashboard/clients/${client.id}/notes/public`}
+          title="Public notes"
+        />
+        <HubRowLink
+          href={`/dashboard/clients/${client.id}/notes/private`}
+          title="Private notes"
         />
         <HubRowLink
           href={`/dashboard/clients/${client.id}/recurring`}
@@ -407,9 +246,9 @@ export default function ClientDetailPage() {
       {showPortalSheet && (
         <SendInvoiceChannelSheet
           clientName={client.name}
-          email={email}
-          phone={phone}
-          preferredNotifyChannel={preferredNotifyChannel}
+          email={client.email}
+          phone={client.phone}
+          preferredNotifyChannel={client.preferredNotifyChannel}
           busy={sendingPortal}
           error={portalError}
           title="Send portal link"

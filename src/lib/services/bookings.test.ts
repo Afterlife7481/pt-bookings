@@ -443,7 +443,7 @@ describe("sendInvoiceForBooking", () => {
     await voidBookingForTrainer(DEFAULT_TRAINER_ID, bookingId);
 
     await expect(sendInvoiceForBooking(bookingId)).rejects.toThrow(
-      /Cannot send invoice for a canceled or voided session/,
+      /Cannot send invoice for a voided session/,
     );
   });
 });

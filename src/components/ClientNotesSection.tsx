@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, InlineNotice } from "@/components/ui";
+import { Button, Card, InlineNotice } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { formatCreatedDate } from "@/lib/utils";
 
@@ -17,23 +17,30 @@ type ClientNote = {
 
 export function ClientNotesSection({
   clientId,
+  visibility,
   showHeading = true,
 }: {
   clientId: string;
+  /** When set, only that visibility is shown and new notes use it. */
+  visibility: Visibility;
   showHeading?: boolean;
 }) {
+  const isPrivate = visibility === "private";
+  const title = isPrivate ? "Private notes" : "Public notes";
+  const description = isPrivate
+    ? "Only you can see these notes. They are never shown on the client portal."
+    : "Visible to the client on their portal.";
+
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newBody, setNewBody] = useState("");
-  const [newVisibility, setNewVisibility] = useState<Visibility>("private");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
-  const [editVisibility, setEditVisibility] = useState<Visibility>("private");
   const [savingEdit, setSavingEdit] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -47,9 +54,9 @@ export function ClientNotesSection({
       return;
     }
     const data: { notes: ClientNote[] } = await res.json();
-    setNotes(data.notes);
+    setNotes(data.notes.filter((n) => n.visibility === visibility));
     setLoading(false);
-  }, [clientId]);
+  }, [clientId, visibility]);
 
   useEffect(() => {
     load();
@@ -63,7 +70,7 @@ export function ClientNotesSection({
     const res = await fetch(`/api/clients/${clientId}/notes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: newBody, visibility: newVisibility }),
+      body: JSON.stringify({ body: newBody, visibility }),
     });
     const data = await res.json();
     setCreating(false);
@@ -72,7 +79,6 @@ export function ClientNotesSection({
       return;
     }
     setNewBody("");
-    setNewVisibility("private");
     await load();
   }
 
@@ -80,7 +86,6 @@ export function ClientNotesSection({
     setRowError(null);
     setEditingId(note.id);
     setEditBody(note.body);
-    setEditVisibility(note.visibility);
   }
 
   async function saveEdit(noteId: string) {
@@ -90,7 +95,7 @@ export function ClientNotesSection({
     const res = await fetch(`/api/clients/${clientId}/notes/${noteId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: editBody, visibility: editVisibility }),
+      body: JSON.stringify({ body: editBody, visibility }),
     });
     const data = await res.json();
     setSavingEdit(false);
@@ -118,9 +123,6 @@ export function ClientNotesSection({
     await load();
   }
 
-  const shared = notes.filter((n) => n.visibility === "shared");
-  const priv = notes.filter((n) => n.visibility === "private");
-
   function renderNote(note: ClientNote) {
     if (editingId === note.id) {
       return (
@@ -132,14 +134,6 @@ export function ClientNotesSection({
             onChange={(e) => setEditBody(e.target.value)}
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select
-              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-              value={editVisibility}
-              onChange={(e) => setEditVisibility(e.target.value as Visibility)}
-            >
-              <option value="private">Private (only you)</option>
-              <option value="shared">Shared with client</option>
-            </select>
             <Button
               className="px-3 py-1.5 text-xs"
               disabled={savingEdit}
@@ -194,10 +188,13 @@ export function ClientNotesSection({
 
   return (
     <Card>
-      {showHeading ? <h2 className="font-semibold">Notes</h2> : null}
-      <p className={showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"}>
-        Shared notes are visible to the client on their portal. Private notes are
-        only ever seen by you.
+      {showHeading ? <h2 className="font-semibold">{title}</h2> : null}
+      <p
+        className={
+          showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"
+        }
+      >
+        {description}
       </p>
 
       {loadError && (
@@ -213,44 +210,10 @@ export function ClientNotesSection({
 
       {loading ? (
         <p className="mt-4 text-sm text-slate-500">Loading notes…</p>
+      ) : notes.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No notes yet.</p>
       ) : (
-        <div className="mt-4 space-y-6">
-          <section className="rounded-lg border border-green-200 bg-green-50/50 p-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-green-900">
-                Shared with client
-              </h3>
-              <Badge tone="success">Client can read</Badge>
-            </div>
-            {shared.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">
-                No shared notes yet.
-              </p>
-            ) : (
-              <ul className="mt-1 divide-y divide-green-100">
-                {shared.map(renderNote)}
-              </ul>
-            )}
-          </section>
-
-          <section className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-amber-900">
-                Private (only you)
-              </h3>
-              <Badge tone="warning">Not visible to client</Badge>
-            </div>
-            {priv.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">
-                No private notes yet.
-              </p>
-            ) : (
-              <ul className="mt-1 divide-y divide-amber-100">
-                {priv.map(renderNote)}
-              </ul>
-            )}
-          </section>
-        </div>
+        <ul className="mt-4 divide-y divide-slate-100">{notes.map(renderNote)}</ul>
       )}
 
       <form onSubmit={createNote} className="mt-6 border-t border-slate-100 pt-4">
@@ -261,18 +224,14 @@ export function ClientNotesSection({
             rows={3}
             value={newBody}
             onChange={(e) => setNewBody(e.target.value)}
-            placeholder="Training instructions, injury reminders, etc."
+            placeholder={
+              isPrivate
+                ? "Private reminders, context, etc."
+                : "Training instructions visible to the client…"
+            }
           />
         </label>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <select
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-            value={newVisibility}
-            onChange={(e) => setNewVisibility(e.target.value as Visibility)}
-          >
-            <option value="private">Private (only you)</option>
-            <option value="shared">Shared with client</option>
-          </select>
+        <div className="mt-2">
           <Button type="submit" disabled={creating || !newBody.trim()}>
             {creating ? "Adding…" : "Add note"}
           </Button>
