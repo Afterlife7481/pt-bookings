@@ -5,22 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { logoutTrainer } from "../hooks/useTrainerSettings";
-import { MENU_ITEMS, type TrainerSettings } from "../types";
-
-const MAIN_MENU_HREFS = new Set([
-  "/dashboard/schedule",
-  "/dashboard/clients",
-  "/dashboard/sessions",
-  "/dashboard/feed",
-  "/dashboard/invitations",
-]);
-
-const SUPPORT_MENU_HREFS = new Set([
-  "/dashboard/feature-request",
-  "/dashboard/feedback",
-]);
+import { MENU_GROUPS, MENU_ITEMS, type TrainerSettings } from "../types";
 
 const MENU_ANIMATION_MS = 280;
+const MENU_BY_HREF = new Map(MENU_ITEMS.map((item) => [item.href, item]));
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/dashboard/clients") {
@@ -162,13 +150,10 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
-  const mainItems = MENU_ITEMS.filter((item) => MAIN_MENU_HREFS.has(item.href));
-  const supportItems = MENU_ITEMS.filter((item) =>
-    SUPPORT_MENU_HREFS.has(item.href),
-  );
-  const accountItems = MENU_ITEMS.filter(
-    (item) =>
-      !MAIN_MENU_HREFS.has(item.href) && !SUPPORT_MENU_HREFS.has(item.href),
+  const menuGroups = MENU_GROUPS.map((hrefs) =>
+    hrefs
+      .map((href) => MENU_BY_HREF.get(href))
+      .filter((item): item is (typeof MENU_ITEMS)[number] => item != null),
   );
 
   return (
@@ -260,74 +245,42 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
               </button>
             </div>
             <div className="flex flex-1 flex-col overflow-y-auto p-2">
-              <ul>
-                {mainItems.map((item) => {
-                  const active = isNavActive(pathname, item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
-                          active
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <ul className="mt-2 border-t border-slate-200 pt-2">
-                {accountItems.map((item) => {
-                  const active = isNavActive(pathname, item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
-                          active
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {item.label}
-                        {item.href === "/dashboard/settings/account" && settings?.email ? (
-                          <span
-                            className={`mt-0.5 block truncate text-xs font-normal ${
-                              active ? "text-slate-300" : "text-slate-500"
-                            }`}
-                          >
-                            {settings.email}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <ul className="mt-2 border-t border-slate-200 pt-2">
-                {supportItems.map((item) => {
-                  const active = isNavActive(pathname, item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
-                          active
-                            ? "bg-slate-900 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              {menuGroups.map((items, groupIndex) => (
+                <ul
+                  key={items.map((item) => item.href).join("|")}
+                  className={cn(
+                    groupIndex > 0 && "mt-2 border-t border-slate-200 pt-2",
+                  )}
+                >
+                  {items.map((item) => {
+                    const active = isNavActive(pathname, item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
+                            active
+                              ? "bg-slate-900 text-white"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          {item.label}
+                          {item.href === "/dashboard/settings/account" &&
+                          settings?.email ? (
+                            <span
+                              className={`mt-0.5 block truncate text-xs font-normal ${
+                                active ? "text-slate-300" : "text-slate-500"
+                              }`}
+                            >
+                              {settings.email}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ))}
 
               <div className="mt-auto border-t border-slate-200 pt-2">
                 <button

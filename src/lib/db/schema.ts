@@ -37,6 +37,7 @@ export const trainers = pgTable("trainers", {
   createdAt: text("created_at").notNull(),
 });
 
+/** Trainer sign-in challenges (email OTP). Legacy name kept for the table. */
 export const trainerMagicLinks = pgTable("trainer_magic_links", {
   id: text("id").primaryKey(),
   email: text("email").notNull(),
@@ -44,7 +45,11 @@ export const trainerMagicLinks = pgTable("trainer_magic_links", {
   purpose: text("purpose", { enum: ["signup", "login"] }).notNull(),
   /** Normalized invite code captured at signup request; redeemed on verify. */
   inviteCode: text("invite_code"),
+  /** Opaque challenge id (not emailed). */
   token: text("token").notNull().unique(),
+  /** SHA-256 hash of the 6-digit OTP. */
+  codeHash: text("code_hash"),
+  attemptCount: integer("attempt_count").notNull().default(0),
   expiresAt: text("expires_at").notNull(),
   usedAt: text("used_at"),
   createdAt: text("created_at").notNull(),

@@ -127,6 +127,13 @@
       "when": 1784400000000,
       "tag": "0017_invite_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784500000000,
+      "tag": "0018_trainer_otp",
+      "breakpoints": true
     }
   ]
 }

@@ -44,15 +44,33 @@ export type BookingRow = {
 export const MENU_ITEMS = [
   { label: "Schedule", href: "/dashboard/schedule" },
   { label: "Activity Feed", href: "/dashboard/feed" },
-  { label: "Invitations", href: "/dashboard/invitations" },
   { label: "Clients", href: "/dashboard/clients" },
   { label: "Sessions", href: "/dashboard/sessions" },
-  { label: "Settings", href: "/dashboard/settings" },
-  { label: "Getting started guide", href: "/dashboard/settings/getting-started" },
-  { label: "Install on your phone", href: "/dashboard/settings/install" },
-  { label: "Account", href: "/dashboard/settings/account" },
-  { label: "Feature request", href: "/dashboard/feature-request" },
+  { label: "Install App on Phone", href: "/dashboard/settings/install" },
+  { label: "Getting Started Guide", href: "/dashboard/settings/getting-started" },
+  { label: "Feature Request", href: "/dashboard/feature-request" },
   { label: "Feedback", href: "/dashboard/feedback" },
+  { label: "Invitations", href: "/dashboard/invitations" },
+  { label: "Settings", href: "/dashboard/settings" },
+  { label: "Account", href: "/dashboard/settings/account" },
+] as const;
+
+/** Hamburger menu sections, in display order (hrefs must match MENU_ITEMS). */
+export const MENU_GROUPS = [
+  [
+    "/dashboard/schedule",
+    "/dashboard/feed",
+    "/dashboard/clients",
+    "/dashboard/sessions",
+  ],
+  [
+    "/dashboard/settings/install",
+    "/dashboard/settings/getting-started",
+    "/dashboard/feature-request",
+    "/dashboard/feedback",
+    "/dashboard/invitations",
+  ],
+  ["/dashboard/settings", "/dashboard/settings/account"],
 ] as const;
 
 export type LocationRow = {

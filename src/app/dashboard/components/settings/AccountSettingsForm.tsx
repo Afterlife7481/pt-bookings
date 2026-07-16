@@ -50,7 +50,7 @@ export function AccountSettingsForm({
       <div className="space-y-4">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-slate-700">Email</span>
-          <span className="text-xs text-slate-500">Used to sign in with a magic link.</span>
+          <span className="text-xs text-slate-500">Used to sign in with a one-time email code.</span>
           <input
             type="email"
             autoComplete="email"
