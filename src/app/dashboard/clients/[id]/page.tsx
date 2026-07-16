@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Badge, Button, Card } from "@/components/ui";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
+import { SessionWhen } from "@/components/SessionWhen";
 import { HubGroup, HubRowLink } from "@/components/hub-ui";
-import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
+import { formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { currencySymbol, DEFAULT_CURRENCY } from "@/lib/currency";
@@ -19,7 +20,39 @@ import {
 import type { NotifyChannel, PreferredNotifyChannel } from "@/lib/notify-channels";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 import { ClientPageHeader } from "./ClientPageHeader";
-import type { ClientDetail } from "./client-types";
+import type { ClientBooking, ClientDetail } from "./client-types";
+
+function ClientSessionRow({
+  booking,
+  clientId,
+}: {
+  booking: ClientBooking;
+  clientId: string;
+}) {
+  const isCanceled = booking.status === "canceled";
+
+  return (
+    <li>
+      <Link
+        href={`/dashboard/sessions/${booking.id}?from=client&clientId=${clientId}`}
+        className="flex items-center justify-between gap-3 py-3 transition hover:bg-slate-50"
+      >
+        <SessionWhen
+          startAt={booking.slotStartAt}
+          endAt={booking.slotEndAt}
+          className="text-sm"
+        />
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {booking.isRecurring ? <Badge>Recurring</Badge> : null}
+          {isCanceled ? <Badge tone="danger">Canceled</Badge> : null}
+          <span aria-hidden className="text-slate-400">
+            ›
+          </span>
+        </div>
+      </Link>
+    </li>
+  );
+}
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -41,11 +74,6 @@ export default function ClientDetailPage() {
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [detailsSaved, setDetailsSaved] = useState(false);
-
-  const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
-  const [bookingActionError, setBookingActionError] = useState<string | null>(
-    null,
-  );
 
   const [showPortalSheet, setShowPortalSheet] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
@@ -164,63 +192,6 @@ export default function ClientDetailPage() {
       setSendingPortal(false);
       setPortalError("Failed to send portal link");
     }
-  }
-
-  async function sendSessionWhatsApp(bookingId: string) {
-    const prepared = prepareWhatsAppOpenForPhone(phone);
-    if (!prepared.ok) {
-      setBookingActionError(prepared.error);
-      return;
-    }
-    const waOpen = prepared.opener;
-    setBusyBookingId(bookingId);
-    setBookingActionError(null);
-    try {
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send_confirmation", bookingId }),
-      });
-      const data = await res.json();
-      setBusyBookingId(null);
-      if (!res.ok) {
-        waOpen.finish(null);
-        setBookingActionError(data.error ?? "Failed to prepare message");
-        return;
-      }
-      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
-        waOpen.finish(data.whatsappUrl);
-      } else {
-        waOpen.finish(null);
-        setBookingActionError(
-          data.error ??
-            "Add or check this client's phone number before sending on WhatsApp.",
-        );
-      }
-      await loadClient();
-    } catch {
-      waOpen.finish(null);
-      setBusyBookingId(null);
-      setBookingActionError("Failed to prepare message");
-    }
-  }
-
-  async function cancelSession(bookingId: string) {
-    if (!window.confirm("Cancel this session?")) return;
-    setBusyBookingId(bookingId);
-    setBookingActionError(null);
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "cancel", bookingId }),
-    });
-    const data = await res.json();
-    setBusyBookingId(null);
-    if (!res.ok) {
-      setBookingActionError(data.error ?? "Failed to cancel session");
-      return;
-    }
-    await loadClient();
   }
 
   if (loading) {
@@ -353,88 +324,53 @@ export default function ClientDetailPage() {
           </Button>
         </form>
 
-        <div className="mt-6 border-t border-slate-100 pt-4">
-          <p className="text-sm text-slate-600">Client portal link</p>
-          <a
-            className="mt-1 inline-block break-all text-sm text-blue-600 underline"
-            href={client.portalUrl}
-            target="_blank"
-            rel="noreferrer"
+        <p className="mt-4 text-xs text-slate-400">
+          Added {formatCreatedDate(client.createdAt)}
+        </p>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">Client portal</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Share this link so the client can view sessions, book, and manage
+          bookings.
+        </p>
+        <a
+          className="mt-3 inline-block break-all text-sm text-blue-600 underline"
+          href={client.portalUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {client.portalUrl}
+        </a>
+        <div className="mt-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setPortalError(null);
+              setShowPortalSheet(true);
+            }}
           >
-            {client.portalUrl}
-          </a>
-          <div className="mt-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setPortalError(null);
-                setShowPortalSheet(true);
-              }}
-            >
-              Send to client
-            </Button>
-          </div>
-          {portalNotice && (
-            <p className="mt-2 text-sm text-green-700">{portalNotice}</p>
-          )}
-          {portalError && !showPortalSheet && (
-            <p className="mt-2 text-sm text-red-600">{portalError}</p>
-          )}
-          <p className="mt-2 text-xs text-slate-400">
-            Added {formatCreatedDate(client.createdAt)}
-          </p>
+            Send to client
+          </Button>
         </div>
+        {portalNotice && (
+          <p className="mt-2 text-sm text-green-700">{portalNotice}</p>
+        )}
+        {portalError && !showPortalSheet && (
+          <p className="mt-2 text-sm text-red-600">{portalError}</p>
+        )}
       </Card>
 
       <Card>
         <h2 className="font-semibold">Upcoming sessions</h2>
-        {bookingActionError && (
-          <p className="mt-2 text-sm text-red-600">{bookingActionError}</p>
-        )}
         {upcoming.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No upcoming sessions.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-slate-100">
+          <ul className="mt-1 divide-y divide-slate-100">
             {upcoming.map((b) => (
-              <li
-                key={b.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {formatSlot(b.slotStartAt, b.slotEndAt)}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <Badge>{b.status}</Badge>
-                    {b.isRecurring && <Badge>Recurring</Badge>}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/dashboard/sessions/${b.id}`}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Session
-                  </Link>
-                  <Button
-                    variant="secondary"
-                    className="px-3 py-1.5 text-xs"
-                    disabled={busyBookingId === b.id}
-                    onClick={() => sendSessionWhatsApp(b.id)}
-                  >
-                    {busyBookingId === b.id ? "Sending…" : "Send message"}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="px-3 py-1.5 text-xs"
-                    disabled={busyBookingId === b.id}
-                    onClick={() => cancelSession(b.id)}
-                  >
-                    Cancel session
-                  </Button>
-                </div>
-              </li>
+              <ClientSessionRow key={b.id} booking={b} clientId={client.id} />
             ))}
           </ul>
         )}
@@ -445,37 +381,9 @@ export default function ClientDetailPage() {
         {past.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No past sessions.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-slate-100">
+          <ul className="mt-1 divide-y divide-slate-100">
             {past.map((b) => (
-              <li
-                key={b.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">
-                    {formatSlot(b.slotStartAt, b.slotEndAt)}
-                  </p>
-                  <Badge>{b.status}</Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href={`/dashboard/sessions/${b.id}`}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Session
-                  </Link>
-                  {b.status !== "canceled" && (
-                    <a
-                      className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-                      href={`/s/${b.token}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Client link
-                    </a>
-                  )}
-                </div>
-              </li>
+              <ClientSessionRow key={b.id} booking={b} clientId={client.id} />
             ))}
           </ul>
         )}

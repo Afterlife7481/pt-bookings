@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { SessionWhen } from "@/components/SessionWhen";
 import { parseLocalDateTime } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, splitClientName } from "@/lib/utils";
 import type { DashboardClient } from "../types";
 
 type ClientsSort = "name" | "lastSession";
@@ -101,28 +101,34 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
             <col style={{ width: "56%" }} />
           </colgroup>
           <tbody className="divide-y divide-slate-100">
-            {sortedClients.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium">
-                  <Link
-                    href={`/dashboard/clients/${c.id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {c.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {c.lastSession ? (
-                    <SessionWhen
-                      startAt={c.lastSession.startAt}
-                      endAt={c.lastSession.endAt}
-                    />
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              </tr>
-            ))}
+            {sortedClients.map((c) => {
+              const { givenName, surname } = splitClientName(c.name);
+              return (
+                <tr key={c.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium">
+                    <Link
+                      href={`/dashboard/clients/${c.id}`}
+                      className="block text-blue-600 hover:underline"
+                    >
+                      <span className="flex flex-col leading-snug">
+                        <span>{givenName}</span>
+                        {surname ? <span>{surname}</span> : null}
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {c.lastSession ? (
+                      <SessionWhen
+                        startAt={c.lastSession.startAt}
+                        endAt={c.lastSession.endAt}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

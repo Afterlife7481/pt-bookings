@@ -5,15 +5,27 @@ export default async function TrainerSessionPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; clientId?: string }>;
 }) {
   const { id } = await params;
-  const { from } = await searchParams;
+  const { from, clientId } = await searchParams;
+
+  let backHref = "/dashboard/sessions";
+  let backLabel = "← Back to sessions";
+
+  if (from === "schedule") {
+    backHref = "/dashboard/schedule";
+    backLabel = "← Back to schedule";
+  } else if (from === "client" && clientId) {
+    backHref = `/dashboard/clients/${clientId}`;
+    backLabel = "← Back to client";
+  }
+
   return (
     <TrainerSessionDetail
       bookingId={id}
-      backHref={from === "schedule" ? "/dashboard/schedule" : "/dashboard/sessions"}
-      backLabel={from === "schedule" ? "← Back to schedule" : "← Back to sessions"}
+      backHref={backHref}
+      backLabel={backLabel}
     />
   );
 }

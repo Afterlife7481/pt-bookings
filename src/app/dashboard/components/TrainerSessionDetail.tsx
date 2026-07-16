@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import { SessionWhen } from "@/components/SessionWhen";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
@@ -33,7 +34,6 @@ export function TrainerSessionDetail({
   const { settings } = useTrainerSettings();
   const timeZone = settings?.timezone ?? DEFAULT_TIMEZONE;
   const [saved, setSaved] = useState(false);
-  const [confirmationNotice, setConfirmationNotice] = useState(false);
   const [showChangeSlots, setShowChangeSlots] = useState(false);
 
   const {
@@ -45,18 +45,23 @@ export function TrainerSessionDetail({
     error,
     invoiceError,
     invoiceNotice,
+    confirmationError,
+    confirmationNotice,
     showPaidModal,
     setShowPaidModal,
     paidModalMode,
     showInvoiceSheet,
     setShowInvoiceSheet,
+    showConfirmationSheet,
+    setShowConfirmationSheet,
     patchUpdates,
     confirmPaymentMethod,
     openMarkPaidModal,
     openEditPaymentMethodModal,
     openInvoiceSheet,
-    runAction,
+    openConfirmationSheet,
     sendInvoice,
+    sendConfirmation,
     cancelSession,
     voidSession,
   } = useTrainerBookingActions(bookingId, {
@@ -255,12 +260,7 @@ export function TrainerSessionDetail({
                     variant="secondary"
                     disabled={busy}
                     className="w-full sm:w-auto"
-                    onClick={() => {
-                      setConfirmationNotice(false);
-                      void runAction("send_confirmation").then((data) => {
-                        if (data) setConfirmationNotice(true);
-                      });
-                    }}
+                    onClick={openConfirmationSheet}
                   >
                     Send confirmation
                   </Button>
@@ -277,7 +277,12 @@ export function TrainerSessionDetail({
             </div>
             {!isPast && confirmationNotice && (
               <p className="text-sm text-green-700" role="status">
-                WhatsApp opened — tap Send to deliver the confirmation.
+                {confirmationNotice}
+              </p>
+            )}
+            {!isPast && confirmationError && !showConfirmationSheet && (
+              <p className="text-sm text-red-600" role="alert">
+                {confirmationError}
               </p>
             )}
             {!isPast && booking.confirmationSentAt && (
@@ -358,6 +363,23 @@ export function TrainerSessionDetail({
         }}
         onSendInvoice={sendInvoice}
       />
+
+      {showConfirmationSheet ? (
+        <SendInvoiceChannelSheet
+          clientName={client.name}
+          email={client.email}
+          phone={client.phone}
+          preferredNotifyChannel={client.preferredNotifyChannel}
+          busy={busy}
+          error={confirmationError}
+          title="Send confirmation"
+          subtitle={`Choose how to send the session confirmation to ${client.name}.`}
+          onClose={() => {
+            if (!busy) setShowConfirmationSheet(false);
+          }}
+          onSend={sendConfirmation}
+        />
+      ) : null}
     </div>
   );
 }

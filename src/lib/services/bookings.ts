@@ -11,7 +11,13 @@ import {
   type SessionPaymentType,
 } from "@/lib/constants";
 import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
-import { sendWhatsAppConfirmation, sendWhatsAppInvoice, sendInvoiceEmail, sendWhatsAppSessionCanceledToTrainer } from "@/lib/whatsapp";
+import {
+  sendConfirmationEmail,
+  sendWhatsAppConfirmation,
+  sendWhatsAppInvoice,
+  sendInvoiceEmail,
+  sendWhatsAppSessionCanceledToTrainer,
+} from "@/lib/whatsapp";
 import { assertWhatsAppPhone, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 import {
   hasClientEmail,
@@ -400,26 +406,66 @@ export async function getBookingByToken(token: string) {
   return { booking: row, slot, client };
 }
 
-export async function sendConfirmationForBooking(bookingId: string) {
+export async function sendConfirmationForBooking(
+  bookingId: string,
+  channelsInput?: unknown,
+) {
+  const channels = parseNotifyChannels(channelsInput ?? ["whatsapp"]);
   const db = getDb();
   const booking = await db.query.bookings.findFirst({
     where: eq(bookings.id, bookingId),
   });
   if (!booking) throw new Error("Booking not found");
+  if (booking.status === "canceled" || booking.status === "voided") {
+    throw new Error("Cannot send confirmation for a canceled or voided session");
+  }
 
   const slot = booking.slotId
     ? await db.query.slots.findFirst({
         where: eq(slots.id, booking.slotId),
       })
     : null;
+  if (!slot) throw new Error("Session slot not found");
+
   const client = await db.query.clients.findFirst({
     where: eq(clients.id, booking.clientId),
   });
+  if (!client) throw new Error("Client not found");
+
+  const wantEmail = channels.includes("email");
+  const wantWhatsApp = channels.includes("whatsapp");
+
+  if (wantEmail && !hasClientEmail(client.email)) {
+    throw new Error(
+      "This client has no email address. Add one on their profile, or send by WhatsApp instead.",
+    );
+  }
+  if (wantWhatsApp) {
+    assertWhatsAppPhone(client.phone);
+  }
 
   let whatsappUrl: string | null = null;
+  const sentVia: NotifyChannel[] = [];
 
-  if (slot && client) {
-    assertWhatsAppPhone(client.phone);
+  if (wantEmail) {
+    const [trainer, settings] = await Promise.all([
+      getTrainerById(booking.trainerId),
+      getTrainerSettings(booking.trainerId),
+    ]);
+    await sendConfirmationEmail({
+      trainerId: booking.trainerId,
+      clientId: client.id,
+      email: client.email,
+      bookingToken: booking.token,
+      slotStartAt: slot.startAt,
+      slotEndAt: slot.endAt,
+      clientName: client.name,
+      replyTo: trainer?.email ?? settings.email,
+    });
+    sentVia.push("email");
+  }
+
+  if (wantWhatsApp) {
     const draft = await sendWhatsAppConfirmation({
       trainerId: booking.trainerId,
       clientId: client.id,
@@ -430,16 +476,18 @@ export async function sendConfirmationForBooking(bookingId: string) {
       clientName: client.name,
     });
     whatsappUrl = draft.sendUrl;
-    const ts = nowIso();
-    await db
-      .update(bookings)
-      .set({ confirmationSentAt: ts, updatedAt: ts })
-      .where(eq(bookings.id, bookingId));
+    sentVia.push("whatsapp");
   }
+
+  const ts = nowIso();
+  await db
+    .update(bookings)
+    .set({ confirmationSentAt: ts, updatedAt: ts })
+    .where(eq(bookings.id, bookingId));
 
   const detail = await getBookingDetailForTrainer(booking.trainerId, bookingId);
   if (!detail) return null;
-  return { ...detail, whatsappUrl };
+  return { ...detail, whatsappUrl, sentVia };
 }
 
 export type TrainerBookingDetail = {

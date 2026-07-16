@@ -32,9 +32,16 @@ export function useTrainerBookingActions(
   const [error, setError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
+  const [confirmationError, setConfirmationError] = useState<string | null>(
+    null,
+  );
+  const [confirmationNotice, setConfirmationNotice] = useState<string | null>(
+    null,
+  );
   const [showPaidModal, setShowPaidModal] = useState(false);
   const [paidModalMode, setPaidModalMode] = useState<PaidModalMode>("mark");
   const [showInvoiceSheet, setShowInvoiceSheet] = useState(false);
+  const [showConfirmationSheet, setShowConfirmationSheet] = useState(false);
 
   const load = useCallback(async () => {
     if (!bookingId) {
@@ -130,21 +137,17 @@ export function useTrainerBookingActions(
     setShowInvoiceSheet(true);
   }
 
+  function openConfirmationSheet() {
+    setConfirmationError(null);
+    setConfirmationNotice(null);
+    setShowConfirmationSheet(true);
+  }
+
   const runAction = useCallback(
     async (
-      action: "cancel" | "void" | "send_confirmation",
+      action: "cancel" | "void",
     ): Promise<Record<string, unknown> | null> => {
       if (!bookingId) return null;
-
-      let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
-      if (action === "send_confirmation") {
-        const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
-        if (!prepared.ok) {
-          setError(prepared.error);
-          return null;
-        }
-        waOpen = prepared.opener;
-      }
 
       setBusy(true);
       setError(null);
@@ -157,7 +160,6 @@ export function useTrainerBookingActions(
         const data = await res.json();
         setBusy(false);
         if (!res.ok) {
-          waOpen?.finish(null);
           setError(data.error ?? "Action failed");
           return null;
         }
@@ -168,26 +170,77 @@ export function useTrainerBookingActions(
           return data;
         }
 
-        if (action === "send_confirmation") {
-          setDetail(data);
-          waOpen?.finish(
-            typeof data.whatsappUrl === "string" ? data.whatsappUrl : null,
-          );
-          await onChanged?.();
-          return data;
-        }
-
         setDetail(data);
         await onChanged?.();
         return data;
       } catch {
-        waOpen?.finish(null);
         setBusy(false);
         setError("Action failed");
         return null;
       }
     },
-    [bookingId, detail?.client.phone, onCanceled, onChanged],
+    [bookingId, onCanceled, onChanged],
+  );
+
+  const sendConfirmation = useCallback(
+    async (channels: NotifyChannel[]) => {
+      if (!bookingId) return;
+      const wantWhatsApp = channels.includes("whatsapp");
+      let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+      if (wantWhatsApp) {
+        const prepared = prepareWhatsAppOpenForPhone(detail?.client.phone);
+        if (!prepared.ok) {
+          setConfirmationError(prepared.error);
+          return;
+        }
+        waOpen = prepared.opener;
+      }
+
+      setBusy(true);
+      setConfirmationError(null);
+      setConfirmationNotice(null);
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "send_confirmation", channels }),
+        });
+        const data = await res.json();
+        setBusy(false);
+        if (!res.ok) {
+          waOpen?.finish(null);
+          setConfirmationError(data.error ?? "Failed to send confirmation");
+          return;
+        }
+
+        setDetail(data);
+        setShowConfirmationSheet(false);
+        if (wantWhatsApp) {
+          if (
+            typeof data.whatsappUrl === "string" &&
+            data.whatsappUrl.length > 0
+          ) {
+            waOpen?.finish(data.whatsappUrl);
+          } else {
+            waOpen?.finish(null);
+            setConfirmationError(
+              "Confirmation logged, but WhatsApp could not open. Check the client phone number.",
+            );
+            return;
+          }
+        }
+        const via = Array.isArray(data.sentVia)
+          ? (data.sentVia as string[]).join(" and ")
+          : channels.join(" and ");
+        setConfirmationNotice(`Confirmation sent via ${via}.`);
+        await onChanged?.();
+      } catch {
+        waOpen?.finish(null);
+        setBusy(false);
+        setConfirmationError("Failed to send confirmation");
+      }
+    },
+    [bookingId, detail?.client.phone, onChanged],
   );
 
   const sendInvoice = useCallback(
@@ -282,19 +335,25 @@ export function useTrainerBookingActions(
     setError,
     invoiceError,
     invoiceNotice,
+    confirmationError,
+    confirmationNotice,
     showPaidModal,
     setShowPaidModal,
     paidModalMode,
     showInvoiceSheet,
     setShowInvoiceSheet,
+    showConfirmationSheet,
+    setShowConfirmationSheet,
     load,
     patchUpdates,
     confirmPaymentMethod,
     openMarkPaidModal,
     openEditPaymentMethodModal,
     openInvoiceSheet,
+    openConfirmationSheet,
     runAction,
     sendInvoice,
+    sendConfirmation,
     cancelSession,
     voidSession,
   };
