@@ -79,10 +79,11 @@ function FeedIcon({ className }: { className?: string }) {
       aria-hidden
     >
       <path
-        d="M4 6h12M4 12h16M4 18h10"
+        d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <circle cx="19" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      <path d="M10 21a2 2 0 0 0 4 0" strokeLinecap="round" />
     </svg>
   );
 }
@@ -200,10 +201,14 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
               </Link>
             );
           })}
+          <div
+            className="mx-0.5 h-6 w-px shrink-0 bg-slate-200"
+            aria-hidden
+          />
           <button
             type="button"
             onClick={openMenu}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
             aria-label="Open menu"
             aria-expanded={open}
             aria-controls={menuId}
