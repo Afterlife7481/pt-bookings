@@ -48,7 +48,10 @@ export async function POST(request: Request) {
       if (!owned) {
         return Response.json({ error: "Session not found" }, { status: 404 });
       }
-      const detail = await sendConfirmationForBooking(body.bookingId);
+      const detail = await sendConfirmationForBooking(
+        body.bookingId,
+        body.channels,
+      );
       if (!detail) {
         return Response.json({ error: "Session not found" }, { status: 404 });
       }

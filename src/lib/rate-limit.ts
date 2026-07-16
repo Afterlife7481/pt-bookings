@@ -1,3 +1,5 @@
+import { isStaging } from "@/lib/env";
+
 type Bucket = {
   count: number;
   resetAt: number;
@@ -31,6 +33,11 @@ export function checkRateLimit(
   key: string,
   { scope, limit, windowMs }: RateLimitOptions,
 ): RateLimitResult {
+  // Staging is for QA — do not throttle magic links or client actions.
+  if (isStaging()) {
+    return { allowed: true };
+  }
+
   const now = Date.now();
   cleanupExpired(now);
 

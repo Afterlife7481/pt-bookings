@@ -40,10 +40,13 @@ export function ClientSessionList({
                   <Badge tone="danger">Voided</Badge>
                 ) : session.status === "pending_change" ? (
                   <Badge tone="warning">Changing</Badge>
-                ) : (
-                  <Badge tone="success">Booked</Badge>
-                )}
-                {session.isRecurring && <Badge>Recurring</Badge>}
+                ) : null}
+                {session.status !== "voided" &&
+                  (session.isRecurring ? (
+                    <Badge tone="success">Recurring</Badge>
+                  ) : (
+                    <Badge>Manual</Badge>
+                  ))}
               </div>
             </div>
             <span className="text-sm text-slate-400">View →</span>

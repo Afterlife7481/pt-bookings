@@ -40,6 +40,8 @@ export async function wipeTestDatabase() {
       trainer_holidays,
       trainer_payment_methods,
       clients,
+      invite_redemptions,
+      invite_codes,
       trainer_sessions,
       trainer_magic_links,
       trainers

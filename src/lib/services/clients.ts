@@ -13,12 +13,20 @@ import { clientHomeUrl, nowIso } from "@/lib/constants";
 import { getClientLocationOptions, getEnabledClientLocationIds } from "@/lib/services/locations";
 import { getTrainerTemplate, getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
-import { normalizeClientPhone } from "@/lib/whatsapp-link";
+import { assertWhatsAppPhone, normalizeClientPhone } from "@/lib/whatsapp-link";
 import {
   hasClientEmail,
+  parseNotifyChannels,
   parsePreferredNotifyChannel,
+  type NotifyChannel,
   type PreferredNotifyChannel,
 } from "@/lib/notify-channels";
+import {
+  sendPortalLinkEmail,
+  sendWhatsAppPortalLink,
+} from "@/lib/whatsapp";
+import { getTrainerById } from "@/lib/services/trainers";
+import { getTrainerSettings } from "@/lib/services/settings";
 
 function normalizeOptionalClientPhone(phone: string | undefined): string {
   const trimmed = (phone ?? "").trim();
@@ -488,4 +496,60 @@ export async function setRecurringPreference(
     trainerId,
     recurring ? [recurring] : [],
   );
+}
+
+export async function sendPortalLinkForClient(
+  trainerId: string,
+  clientId: string,
+  channelsInput: unknown = ["whatsapp"],
+) {
+  const channels = parseNotifyChannels(channelsInput);
+  const client = await getClientForTrainer(trainerId, clientId);
+  if (!client) throw new Error("Client not found");
+
+  const portalUrl = clientHomeUrl(client.token);
+  const wantEmail = channels.includes("email");
+  const wantWhatsApp = channels.includes("whatsapp");
+
+  if (wantEmail && !hasClientEmail(client.email)) {
+    throw new Error(
+      "This client has no email address. Add one on their profile, or send by WhatsApp instead.",
+    );
+  }
+  if (wantWhatsApp) {
+    assertWhatsAppPhone(client.phone);
+  }
+
+  let whatsappUrl: string | null = null;
+  const sentVia: NotifyChannel[] = [];
+
+  if (wantEmail) {
+    const [trainer, settings] = await Promise.all([
+      getTrainerById(trainerId),
+      getTrainerSettings(trainerId),
+    ]);
+    await sendPortalLinkEmail({
+      trainerId,
+      clientId: client.id,
+      email: client.email,
+      clientName: client.name,
+      portalUrl,
+      replyTo: trainer?.email ?? settings.email,
+    });
+    sentVia.push("email");
+  }
+
+  if (wantWhatsApp) {
+    const draft = await sendWhatsAppPortalLink({
+      trainerId,
+      clientId: client.id,
+      phone: client.phone,
+      clientName: client.name,
+      portalUrl,
+    });
+    whatsappUrl = draft.sendUrl;
+    sentVia.push("whatsapp");
+  }
+
+  return { portalUrl, whatsappUrl, sentVia };
 }

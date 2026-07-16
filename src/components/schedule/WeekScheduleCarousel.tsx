@@ -8,14 +8,18 @@ import {
   useRef,
   type ReactNode,
 } from "react";
+import { shiftWeekStart } from "@/lib/schedule-utils";
 import { cn } from "@/lib/utils";
 
-type WeekEdgeSlide = { type: "week-edge"; delta: -1 | 1 };
-type WeekSlide = { type: "week" };
-type CarouselSlide = WeekEdgeSlide | WeekSlide;
+type WeekSlide = {
+  type: "week";
+  weekStart: string;
+  /** -1 = previous, 0 = current, 1 = next */
+  offset: -1 | 0 | 1;
+};
 
-function weekSlideIndex(hasWeekEdges: boolean): number {
-  return hasWeekEdges ? 1 : 0;
+function weekSlideIndex(hasNeighbors: boolean): number {
+  return hasNeighbors ? 1 : 0;
 }
 
 function getActiveSlideIndex(scroller: HTMLElement): number {
@@ -39,33 +43,43 @@ export function WeekScheduleCarousel({
   weekStart,
   onChangeWeek,
   className,
-  children,
+  renderWeek,
 }: {
   weekStart: string;
   onChangeWeek?: (delta: -1 | 1) => void;
   className?: string;
-  children: ReactNode;
+  renderWeek: (weekStart: string, offset: -1 | 0 | 1) => ReactNode;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const programmaticScrollRef = useRef(false);
   const edgeHandledRef = useRef(false);
   const prevWeekStartRef = useRef(weekStart);
-  const hasWeekEdges = !!onChangeWeek;
+  const hasNeighbors = !!onChangeWeek;
 
-  const slides = useMemo((): CarouselSlide[] => {
-    if (!hasWeekEdges) return [{ type: "week" }];
+  const slides = useMemo((): WeekSlide[] => {
+    if (!hasNeighbors) {
+      return [{ type: "week", weekStart, offset: 0 }];
+    }
     return [
-      { type: "week-edge", delta: -1 },
-      { type: "week" },
-      { type: "week-edge", delta: 1 },
+      {
+        type: "week",
+        weekStart: shiftWeekStart(weekStart, -1),
+        offset: -1,
+      },
+      { type: "week", weekStart, offset: 0 },
+      {
+        type: "week",
+        weekStart: shiftWeekStart(weekStart, 1),
+        offset: 1,
+      },
     ];
-  }, [hasWeekEdges]);
+  }, [hasNeighbors, weekStart]);
 
   const jumpToWeekSlide = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
 
-    const index = weekSlideIndex(hasWeekEdges);
+    const index = weekSlideIndex(hasNeighbors);
     const slide = scroller.children[index] as HTMLElement | undefined;
     if (!slide) return;
 
@@ -77,7 +91,7 @@ export function WeekScheduleCarousel({
     window.setTimeout(() => {
       programmaticScrollRef.current = false;
     }, 0);
-  }, [hasWeekEdges]);
+  }, [hasNeighbors]);
 
   const settleActiveSlide = useCallback(() => {
     if (programmaticScrollRef.current) return;
@@ -87,13 +101,11 @@ export function WeekScheduleCarousel({
 
     const index = getActiveSlideIndex(scroller);
     const slide = slides[index];
-    if (!slide) return;
+    if (!slide || slide.offset === 0) return;
 
-    if (slide.type === "week-edge") {
-      if (edgeHandledRef.current) return;
-      edgeHandledRef.current = true;
-      onChangeWeek?.(slide.delta);
-    }
+    if (edgeHandledRef.current) return;
+    edgeHandledRef.current = true;
+    onChangeWeek?.(slide.offset);
   }, [onChangeWeek, slides]);
 
   useLayoutEffect(() => {
@@ -140,27 +152,22 @@ export function WeekScheduleCarousel({
       >
         {slides.map((slide) => (
           <div
-            key={
-              slide.type === "week"
-                ? `${weekStart}-week`
-                : `${weekStart}-week-edge-${slide.delta}`
-            }
-            className="day-schedule-carousel__slide shrink-0 snap-start snap-always"
+            key={`${weekStart}-${slide.offset}`}
+            className={cn(
+              "day-schedule-carousel__slide shrink-0 snap-start snap-always",
+              slide.offset !== 0 && "pointer-events-none",
+            )}
             aria-roledescription="slide"
-            aria-hidden={slide.type === "week-edge" ? true : undefined}
+            aria-hidden={slide.offset !== 0 ? true : undefined}
             aria-label={
-              slide.type === "week"
+              slide.offset === 0
                 ? "This week"
-                : slide.delta === 1
+                : slide.offset === 1
                   ? "Next week"
                   : "Previous week"
             }
           >
-            {slide.type === "week-edge" ? (
-              <div className="day-schedule-carousel__edge" aria-hidden />
-            ) : (
-              children
-            )}
+            {renderWeek(slide.weekStart, slide.offset)}
           </div>
         ))}
       </div>

@@ -34,7 +34,8 @@ type WhatsAppMessageType =
   | "last_minute_declined"
   | "session_canceled"
   | "session_changed"
-  | "template_conflict";
+  | "template_conflict"
+  | "portal_link";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -84,6 +85,16 @@ export function buildInvoiceMessageBody(params: {
   return `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
 }
 
+export function buildConfirmationMessageBody(params: {
+  clientName: string;
+  bookingToken: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+}): string {
+  const link = bookingUrl(params.bookingToken);
+  return `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+}
+
 export async function sendWhatsAppConfirmation(params: {
   trainerId: string;
   clientId: string;
@@ -93,8 +104,7 @@ export async function sendWhatsAppConfirmation(params: {
   slotEndAt?: string | null;
   clientName: string;
 }): Promise<WhatsAppDraft> {
-  const link = bookingUrl(params.bookingToken);
-  const body = `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+  const body = buildConfirmationMessageBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -104,6 +114,61 @@ export async function sendWhatsAppConfirmation(params: {
     phone: params.phone,
     messageType: "confirmation",
     body,
+    channel: "whatsapp",
+  });
+}
+
+export async function sendConfirmationEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  bookingToken: string;
+  slotStartAt: string;
+  slotEndAt?: string | null;
+  clientName: string;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const body = buildConfirmationMessageBody(params);
+  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const link = bookingUrl(params.bookingToken);
+  const subject = `Your PT session on ${sessionLabel}`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">Session confirmation</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+            View session
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Confirmation email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "confirmation",
+    body,
+    channel: "email",
   });
 }
 
@@ -386,6 +451,83 @@ export async function sendWhatsAppTemplateConflictToClient(params: {
     phone: params.phone,
     messageType: "template_conflict",
     body: params.body,
+  });
+}
+
+export function buildPortalLinkMessageBody(params: {
+  clientName: string;
+  portalUrl: string;
+}): string {
+  return `Hi ${params.clientName}, here is your personal training portal link. You can view sessions, book, and manage your bookings here: ${params.portalUrl}`;
+}
+
+export async function sendWhatsAppPortalLink(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  portalUrl: string;
+}): Promise<WhatsAppDraft> {
+  const body = buildPortalLinkMessageBody(params);
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "portal_link",
+    body,
+    channel: "whatsapp",
+  });
+}
+
+export async function sendPortalLinkEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  clientName: string;
+  portalUrl: string;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const body = buildPortalLinkMessageBody(params);
+  const subject = "Your personal training portal link";
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">Your PT portal</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeHtml(params.portalUrl)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+            Open portal
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Portal link email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "portal_link",
+    body,
+    channel: "email",
   });
 }
 

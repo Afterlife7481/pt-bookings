@@ -9,7 +9,10 @@ import {
 import { ApplyTemplateModal } from "@/components/schedule/ScheduleModals";
 import { WeekScheduleCalendar } from "@/components/WeekScheduleCalendar";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
-import type { ApplyTemplateOutcome } from "../hooks/useSchedulePage";
+import type {
+  ApplyTemplateOutcome,
+  CachedWeekSchedule,
+} from "../hooks/useSchedulePage";
 import type { DashboardClient, TrainerLocation, TrainerSettings } from "../types";
 
 export function ScheduleTab({
@@ -18,6 +21,7 @@ export function ScheduleTab({
   scheduleRange,
   scheduleEntries,
   scheduleHolidays,
+  neighborWeeks,
   hasTemplate,
   clients,
   trainerLocations,
@@ -39,6 +43,10 @@ export function ScheduleTab({
   scheduleRange: { weekStart: string; weekEnd: string };
   scheduleEntries: ScheduleEntry[];
   scheduleHolidays: ScheduleHoliday[];
+  neighborWeeks: {
+    prev: CachedWeekSchedule | null;
+    next: CachedWeekSchedule | null;
+  };
   hasTemplate: boolean;
   clients: DashboardClient[];
   trainerLocations: TrainerLocation[];
@@ -177,6 +185,7 @@ export function ScheduleTab({
           weekStart={weekStart}
           entries={scheduleEntries}
           holidays={scheduleHolidays}
+          neighborWeeks={neighborWeeks}
           scheduleStartTime={settings.scheduleStartTime}
           scheduleEndTime={settings.scheduleEndTime}
           viewMode={viewMode}

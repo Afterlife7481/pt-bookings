@@ -79,19 +79,20 @@ export default async function SessionPage({
         <h1 className="text-2xl font-bold">
           {formatSlot(sessionStartAt, sessionEndAt)}
         </h1>
-        <div className="mt-2 flex gap-2">
-          <Badge tone={booking.status === "booked" ? "success" : "warning"}>
-            {booking.status === "booked"
-              ? "Booked"
-              : booking.status === "pending_change"
-                ? "Changing"
-                : booking.status === "canceled"
-                  ? "Canceled"
-                  : booking.status === "voided"
-                    ? "Voided"
-                    : booking.status}
-          </Badge>
-          {booking.isRecurring && <Badge>Recurring</Badge>}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {booking.status === "pending_change" ? (
+            <Badge tone="warning">Changing</Badge>
+          ) : booking.status === "canceled" ? (
+            <Badge tone="danger">Canceled</Badge>
+          ) : booking.status === "voided" ? (
+            <Badge tone="danger">Voided</Badge>
+          ) : null}
+          {booking.status !== "voided" &&
+            (booking.isRecurring ? (
+              <Badge tone="success">Recurring</Badge>
+            ) : (
+              <Badge>Manual</Badge>
+            ))}
         </div>
       </div>
 

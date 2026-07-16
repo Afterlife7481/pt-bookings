@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
@@ -13,60 +13,225 @@ export type ApplyTemplateOutcome = {
   slotsCreated: number;
 };
 
+export type CachedWeekSchedule = {
+  entries: ScheduleEntry[];
+  holidays: ScheduleHoliday[];
+  weekStart: string;
+  weekEnd: string;
+};
+
+type ScheduleResponse = {
+  entries: ScheduleEntry[];
+  weekStart: string;
+  weekEnd: string;
+  holidays: ScheduleHoliday[];
+};
+
+function toCachedWeek(sched: ScheduleResponse): CachedWeekSchedule {
+  return {
+    entries: sched.entries,
+    holidays: sched.holidays ?? [],
+    weekStart: sched.weekStart,
+    weekEnd: sched.weekEnd,
+  };
+}
+
 export function useSchedulePage() {
   const { settings } = useTrainerSettings();
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
-  const [scheduleHolidays, setScheduleHolidays] = useState<ScheduleHoliday[]>([]);
-  const [scheduleRange, setScheduleRange] = useState({ weekStart: "", weekEnd: "" });
+  const [scheduleHolidays, setScheduleHolidays] = useState<ScheduleHoliday[]>(
+    [],
+  );
+  const [scheduleRange, setScheduleRange] = useState({
+    weekStart: "",
+    weekEnd: "",
+  });
+  /** Neighbor weeks for carousel edge slides (instant swipe). */
+  const [neighborWeeks, setNeighborWeeks] = useState<{
+    prev: CachedWeekSchedule | null;
+    next: CachedWeekSchedule | null;
+  }>({ prev: null, next: null });
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [clients, setClients] = useState<DashboardClient[]>([]);
   const [hasTemplate, setHasTemplate] = useState(false);
-  const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>([]);
+  const [trainerLocations, setTrainerLocations] = useState<TrainerLocation[]>(
+    [],
+  );
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    const activeWeek = weekStart || defaultWeekStart();
-    const [c, t, sched, locs] = await Promise.all([
+  const cacheRef = useRef(new Map<string, CachedWeekSchedule>());
+  const inflightRef = useRef(
+    new Map<string, Promise<CachedWeekSchedule | null>>(),
+  );
+
+  const applyWeekToState = useCallback((week: CachedWeekSchedule) => {
+    setScheduleEntries(week.entries);
+    setScheduleHolidays(week.holidays);
+    setScheduleRange({ weekStart: week.weekStart, weekEnd: week.weekEnd });
+  }, []);
+
+  const fetchWeek = useCallback(
+    async (activeWeek: string): Promise<CachedWeekSchedule | null> => {
+      const cached = cacheRef.current.get(activeWeek);
+      if (cached) return cached;
+
+      const inflight = inflightRef.current.get(activeWeek);
+      if (inflight) return inflight;
+
+      const promise = fetchJson<ScheduleResponse>(
+        `/api/schedule?weekStart=${activeWeek}`,
+      )
+        .then((sched) => {
+          const week = toCachedWeek(sched);
+          cacheRef.current.set(activeWeek, week);
+          inflightRef.current.delete(activeWeek);
+          return week;
+        })
+        .catch(() => {
+          inflightRef.current.delete(activeWeek);
+          return null;
+        });
+
+      inflightRef.current.set(activeWeek, promise);
+      return promise;
+    },
+    [],
+  );
+
+  const syncNeighbors = useCallback(
+    (activeWeek: string) => {
+      const prevKey = shiftWeekStart(activeWeek, -1);
+      const nextKey = shiftWeekStart(activeWeek, 1);
+      setNeighborWeeks({
+        prev: cacheRef.current.get(prevKey) ?? null,
+        next: cacheRef.current.get(nextKey) ?? null,
+      });
+    },
+    [],
+  );
+
+  const loadSupportingData = useCallback(async () => {
+    const [c, t, locs] = await Promise.all([
       fetchJson<DashboardClient[]>("/api/clients"),
       fetchJson<{ template: unknown | null }>("/api/templates"),
-      fetchJson<{
-        entries: ScheduleEntry[];
-        weekStart: string;
-        weekEnd: string;
-        holidays: ScheduleHoliday[];
-      }>(`/api/schedule?weekStart=${activeWeek}`),
       fetchJson<TrainerLocation[]>("/api/locations"),
     ]);
     setClients(c);
     setHasTemplate(t.template !== null);
-    setScheduleEntries(sched.entries);
-    setScheduleHolidays(sched.holidays ?? []);
-    setScheduleRange({ weekStart: sched.weekStart, weekEnd: sched.weekEnd });
     setTrainerLocations(Array.isArray(locs) ? locs : []);
-  }, [weekStart]);
+  }, []);
+
+  const loadWeekSchedule = useCallback(
+    async (activeWeek: string, opts?: { bustCache?: boolean }) => {
+      if (opts?.bustCache) {
+        cacheRef.current.delete(activeWeek);
+        inflightRef.current.delete(activeWeek);
+      }
+      const week = await fetchWeek(activeWeek);
+      if (!week) return;
+      applyWeekToState(week);
+      syncNeighbors(activeWeek);
+    },
+    [applyWeekToState, fetchWeek, syncNeighbors],
+  );
+
+  const refreshWeek = useCallback(async () => {
+    const activeWeek = weekStart || defaultWeekStart();
+    await loadWeekSchedule(activeWeek, { bustCache: true });
+    // Refresh neighbors in the background so the next swipe stays warm.
+    void Promise.all([
+      fetchWeek(shiftWeekStart(activeWeek, -1)).then(() =>
+        syncNeighbors(activeWeek),
+      ),
+      fetchWeek(shiftWeekStart(activeWeek, 1)).then(() =>
+        syncNeighbors(activeWeek),
+      ),
+    ]);
+  }, [fetchWeek, loadWeekSchedule, syncNeighbors, weekStart]);
+
+  const refresh = useCallback(async () => {
+    const activeWeek = weekStart || defaultWeekStart();
+    await Promise.all([
+      loadSupportingData(),
+      loadWeekSchedule(activeWeek, { bustCache: true }),
+    ]);
+    void Promise.all([
+      fetchWeek(shiftWeekStart(activeWeek, -1)),
+      fetchWeek(shiftWeekStart(activeWeek, 1)),
+    ]).then(() => syncNeighbors(activeWeek));
+  }, [
+    fetchWeek,
+    loadSupportingData,
+    loadWeekSchedule,
+    syncNeighbors,
+    weekStart,
+  ]);
 
   useEffect(() => {
-    refresh().catch(() => {});
-  }, [refresh]);
+    loadSupportingData().catch(() => {});
+  }, [loadSupportingData]);
+
+  // Apply cached weeks before paint so swipes don't flash empty/stale data.
+  useLayoutEffect(() => {
+    const activeWeek = weekStart || defaultWeekStart();
+    const cached = cacheRef.current.get(activeWeek);
+    if (cached) {
+      applyWeekToState(cached);
+    }
+    syncNeighbors(activeWeek);
+  }, [weekStart, applyWeekToState, syncNeighbors]);
+
+  useEffect(() => {
+    const activeWeek = weekStart || defaultWeekStart();
+    const prevKey = shiftWeekStart(activeWeek, -1);
+    const nextKey = shiftWeekStart(activeWeek, 1);
+    let cancelled = false;
+
+    (async () => {
+      const current = await fetchWeek(activeWeek);
+      if (cancelled) return;
+      if (current) applyWeekToState(current);
+
+      await Promise.all([fetchWeek(prevKey), fetchWeek(nextKey)]);
+      if (cancelled) return;
+      syncNeighbors(activeWeek);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [weekStart, applyWeekToState, fetchWeek, syncNeighbors]);
+
+  function selectWeek(nextWeekStart: string) {
+    const cached = cacheRef.current.get(nextWeekStart);
+    if (cached) {
+      applyWeekToState(cached);
+    }
+    setNeighborWeeks({
+      prev: cacheRef.current.get(shiftWeekStart(nextWeekStart, -1)) ?? null,
+      next: cacheRef.current.get(shiftWeekStart(nextWeekStart, 1)) ?? null,
+    });
+    setWeekStart(nextWeekStart);
+  }
 
   function changeWeek(delta: number) {
-    setWeekStart((ws) => shiftWeekStart(ws || defaultWeekStart(), delta));
+    selectWeek(shiftWeekStart(weekStart || defaultWeekStart(), delta));
   }
 
   function goToThisWeek() {
-    setWeekStart(defaultWeekStart());
+    selectWeek(defaultWeekStart());
   }
 
   function goToWeek(nextWeekStart: string) {
-    setWeekStart(nextWeekStart);
+    selectWeek(nextWeekStart);
   }
 
   async function runScheduleAction(action: () => Promise<void>) {
     setScheduleError(null);
     try {
       await action();
-      await refresh();
+      await refreshWeek();
     } catch (e) {
       const message =
         e instanceof ApiError ? e.message : "Something went wrong";
@@ -91,7 +256,7 @@ export function useSchedulePage() {
           weekStart,
         }),
       });
-      await refresh();
+      await refreshWeek();
       return {
         ok: true,
         conflicts: result.conflicts ?? [],
@@ -183,6 +348,7 @@ export function useSchedulePage() {
     scheduleEntries,
     scheduleHolidays,
     scheduleRange,
+    neighborWeeks,
     applyingTemplate,
     clients,
     hasTemplate,

@@ -26,6 +26,10 @@ export function isLocal(): boolean {
   return appEnv() === "local";
 }
 
+export function isStaging(): boolean {
+  return appEnv() === "staging";
+}
+
 export function isProduction(): boolean {
   return appEnv() === "production";
 }

@@ -52,6 +52,21 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Split a full name into given name + surname (everything after the first space). */
+export function splitClientName(fullName: string): {
+  givenName: string;
+  surname: string;
+} {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { givenName: "", surname: "" };
+  const space = trimmed.indexOf(" ");
+  if (space === -1) return { givenName: trimmed, surname: "" };
+  return {
+    givenName: trimmed.slice(0, space),
+    surname: trimmed.slice(space + 1).trim(),
+  };
+}
+
 export function formatSlot(startAt: string, endAt?: string | null) {
   const { date, time } = formatSlotLines(startAt, endAt);
   return `${date} ${time}`;

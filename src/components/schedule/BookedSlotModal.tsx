@@ -63,8 +63,9 @@ export function BookedSlotModal({
   const sessionStartAt =
     detail?.slot?.startAt ?? booking?.sessionStartAt ?? entry.startAt;
   const isPast = isWallClockPast(sessionStartAt, timeZone);
-  const isInactive =
-    booking?.status === "canceled" || booking?.status === "voided";
+  const isCanceled = booking?.status === "canceled";
+  const isVoided = booking?.status === "voided";
+  const isInactive = isCanceled || isVoided;
   const sessionPageHref = bookingId
     ? `/dashboard/sessions/${bookingId}?from=schedule`
     : "/dashboard/sessions";
@@ -104,7 +105,7 @@ export function BookedSlotModal({
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            {!isInactive && (
+            {!isVoided && (
               <section className="space-y-3 border-t border-slate-100 pt-4">
                 <h3 className="text-sm font-medium text-slate-900">Payment</h3>
                 <SessionPaymentSection

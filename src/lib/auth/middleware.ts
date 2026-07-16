@@ -4,6 +4,7 @@ import { SESSION_COOKIE, appBaseUrl } from "@/lib/constants";
 export const PUBLIC_API_PREFIXES = [
   "/api/health",
   "/api/auth/me",
+  "/api/auth/otp",
   "/api/auth/magic-link",
   "/api/auth/logout",
   "/api/change",

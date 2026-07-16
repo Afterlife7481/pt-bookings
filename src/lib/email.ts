@@ -73,28 +73,32 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Sends the trainer sign-in / sign-up magic link. Returns whether an email was
- * actually delivered (`false` when no provider is configured).
+ * Sends the trainer sign-in / sign-up one-time code.
+ * Returns whether an email was delivered (`false` when no provider is configured).
  */
-export async function sendMagicLinkEmail(params: {
+export async function sendTrainerOtpEmail(params: {
   to: string;
-  url: string;
+  code: string;
   purpose: "signup" | "login";
   expiresInMinutes: number;
 }): Promise<boolean> {
-  const action = params.purpose === "signup" ? "Finish creating your account" : "Sign in";
+  const action =
+    params.purpose === "signup"
+      ? "Finish creating your account"
+      : "Sign in";
   const subject =
     params.purpose === "signup"
-      ? "Confirm your PT Bookings account"
-      : "Your PT Bookings sign-in link";
-  const safeUrl = escapeHtml(params.url);
+      ? "Your PT Bookings sign-up code"
+      : "Your PT Bookings sign-in code";
+  const safeCode = escapeHtml(params.code);
 
   const text = [
-    `${action} to PT Bookings using the link below:`,
+    `${action} to PT Bookings with this code:`,
     "",
-    params.url,
+    params.code,
     "",
-    `This link expires in ${params.expiresInMinutes} minutes and can only be used once.`,
+    "Open the PT Bookings app (or the sign-in page) and enter the code there.",
+    `This code expires in ${params.expiresInMinutes} minutes and can only be used once.`,
     "If you didn't request this, you can safely ignore this email.",
   ].join("\n");
 
@@ -104,13 +108,10 @@ export async function sendMagicLinkEmail(params: {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;">
       <tr><td>
         <h1 style="font-size:20px;margin:0 0 16px;">PT Bookings</h1>
-        <p style="font-size:14px;line-height:20px;margin:0 0 20px;">${action} to PT Bookings using the button below.</p>
-        <p style="margin:0 0 24px;">
-          <a href="${safeUrl}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">${action}</a>
-        </p>
-        <p style="font-size:12px;line-height:18px;color:#475569;margin:0 0 8px;">Or paste this link into your browser:</p>
-        <p style="font-size:12px;line-height:18px;word-break:break-all;margin:0 0 24px;"><a href="${safeUrl}" style="color:#2563eb;">${safeUrl}</a></p>
-        <p style="font-size:12px;line-height:18px;color:#475569;margin:0;">This link expires in ${params.expiresInMinutes} minutes and can only be used once. If you didn't request this, you can safely ignore this email.</p>
+        <p style="font-size:14px;line-height:20px;margin:0 0 20px;">${action} with this one-time code:</p>
+        <p style="font-size:32px;letter-spacing:0.2em;font-weight:700;margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;">${safeCode}</p>
+        <p style="font-size:14px;line-height:20px;margin:0 0 16px;">Open the PT Bookings app (or the sign-in page) and enter the code there — you do not need to open a link.</p>
+        <p style="font-size:12px;line-height:18px;color:#475569;margin:0;">This code expires in ${params.expiresInMinutes} minutes and can only be used once. If you didn't request this, you can safely ignore this email.</p>
       </td></tr>
     </table>
   </body>

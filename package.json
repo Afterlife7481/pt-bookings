@@ -13,7 +13,8 @@
     "test:e2e:server": "tsx e2e/seed.ts && next dev --port 3001",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local src/lib/db/migrate.ts",
-    "db:migrate:deploy": "tsx src/lib/db/migrate.ts"
+    "db:migrate:deploy": "tsx src/lib/db/migrate.ts",
+    "invite:create": "tsx --env-file=.env.local src/scripts/create-invite-codes.ts"
   },
   "dependencies": {
     "@serwist/next": "^9.5.11",
