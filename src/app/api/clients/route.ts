@@ -1,6 +1,7 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listClients, createClient } from "@/lib/services/clients";
+import { getTrainerSettings } from "@/lib/services/settings";
 import { sessionPriceFromBody } from "@/lib/validation/client";
 import { parsePreferredNotifyChannel } from "@/lib/notify-channels";
 
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       body.preferredNotifyChannel !== undefined
         ? parsePreferredNotifyChannel(body.preferredNotifyChannel)
         : undefined;
+    const settings = await getTrainerSettings(trainerId);
 
     const id = await createClient({
       trainerId,
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
       email: body.email?.trim(),
       preferredNotifyChannel,
       lastMinuteOptIn: body.lastMinuteOptIn ?? false,
-      sessionPrice: sessionPriceFromBody(body.sessionPrice),
+      sessionPrice: sessionPriceFromBody(body.sessionPrice, settings.currency),
     });
     return Response.json({ id }, { status: 201 });
   } catch (e) {

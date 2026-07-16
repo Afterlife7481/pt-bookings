@@ -14,6 +14,8 @@ export const trainers = pgTable("trainers", {
   email: text("email").notNull().unique(),
   phone: text("phone").notNull().default(""),
   timezone: text("timezone").notNull().default("Europe/London"),
+  /** ISO 4217 default currency for session prices (clients may override later). */
+  currency: text("currency").notNull().default("GBP"),
   scheduleStartTime: text("schedule_start_time").notNull().default("07:00"),
   scheduleEndTime: text("schedule_end_time").notNull().default("21:00"),
   scheduleDefaultView: text("schedule_default_view", { enum: ["day", "week"] })
@@ -75,6 +77,8 @@ export const clients = pgTable("clients", {
     .notNull()
     .default(false),
   sessionPrice: integer("session_price"),
+  /** ISO 4217 override; null inherits the trainer default. */
+  currency: text("currency"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -305,6 +309,8 @@ export const bookings = pgTable(
     sessionPaid: boolean("session_paid").notNull().default(false),
     paymentType: text("payment_type"),
     sessionPrice: integer("session_price"),
+    /** ISO 4217 snapshot at book time; null falls back via client → trainer. */
+    currency: text("currency"),
     invoiceSentAt: text("invoice_sent_at"),
     confirmationSentAt: text("confirmation_sent_at"),
     createdAt: text("created_at").notNull(),

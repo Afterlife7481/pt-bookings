@@ -19,6 +19,23 @@ describe("updateTrainerSettings", () => {
     expect(settings.scheduleDefaultView).toBe("day");
   });
 
+  it("defaults currency to GBP and accepts updates", async () => {
+    await seedTestFixtures();
+    const initial = await getTrainerSettings(DEFAULT_TRAINER_ID);
+    expect(initial.currency).toBe("GBP");
+
+    await updateTrainerSettings(DEFAULT_TRAINER_ID, { currency: "EUR" });
+    const updated = await getTrainerSettings(DEFAULT_TRAINER_ID);
+    expect(updated.currency).toBe("EUR");
+  });
+
+  it("rejects unsupported currencies", async () => {
+    await seedTestFixtures();
+    await expect(
+      updateTrainerSettings(DEFAULT_TRAINER_ID, { currency: "XXX" }),
+    ).rejects.toThrow("Unsupported currency");
+  });
+
   it("accepts valid client booking window weeks", async () => {
     await seedTestFixtures();
     await updateTrainerSettings(DEFAULT_TRAINER_ID, {

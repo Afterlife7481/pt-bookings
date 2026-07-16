@@ -1,8 +1,10 @@
+import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { parseSessionPriceInput } from "@/lib/utils";
 
-/** Parse session price for a booking PATCH body (pence integer or pounds string). */
+/** Parse session price for a booking PATCH body (minor-unit integer or major-unit string). */
 export function bookingSessionPriceFromBody(
   value: unknown,
+  currency: string = DEFAULT_CURRENCY,
 ): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
@@ -13,7 +15,7 @@ export function bookingSessionPriceFromBody(
     return value;
   }
   if (typeof value === "string") {
-    return parseSessionPriceInput(value);
+    return parseSessionPriceInput(value, currency);
   }
   throw new Error("Invalid session price");
 }

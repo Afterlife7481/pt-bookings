@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
+import { currencySymbol, DEFAULT_CURRENCY } from "@/lib/currency";
 import {
   formatSessionPrice,
   parseSessionPriceInput,
@@ -11,29 +12,32 @@ import {
 export function SessionPriceEditor({
   sessionPrice,
   clientDefaultPrice,
+  currency = DEFAULT_CURRENCY,
   disabled = false,
   onSave,
 }: {
   sessionPrice: number | null;
   clientDefaultPrice: number | null;
+  currency?: string;
   disabled?: boolean;
   onSave: (pricePence: number | null) => Promise<void>;
 }) {
-  const [value, setValue] = useState(sessionPriceToInput(sessionPrice));
+  const [value, setValue] = useState(sessionPriceToInput(sessionPrice, currency));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const symbol = currencySymbol(currency);
 
   useEffect(() => {
-    setValue(sessionPriceToInput(sessionPrice));
+    setValue(sessionPriceToInput(sessionPrice, currency));
     setError(null);
-  }, [sessionPrice]);
+  }, [sessionPrice, currency]);
 
   const normalizedInput = value.trim();
   let parsedInput: number | null = null;
   let parseError: string | null = null;
   if (normalizedInput) {
     try {
-      parsedInput = parseSessionPriceInput(normalizedInput);
+      parsedInput = parseSessionPriceInput(normalizedInput, currency);
     } catch (e) {
       parseError = e instanceof Error ? e.message : "Invalid price";
     }
@@ -45,7 +49,7 @@ export function SessionPriceEditor({
       ? parsedInput !== sessionPrice
       : sessionPrice != null);
 
-  async function save(pricePence: number | null = normalizedInput ? parseSessionPriceInput(normalizedInput) : null) {
+  async function save(pricePence: number | null = normalizedInput ? parseSessionPriceInput(normalizedInput, currency) : null) {
     setError(null);
     try {
       setSaving(true);
@@ -59,7 +63,7 @@ export function SessionPriceEditor({
 
   async function resetToClientDefault() {
     if (clientDefaultPrice == null) return;
-    setValue(sessionPriceToInput(clientDefaultPrice));
+    setValue(sessionPriceToInput(clientDefaultPrice, currency));
     await save(clientDefaultPrice);
   }
 
@@ -72,7 +76,7 @@ export function SessionPriceEditor({
           session only.
         </span>
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span className="text-slate-500">£</span>
+          <span className="text-slate-500">{symbol}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -106,13 +110,13 @@ export function SessionPriceEditor({
             onClick={() => void resetToClientDefault()}
             className="text-blue-600 hover:underline disabled:opacity-60"
           >
-            Client default: {formatSessionPrice(clientDefaultPrice)}
+            Client default: {formatSessionPrice(clientDefaultPrice, currency)}
           </button>
         </p>
       ) : null}
       {sessionPrice == null && clientDefaultPrice != null ? (
         <p className="text-xs text-slate-500">
-          Using client default: {formatSessionPrice(clientDefaultPrice)}
+          Using client default: {formatSessionPrice(clientDefaultPrice, currency)}
         </p>
       ) : null}
     </div>

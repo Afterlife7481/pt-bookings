@@ -56,6 +56,30 @@ describe("createBookingForSlot", () => {
       where: eq(bookings.id, bookingId),
     });
     expect(booking?.sessionPrice).toBe(4500);
+    expect(booking?.currency).toBe("GBP");
+  });
+
+  it("snapshots a client currency override onto the booking", async () => {
+    const fixtures = await seedTestFixtures();
+    const db = getDb();
+
+    await db
+      .update(clients)
+      .set({ sessionPrice: 6000, currency: "EUR" })
+      .where(eq(clients.id, fixtures.clientId));
+
+    const { bookingId } = await createBookingForSlot({
+      slotId: fixtures.slotId,
+      clientId: fixtures.clientId,
+      trainerId: DEFAULT_TRAINER_ID,
+      sendConfirmation: false,
+    });
+
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, bookingId),
+    });
+    expect(booking?.sessionPrice).toBe(6000);
+    expect(booking?.currency).toBe("EUR");
   });
 
   it("rejects a second booking on the same slot", async () => {

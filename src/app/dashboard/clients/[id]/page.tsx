@@ -16,8 +16,13 @@ import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { formatSlot, formatCreatedDate, sessionPriceToInput } from "@/lib/utils";
 import { useMounted } from "@/lib/use-mounted";
 import { parseLocalDateTime } from "@/lib/constants";
+import {
+  currencySymbol,
+  DEFAULT_CURRENCY,
+} from "@/lib/currency";
 import { prepareWhatsAppOpenForPhone, WHATSAPP_PHONE_HINT } from "@/lib/whatsapp-link";
 import type { PreferredNotifyChannel } from "@/lib/notify-channels";
+import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 
 type ClientBooking = {
   id: string;
@@ -58,6 +63,9 @@ type ClientDetail = {
 export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
+  const { settings } = useTrainerSettings();
+  const currency = settings?.currency || DEFAULT_CURRENCY;
+  const priceSymbol = currencySymbol(currency);
 
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,13 +126,13 @@ export default function ClientDetailPage() {
     setPreferredNotifyChannel(
       data.preferredNotifyChannel === "email" ? "email" : "whatsapp",
     );
-    setSessionPrice(sessionPriceToInput(data.sessionPrice));
+    setSessionPrice(sessionPriceToInput(data.sessionPrice, currency));
     setEnabledLocationIds(
       new Set(data.locations.filter((l) => l.enabled).map((l) => l.id)),
     );
     setLoading(false);
     return data;
-  }, [clientId]);
+  }, [clientId, currency]);
 
   const loadRecurringOptions = useCallback(
     async (
@@ -500,7 +508,9 @@ export default function ClientDetailPage() {
               </div>
             </fieldset>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-600">Session price (£)</span>
+              <span className="text-slate-600">
+                Session price ({priceSymbol})
+              </span>
               <input
                 type="number"
                 min="0"

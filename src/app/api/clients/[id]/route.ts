@@ -7,6 +7,7 @@ import {
   type RecurringSlotRef,
 } from "@/lib/services/clients";
 import { setClientLocations } from "@/lib/services/locations";
+import { getTrainerSettings } from "@/lib/services/settings";
 import { sessionPriceFromBody } from "@/lib/validation/client";
 import { parsePreferredNotifyChannel } from "@/lib/notify-channels";
 
@@ -60,7 +61,11 @@ export async function PATCH(
       detailUpdates.lastMinuteOptIn = body.lastMinuteOptIn;
     }
     if ("sessionPrice" in body) {
-      detailUpdates.sessionPrice = sessionPriceFromBody(body.sessionPrice);
+      const settings = await getTrainerSettings(trainerId);
+      detailUpdates.sessionPrice = sessionPriceFromBody(
+        body.sessionPrice,
+        settings.currency,
+      );
     }
 
     if (Object.keys(detailUpdates).length > 0) {

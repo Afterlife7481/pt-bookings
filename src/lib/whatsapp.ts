@@ -76,10 +76,11 @@ export function buildInvoiceMessageBody(params: {
   slotStartAt: string;
   slotEndAt?: string | null;
   amountPence: number;
+  currency?: string;
   paymentDetails: PaymentDetailsForMessage;
 }): string {
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
-  const amount = formatInvoiceAmount(params.amountPence);
+  const amount = formatInvoiceAmount(params.amountPence, params.currency);
   const paymentLines = formatPaymentOptionsText(params.paymentDetails);
   return `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
 }
@@ -312,6 +313,7 @@ export async function sendWhatsAppInvoice(params: {
   slotStartAt: string;
   slotEndAt?: string | null;
   amountPence: number;
+  currency?: string;
   paymentDetails: PaymentDetailsForMessage;
 }): Promise<WhatsAppDraft> {
   const body = buildInvoiceMessageBody(params);
@@ -336,12 +338,13 @@ export async function sendInvoiceEmail(params: {
   slotStartAt: string;
   slotEndAt?: string | null;
   amountPence: number;
+  currency?: string;
   paymentDetails: PaymentDetailsForMessage;
   replyTo?: string | null;
 }): Promise<WhatsAppDraft> {
   const body = buildInvoiceMessageBody(params);
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
-  const amount = formatInvoiceAmount(params.amountPence);
+  const amount = formatInvoiceAmount(params.amountPence, params.currency);
   const subject = `Invoice for your PT session on ${sessionLabel}`;
 
   const html = `<!doctype html>

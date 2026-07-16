@@ -18,6 +18,7 @@ import {
   parseNotifyChannels,
   type NotifyChannel,
 } from "@/lib/notify-channels";
+import { resolveMoneyCurrency } from "@/lib/currency";
 import { getTrainerSettings } from "./settings";
 import { getTrainerById } from "./trainers";
 import {
@@ -81,6 +82,12 @@ export async function createBookingForSlot(params: {
     throw new Error("Client not found");
   }
 
+  const trainerSettings = await getTrainerSettings(trainerId);
+  const bookingCurrency = resolveMoneyCurrency({
+    clientCurrency: bookingClient.currency,
+    trainerCurrency: trainerSettings.currency,
+  });
+
   await assertClientCanUseSlotLocation(
     clientId,
     slot.locationId,
@@ -123,6 +130,7 @@ export async function createBookingForSlot(params: {
         override36h: false,
         isRecurring,
         sessionPrice: bookingClient.sessionPrice,
+        currency: bookingCurrency,
         createdAt: ts,
         updatedAt: ts,
       });
@@ -151,35 +159,29 @@ export async function createBookingForSlot(params: {
   );
 
   let whatsappUrl: string | null = null;
-  let whatsappError: string | null = null;
 
   if (sendConfirmation) {
     const client = bookingClient;
-    if (client) {
-      const phoneCheck = validateWhatsAppPhone(client.phone);
-      if (!phoneCheck.ok) {
-        whatsappError = phoneCheck.error;
-      } else {
-        const draft = await sendWhatsAppConfirmation({
-          trainerId,
-          clientId,
-          phone: client.phone,
-          bookingToken: token,
-          slotStartAt,
-          slotEndAt,
-          clientName: client.name,
-        });
-        whatsappUrl = draft.sendUrl;
-        const ts = nowIso();
-        await db
-          .update(bookings)
-          .set({ confirmationSentAt: ts, updatedAt: ts })
-          .where(eq(bookings.id, bookingId));
-      }
+    if (client && validateWhatsAppPhone(client.phone).ok) {
+      const draft = await sendWhatsAppConfirmation({
+        trainerId,
+        clientId,
+        phone: client.phone,
+        bookingToken: token,
+        slotStartAt,
+        slotEndAt,
+        clientName: client.name,
+      });
+      whatsappUrl = draft.sendUrl;
+      const ts = nowIso();
+      await db
+        .update(bookings)
+        .set({ confirmationSentAt: ts, updatedAt: ts })
+        .where(eq(bookings.id, bookingId));
     }
   }
 
-  return { bookingId, token, whatsappUrl, whatsappError };
+  return { bookingId, token, whatsappUrl };
 }
 
 export async function releaseSlot(slotId: string) {
@@ -446,6 +448,7 @@ export type TrainerBookingDetail = {
     sessionPaid: boolean;
     paymentType: SessionPaymentType | null;
     sessionPrice: number | null;
+    currency: string | null;
     invoiceSentAt: string | null;
     confirmationSentAt: string | null;
     sessionStartAt: string;
@@ -468,7 +471,10 @@ export type TrainerBookingDetail = {
     phone: string;
     preferredNotifyChannel: "email" | "whatsapp";
     sessionPrice: number | null;
+    currency: string | null;
   };
+  /** Resolved currency for display: booking → client → trainer. */
+  currency: string;
   paymentDetailsReady: boolean;
   paymentMethods: { id: string; name: string }[];
 };
@@ -514,6 +520,12 @@ export async function getBookingDetailForTrainer(
     name: method.name,
   }));
 
+  const currency = resolveMoneyCurrency({
+    bookingCurrency: booking.currency,
+    clientCurrency: client.currency,
+    trainerCurrency: settings.currency,
+  });
+
   return {
     booking: {
       id: booking.id,
@@ -523,6 +535,7 @@ export async function getBookingDetailForTrainer(
       sessionPaid: booking.sessionPaid,
       paymentType: booking.paymentType,
       sessionPrice: booking.sessionPrice ?? null,
+      currency: booking.currency ?? null,
       invoiceSentAt: booking.invoiceSentAt ?? null,
       confirmationSentAt: booking.confirmationSentAt ?? null,
       sessionStartAt: booking.sessionStartAt,
@@ -547,7 +560,9 @@ export async function getBookingDetailForTrainer(
       preferredNotifyChannel:
         client.preferredNotifyChannel === "email" ? "email" : "whatsapp",
       sessionPrice: client.sessionPrice,
+      currency: client.currency ?? null,
     },
+    currency,
     paymentDetailsReady,
     paymentMethods,
   };
@@ -700,6 +715,11 @@ export async function sendInvoiceForBooking(
   }
 
   const settings = await getTrainerSettings(booking.trainerId);
+  const currency = resolveMoneyCurrency({
+    bookingCurrency: booking.currency,
+    clientCurrency: client.currency,
+    trainerCurrency: settings.currency,
+  });
   const paymentDetails = getPaymentDetailsForMessage(settings);
   if (!hasBankTransferDetails(paymentDetails)) {
     throw new Error(
@@ -734,6 +754,7 @@ export async function sendInvoiceForBooking(
       slotStartAt,
       slotEndAt,
       amountPence,
+      currency,
       paymentDetails,
       replyTo: trainer?.email ?? settings.email,
     });
@@ -749,6 +770,7 @@ export async function sendInvoiceForBooking(
       slotStartAt,
       slotEndAt,
       amountPence,
+      currency,
       paymentDetails,
     });
     whatsappUrl = draft.sendUrl;

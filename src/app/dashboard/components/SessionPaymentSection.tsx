@@ -61,7 +61,7 @@ export function SessionPaymentSection({
   | "onConfirmPaymentMethod"
   | "onSendInvoice"
 >) {
-  const { booking, client } = detail;
+  const { booking, client, currency } = detail;
   const paymentStatus = getPaymentStatus(booking);
   const effectiveSessionPrice = resolveBookingSessionPrice(
     booking.sessionPrice,
@@ -147,6 +147,7 @@ export function SessionPaymentSection({
       <SessionPriceEditor
         sessionPrice={booking.sessionPrice}
         clientDefaultPrice={client.sessionPrice}
+        currency={currency}
         disabled={controlsDisabled}
         onSave={async (sessionPrice) => {
           await onPatch({ sessionPrice });

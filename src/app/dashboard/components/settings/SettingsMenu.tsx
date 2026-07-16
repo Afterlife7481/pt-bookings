@@ -15,6 +15,13 @@ function timezoneMenuDetail(timezone: string | undefined): string | undefined {
   return city ?? match.label;
 }
 
+function regionalMenuDetail(settings: TrainerSettings | null): string | undefined {
+  const tz = timezoneMenuDetail(settings?.timezone);
+  const currency = settings?.currency;
+  if (tz && currency) return `${tz} · ${currency}`;
+  return tz ?? currency;
+}
+
 export function SettingsMenu({ settings }: { settings: TrainerSettings | null }) {
   const bookingWindowWeeks = settings?.clientBookingWindowWeeks;
   const bookingDetail =
@@ -55,7 +62,7 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
         <SettingsRowLink
           href="/dashboard/settings/regional"
           title="Regional settings"
-          detail={timezoneMenuDetail(settings?.timezone)}
+          detail={regionalMenuDetail(settings)}
         />
         <SettingsRowLink href="/dashboard/settings/payment" title="Payment details" />
       </SettingsGroup>

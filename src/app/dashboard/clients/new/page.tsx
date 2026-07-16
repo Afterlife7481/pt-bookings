@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
+import { useTrainerSettings } from "../../hooks/useTrainerSettings";
+import {
+  currencySymbol,
+  DEFAULT_CURRENCY,
+} from "@/lib/currency";
 import { hasClientEmail, type PreferredNotifyChannel } from "@/lib/notify-channels";
 import {
   normalizeClientPhone,
@@ -13,6 +18,9 @@ import {
 
 export default function AddClientPage() {
   const router = useRouter();
+  const { settings } = useTrainerSettings();
+  const currency = settings?.currency || DEFAULT_CURRENCY;
+  const priceSymbol = currencySymbol(currency);
   const back = useOnboardingBackLink({
     backHref: "/dashboard/clients",
     backLabel: "Clients",
@@ -143,7 +151,9 @@ export default function AddClientPage() {
             </div>
           </fieldset>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-slate-600">Session price (£)</span>
+            <span className="text-slate-600">
+              Session price ({priceSymbol})
+            </span>
             <input
               type="number"
               min="0"
