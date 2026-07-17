@@ -270,16 +270,12 @@ export function entryRowSpan(entry: ScheduleEntry): number {
   return slotGridRowSpan(entryStartTime(entry), entryEndTime(entry));
 }
 
-export function bookedSlotColorClasses(recurring: boolean, onPastDay = false) {
+export function bookedSlotColorClasses(onPastDay = false) {
   if (onPastDay) {
-    return recurring
-      ? "border-2 border-sky-400/70 bg-sky-100/55 text-sky-900/70"
-      : "border border-sky-200/70 bg-sky-100/55 text-sky-900/70";
+    return "border border-sky-200/70 bg-sky-100/55 text-sky-900/70";
   }
 
-  return recurring
-    ? "border-2 border-sky-500 bg-sky-100 text-sky-900 active:bg-sky-200"
-    : "border border-sky-200 bg-sky-100 text-sky-900 active:bg-sky-50";
+  return "border border-sky-200 bg-sky-100 text-sky-900 active:bg-sky-50";
 }
 
 export function bookedSlotSubtextClasses(_recurring: boolean, onPastDay = false) {

@@ -1,13 +1,18 @@
 import { cn } from "@/lib/utils";
 
 export function ScheduleLegend({ className }: { className?: string }) {
-  const items = [
+  const items: {
+    swatch: string;
+    label: string;
+    marker?: string;
+  }[] = [
     {
       swatch: "border border-sky-200 bg-sky-100",
       label: "Booked slot",
     },
     {
-      swatch: "border-2 border-sky-500 bg-sky-100",
+      swatch: "relative border border-sky-200 bg-sky-100",
+      marker: "R",
       label: "Recurring booked",
     },
     { swatch: "border border-green-200 bg-green-50", label: "Open slot" },
@@ -27,7 +32,7 @@ export function ScheduleLegend({ className }: { className?: string }) {
       swatch: "holiday-hatch border border-slate-300",
       label: "Time off (blocked slots)",
     },
-  ] as const;
+  ];
 
   return (
     <div
@@ -38,7 +43,13 @@ export function ScheduleLegend({ className }: { className?: string }) {
     >
       {items.map((item) => (
         <span key={item.label} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-3 w-3 shrink-0 rounded", item.swatch)} />
+          <span className={cn("relative h-3 w-3 shrink-0 rounded", item.swatch)}>
+            {item.marker ? (
+              <span className="absolute right-px top-px text-[6px] font-semibold leading-none text-sky-700">
+                {item.marker}
+              </span>
+            ) : null}
+          </span>
           {item.label}
         </span>
       ))}

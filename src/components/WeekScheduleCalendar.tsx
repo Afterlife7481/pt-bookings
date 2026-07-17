@@ -771,11 +771,6 @@ export function WeekScheduleCalendar({
           viewMode === "week" ? "mt-6" : "mt-4",
         )}
       >
-        {editable ? (
-          <p className="mb-2 text-xs text-slate-500">
-            Tap + or empty space to add a slot · tap slots to manage
-          </p>
-        ) : null}
         <ScheduleLegend />
       </div>
 

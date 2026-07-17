@@ -49,6 +49,22 @@ export function ScheduleCell({
       : `${timeLabel} · ${entry.booking.clientName}`;
     const content = (
       <>
+        {recurring ? (
+          <span
+            aria-label="Recurring"
+            className={cn(
+              "pointer-events-none absolute font-semibold leading-none",
+              mobile
+                ? "right-1.5 top-1 text-[10px]"
+                : compact
+                  ? "right-0.5 top-px text-[7px]"
+                  : "right-1 top-0.5 text-[8px]",
+              onPastDay ? "text-sky-800/55" : "text-sky-700",
+            )}
+          >
+            R
+          </span>
+        ) : null}
         <span className={cn(nameClass, "w-full truncate")}>
           {entry.booking.clientName}
         </span>
@@ -67,8 +83,8 @@ export function ScheduleCell({
     );
     const className = cn(
       sizeClass,
-      "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
-      bookedSlotColorClasses(recurring, onPastDay),
+      "relative flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
+      bookedSlotColorClasses(onPastDay),
       selected && "ring-2 ring-slate-900 ring-offset-1",
     );
 
