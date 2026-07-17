@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
-import { cn } from "@/lib/utils";
+import { cn, splitClientName } from "@/lib/utils";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
 import { useTrainerSettings } from "../hooks/useTrainerSettings";
@@ -19,14 +19,6 @@ function isPastSession(startAt: string, timeZone: string): boolean {
 
 function sessionSortKey(startAt: string, timeZone: string): number {
   return wallClockToUtcMs(startAt, timeZone);
-}
-
-function bookingSourceBadge(isRecurring: boolean) {
-  return isRecurring ? (
-    <Badge tone="success">Recurring</Badge>
-  ) : (
-    <Badge>Manual</Badge>
-  );
 }
 
 function SessionsViewToggle({
@@ -68,60 +60,42 @@ function SessionsViewToggle({
   );
 }
 
-function SessionsTableColGroup() {
+function SessionsList({ rows }: { rows: BookingRow[] }) {
   return (
-    <colgroup>
-      <col style={{ width: "32%" }} />
-      <col style={{ width: "38%" }} />
-      <col style={{ width: "30%" }} />
-    </colgroup>
-  );
-}
-
-function SessionsTable({ rows }: { rows: BookingRow[] }) {
-  return (
-    <table className="w-full min-w-0 table-fixed text-left text-sm">
-      <SessionsTableColGroup />
-      <tbody className="divide-y divide-slate-100">
-        {rows.map((row) => (
-          <tr key={row.booking.id} className="hover:bg-slate-50">
-            <td className="min-w-0 px-4 py-3">
-              <div className="flex flex-col gap-1">
-                <span className="font-medium text-slate-900">{row.client.name}</span>
-                <Link
-                  href={`/dashboard/sessions/${row.booking.id}`}
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  Session
-                </Link>
-              </div>
-            </td>
-            <td className="min-w-0 px-4 py-3 text-slate-600">
-              <SessionWhen startAt={row.slot.startAt} endAt={row.slot.endAt} />
-            </td>
-            <td className="min-w-0 px-4 py-3">
-              <div className="flex flex-col items-start gap-1.5">
+    <ul className="divide-y divide-slate-100">
+      {rows.map((row) => {
+        const { givenName, surname } = splitClientName(row.client.name);
+        return (
+          <li key={row.booking.id}>
+            <Link
+              href={`/dashboard/sessions/${row.booking.id}`}
+              className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+            >
+              <span className="flex min-w-0 flex-[0_0_32%] flex-col text-sm font-medium leading-snug text-slate-900">
+                <span>{givenName}</span>
+                {surname ? <span>{surname}</span> : null}
+              </span>
+              <span className="min-w-0 flex-[0_0_38%] text-sm text-slate-600">
+                <SessionWhen startAt={row.slot.startAt} endAt={row.slot.endAt} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
                 {row.booking.status === "voided" ? (
                   <Badge tone="danger">Voided</Badge>
                 ) : (
-                  <>
-                    {row.booking.status === "pending_change" ? (
-                      <Badge tone="warning">Changing</Badge>
-                    ) : (
-                      bookingSourceBadge(row.booking.isRecurring)
-                    )}
-                    <PaymentStatusBadge
-                      sessionPaid={row.booking.sessionPaid}
-                      invoiceSentAt={row.booking.invoiceSentAt}
-                    />
-                  </>
+                  <PaymentStatusBadge
+                    sessionPaid={row.booking.sessionPaid}
+                    invoiceSentAt={row.booking.invoiceSentAt}
+                  />
                 )}
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+              </span>
+              <span aria-hidden className="shrink-0 text-slate-400">
+                ›
+              </span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -175,7 +149,7 @@ export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
       {rows.length === 0 ? (
         <p className="p-4 text-sm text-slate-500">{emptyMessage}</p>
       ) : (
-        <SessionsTable rows={rows} />
+        <SessionsList rows={rows} />
       )}
     </Card>
   );
