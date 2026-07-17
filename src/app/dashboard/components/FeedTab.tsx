@@ -170,7 +170,7 @@ export function FeedTab({
   return (
     <div className="space-y-3">
       <Card className="!border-slate-200 !bg-slate-50">
-        <h2 className="text-sm font-semibold text-slate-900">Feed</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Activity Feed</h2>
         <p className="mt-1 text-sm text-slate-600">
           Schedule clashes, session updates, and WhatsApp or email messages you
           have sent.
