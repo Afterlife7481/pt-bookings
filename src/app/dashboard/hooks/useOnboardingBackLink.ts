@@ -12,8 +12,10 @@ export function useOnboardingBackLink(fallback: BackLink = {
     return fallback;
   }
 
-  const clientStep = status.steps.find((step) => step.id === "client");
-  const inOnboardingFlow = !status.complete || !clientStep?.complete;
+  const optionalIncomplete = status.steps.some(
+    (step) => step.optional && !step.complete,
+  );
+  const inOnboardingFlow = !status.complete || optionalIncomplete;
 
   if (inOnboardingFlow) {
     return { backHref: "/dashboard/onboarding", backLabel: "Onboarding" };

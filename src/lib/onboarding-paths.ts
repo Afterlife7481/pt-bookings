@@ -5,6 +5,7 @@ export const ONBOARDING_PATH_PREFIXES = [
   "/dashboard/settings/schedule",
   "/dashboard/settings/templates",
   "/dashboard/clients",
+  "/dashboard/invitations",
 ] as const;
 
 export function isOnboardingAllowedPath(pathname: string): boolean {

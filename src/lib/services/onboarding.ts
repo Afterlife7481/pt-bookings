@@ -8,7 +8,8 @@ export type OnboardingStepId =
   | "location"
   | "schedule"
   | "template"
-  | "client";
+  | "client"
+  | "invite";
 
 export type OnboardingStepStatus = {
   id: OnboardingStepId;
@@ -59,6 +60,14 @@ const STEP_DEFINITIONS: Omit<OnboardingStepStatus, "complete">[] = [
     href: "/dashboard/clients/new",
     optional: true,
   },
+  {
+    id: "invite",
+    label: "Invite other personal trainers",
+    description:
+      "Share your invite code with PTs you trust. New trainers can only join with an invitation code.",
+    href: "/dashboard/invitations",
+    optional: true,
+  },
 ];
 
 function isLegacyOnboarded(locationCount: number, templateSlotCount: number): boolean {
@@ -95,6 +104,7 @@ export async function getOnboardingStatus(trainerId: string): Promise<Onboarding
     schedule: !!trainer.scheduleHoursConfiguredAt || legacy,
     template: templateSlotCount >= 1,
     client: clientCount >= 1,
+    invite: !!trainer.invitationsViewedAt,
   };
 
   const steps = STEP_DEFINITIONS.map((step) => ({
@@ -109,4 +119,3 @@ export async function getOnboardingStatus(trainerId: string): Promise<Onboarding
 
   return { complete, allStepsComplete, steps };
 }
-

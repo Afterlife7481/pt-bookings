@@ -32,6 +32,15 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
   const router = useRouter();
   const requiredSteps = status.steps.filter((step) => !step.optional);
   const completedRequired = requiredSteps.filter((step) => step.complete).length;
+  const optionalIncomplete = status.steps.some(
+    (step) => step.optional && !step.complete,
+  );
+
+  function stepCta(stepId: OnboardingStatus["steps"][number]["id"]) {
+    if (stepId === "client") return "Add client";
+    if (stepId === "invite") return "View invite code";
+    return "Complete this step";
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -41,7 +50,7 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
         </h1>
         <p className="text-sm leading-relaxed text-slate-600">
           {status.complete
-            ? "Required setup is done. Add your first client now or open your schedule whenever you are ready."
+            ? "Required setup is done. Finish the optional steps below or open your schedule whenever you are ready."
             : "Complete these steps before using your schedule. The app needs your time zone, locations, diary hours, and weekly template to work properly."}
         </p>
         <p className="text-sm font-medium text-slate-700">
@@ -78,12 +87,12 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
                     href={step.href}
                     className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:underline"
                   >
-                    {step.id === "client" ? "Add client" : "Complete this step"} →
+                    {stepCta(step.id)} →
                   </Link>
                 ) : null}
               </div>
               <span className="hidden shrink-0 text-xs font-medium uppercase tracking-wide text-slate-400 sm:inline">
-                {index === 0 ? "0" : ["i", "ii", "iii", "iv"][index - 1]}
+                {index === 0 ? "0" : ["i", "ii", "iii", "iv", "v", "vi"][index - 1]}
               </span>
             </li>
           ))}
@@ -95,9 +104,10 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
           <Button type="button" onClick={() => router.push("/dashboard/schedule")}>
             Open schedule
           </Button>
-          {!status.allStepsComplete ? (
+          {optionalIncomplete ? (
             <p className="w-full text-sm text-slate-500">
-              The client step is optional — you can finish it later from Clients.
+              Adding clients and inviting other trainers are optional — you can
+              finish them later from the menu.
             </p>
           ) : null}
         </div>

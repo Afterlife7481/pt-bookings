@@ -34,6 +34,7 @@ export const trainers = pgTable("trainers", {
   paymentPayeeName: text("payment_payee_name"),
   regionalSettingsConfiguredAt: text("regional_settings_configured_at"),
   scheduleHoursConfiguredAt: text("schedule_hours_configured_at"),
+  invitationsViewedAt: text("invitations_viewed_at"),
   createdAt: text("created_at").notNull(),
 });
 

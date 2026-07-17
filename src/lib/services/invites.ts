@@ -246,6 +246,18 @@ export async function getTrainerInvitations(
 ): Promise<TrainerInvitationsView> {
   const codeValue = await ensureTrainerInviteCode(trainerId);
   const db = getDb();
+
+  const trainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, trainerId),
+    columns: { invitationsViewedAt: true },
+  });
+  if (trainer && !trainer.invitationsViewedAt) {
+    await db
+      .update(trainers)
+      .set({ invitationsViewedAt: nowIso() })
+      .where(eq(trainers.id, trainerId));
+  }
+
   const code = await db.query.inviteCodes.findFirst({
     where: eq(inviteCodes.code, codeValue),
   });
