@@ -69,16 +69,16 @@ function SessionsList({ rows }: { rows: BookingRow[] }) {
           <li key={row.booking.id}>
             <Link
               href={`/dashboard/sessions/${row.booking.id}`}
-              className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+              className="flex items-center gap-2 py-3 pl-4 pr-3 transition hover:bg-slate-50 sm:gap-3"
             >
-              <span className="flex min-w-0 flex-[0_0_32%] flex-col text-sm font-medium leading-snug text-slate-900">
+              <span className="flex min-w-0 flex-[0_0_24%] flex-col text-sm font-medium leading-snug text-slate-900 sm:flex-[0_0_26%]">
                 <span>{givenName}</span>
                 {surname ? <span>{surname}</span> : null}
               </span>
-              <span className="min-w-0 flex-[0_0_38%] text-sm text-slate-600">
+              <span className="min-w-0 flex-[0_0_30%] text-sm text-slate-600 sm:flex-[0_0_32%]">
                 <SessionWhen startAt={row.slot.startAt} endAt={row.slot.endAt} />
               </span>
-              <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+              <span className="flex min-w-0 flex-1 justify-start">
                 {row.booking.status === "voided" ? (
                   <Badge tone="danger">Voided</Badge>
                 ) : (
@@ -88,7 +88,7 @@ function SessionsList({ rows }: { rows: BookingRow[] }) {
                   />
                 )}
               </span>
-              <span aria-hidden className="shrink-0 text-slate-400">
+              <span aria-hidden className="ml-1 shrink-0 text-slate-400 sm:ml-2">
                 ›
               </span>
             </Link>
