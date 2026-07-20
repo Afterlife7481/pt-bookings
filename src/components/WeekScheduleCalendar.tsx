@@ -42,7 +42,7 @@ import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
 import { WeekScheduleCarousel } from "@/components/schedule/WeekScheduleCarousel";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
 import { cn } from "@/lib/utils";
-import { DEFAULT_TIMEZONE, formatDate } from "@/lib/constants";
+import { DEFAULT_TIMEZONE, formatDate, slotDayOfWeek, slotTimeLabel } from "@/lib/constants";
 import { shiftWeekStart } from "@/lib/schedule-utils";
 import { useTrainerSettings } from "@/app/dashboard/hooks/useTrainerSettings";
 import {
@@ -457,6 +457,7 @@ export function WeekScheduleCalendar({
   onRemoveSlot,
   onAllocateSlot,
   onUpdateSlotLocation,
+  onUpdateSlot,
   onRefresh,
 }: {
   weekStart: string;
@@ -485,6 +486,13 @@ export function WeekScheduleCalendar({
   onAllocateSlot?: (slotId: string, clientId: string) => Promise<void> | void;
   onUpdateSlotLocation?: (
     slotId: string,
+    locationId: string,
+  ) => Promise<void> | void;
+  onUpdateSlot?: (
+    slotId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
     locationId: string,
   ) => Promise<void> | void;
   onRefresh?: () => void | Promise<void>;
@@ -524,6 +532,7 @@ export function WeekScheduleCalendar({
     dayOfWeek: number;
     startTime: string;
   } | null>(null);
+  const [editingOpenSlot, setEditingOpenSlot] = useState(false);
   const [selectedDay, setSelectedDay] = useState(1);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -601,6 +610,12 @@ export function WeekScheduleCalendar({
     });
   }, [entries]);
 
+  useEffect(() => {
+    if (!selectedOpenSlot || selectedOpenSlot.booking) {
+      setEditingOpenSlot(false);
+    }
+  }, [selectedOpenSlot]);
+
   async function handleOfferSent() {
     await onRefresh?.();
   }
@@ -617,6 +632,30 @@ export function WeekScheduleCalendar({
     try {
       await onAddSlot(dayOfWeek, startTime, locationId, endTime);
       setPendingAdd(null);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function handleConfirmEdit(
+    locationId: string,
+    endTime: string,
+    startTime: string,
+    dayOfWeek: number,
+  ) {
+    if (!selectedOpenSlot || !onUpdateSlot || busyKey) return;
+    const key = `edit-${selectedOpenSlot.slotId}`;
+    setBusyKey(key);
+    try {
+      await onUpdateSlot(
+        selectedOpenSlot.slotId,
+        dayOfWeek,
+        startTime,
+        endTime,
+        locationId,
+      );
+      setEditingOpenSlot(false);
+      setSelectedOpenSlot(null);
     } finally {
       setBusyKey(null);
     }
@@ -651,6 +690,7 @@ export function WeekScheduleCalendar({
     setBusyKey(`remove-${slotId}`);
     try {
       await onRemoveSlot(slotId);
+      setEditingOpenSlot(false);
       setSelectedOpenSlot(null);
     } finally {
       setBusyKey(null);
@@ -662,6 +702,7 @@ export function WeekScheduleCalendar({
     setBusyKey(`allocate-${slotId}`);
     try {
       await onAllocateSlot(slotId, clientId);
+      setEditingOpenSlot(false);
       setSelectedOpenSlot(null);
     } finally {
       setBusyKey(null);
@@ -669,6 +710,7 @@ export function WeekScheduleCalendar({
   }
 
   function openSlotActions(entry: ScheduleEntry) {
+    setEditingOpenSlot(false);
     setSelectedOpenSlot(entry);
   }
 
@@ -796,7 +838,22 @@ export function WeekScheduleCalendar({
         />
       ) : null}
 
-      {selectedOpenSlot && !selectedOpenSlot.booking ? (
+      {selectedOpenSlot && !selectedOpenSlot.booking && editingOpenSlot ? (
+        <AddSlotModal
+          mode="edit"
+          weekStart={weekStart}
+          dayOfWeek={slotDayOfWeek(selectedOpenSlot.startAt)}
+          startTime={slotTimeLabel(selectedOpenSlot.startAt)}
+          endTime={slotTimeLabel(selectedOpenSlot.endAt)}
+          locationId={selectedOpenSlot.location?.id}
+          locations={locations}
+          onConfirm={handleConfirmEdit}
+          onClose={() => !busyKey && setEditingOpenSlot(false)}
+          busy={!!busyKey}
+        />
+      ) : null}
+
+      {selectedOpenSlot && !selectedOpenSlot.booking && !editingOpenSlot ? (
         <OpenSlotModal
           entry={selectedOpenSlot}
           clients={clients}
@@ -805,6 +862,7 @@ export function WeekScheduleCalendar({
           onAllocate={handleAllocate}
           onRemove={handleRemove}
           onUpdateLocation={handleUpdateLocation}
+          onEdit={onUpdateSlot ? () => setEditingOpenSlot(true) : undefined}
           onOfferSent={handleOfferSent}
           onClose={() => !busyKey && setSelectedOpenSlot(null)}
           busy={!!busyKey}

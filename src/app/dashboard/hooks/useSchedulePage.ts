@@ -309,6 +309,28 @@ export function useSchedulePage() {
     });
   }
 
+  async function updateScheduleSlot(
+    slotId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    locationId: string,
+  ) {
+    await runScheduleAction(async () => {
+      await fetchJson("/api/schedule/slots", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          locationId,
+        }),
+      });
+    });
+  }
+
   async function removeScheduleSlot(slotId: string) {
     await runScheduleAction(async () => {
       await fetchJson(`/api/schedule/slots?slotId=${slotId}`, {
@@ -363,6 +385,7 @@ export function useSchedulePage() {
     applyTemplateToCurrentWeek,
     addScheduleSlot,
     updateScheduleSlotLocation,
+    updateScheduleSlot,
     removeScheduleSlot,
     allocateScheduleSlot,
   };

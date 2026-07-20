@@ -36,6 +36,7 @@ export function ScheduleTab({
   onRemoveSlot,
   onAllocateSlot,
   onUpdateSlotLocation,
+  onUpdateSlot,
   onRefresh,
 }: {
   settings: TrainerSettings | null;
@@ -66,6 +67,13 @@ export function ScheduleTab({
   onRemoveSlot: (slotId: string) => Promise<void>;
   onAllocateSlot: (slotId: string, clientId: string) => Promise<void>;
   onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
+  onUpdateSlot: (
+    slotId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    locationId: string,
+  ) => Promise<void>;
   onRefresh: () => void;
 }) {
   const [viewMode, setViewMode] = useState<ScheduleView>("day");
@@ -212,6 +220,7 @@ export function ScheduleTab({
           onRemoveSlot={onRemoveSlot}
           onAllocateSlot={onAllocateSlot}
           onUpdateSlotLocation={onUpdateSlotLocation}
+          onUpdateSlot={onUpdateSlot}
           onRefresh={onRefresh}
         />
       ) : (

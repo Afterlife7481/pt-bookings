@@ -27,17 +27,23 @@ export type ScheduleClientOption = {
 export type ScheduleLocationOption = { id: string; name: string };
 
 export function AddSlotModal({
+  mode = "add",
   weekStart,
   dayOfWeek: initialDayOfWeek,
   startTime: initialStartTime,
+  endTime: initialEndTime,
+  locationId: initialLocationId,
   locations,
   onConfirm,
   onClose,
   busy,
 }: {
+  mode?: "add" | "edit";
   weekStart: string;
   dayOfWeek: number;
   startTime: string;
+  endTime?: string;
+  locationId?: string;
   locations: ScheduleLocationOption[];
   onConfirm: (
     locationId: string,
@@ -50,21 +56,33 @@ export function AddSlotModal({
 }) {
   const [dayOfWeek, setDayOfWeek] = useState(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
-  const [endTime, setEndTime] = useState(defaultSlotEndTime(initialStartTime));
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [endTime, setEndTime] = useState(
+    initialEndTime ?? defaultSlotEndTime(initialStartTime),
+  );
+  const [locationId, setLocationId] = useState(
+    initialLocationId ?? locations[0]?.id ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const slotDate = formatDate(dateForWeekDay(weekStart, dayOfWeek));
   const slotLabel = formatSlotLabel(
     `${slotDate}T${startTime}:00`,
     `${slotDate}T${endTime}:00`,
   );
+  const isEdit = mode === "edit";
 
   useEffect(() => {
     setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
-    setEndTime(defaultSlotEndTime(initialStartTime));
+    setEndTime(initialEndTime ?? defaultSlotEndTime(initialStartTime));
+    setLocationId(initialLocationId ?? locations[0]?.id ?? "");
     setError(null);
-  }, [initialDayOfWeek, initialStartTime]);
+  }, [
+    initialDayOfWeek,
+    initialStartTime,
+    initialEndTime,
+    initialLocationId,
+    locations,
+  ]);
 
   const durationMinutes =
     startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
@@ -79,7 +97,13 @@ export function AddSlotModal({
       setError(null);
       void onConfirm(locationId, endTime, startTime, dayOfWeek).catch(
         (e: unknown) => {
-          setError(e instanceof Error ? e.message : "Failed to add slot");
+          setError(
+            e instanceof Error
+              ? e.message
+              : isEdit
+                ? "Failed to update slot"
+                : "Failed to add slot",
+          );
         },
       );
     } catch (e) {
@@ -89,7 +113,7 @@ export function AddSlotModal({
 
   return (
     <SheetModal
-      title="Add open slot"
+      title={isEdit ? "Edit open slot" : "Add open slot"}
       subtitle={slotLabel}
       onClose={onClose}
       footer={
@@ -98,7 +122,13 @@ export function AddSlotModal({
           disabled={!locationId || !durationValid || busy}
           onClick={handleConfirm}
         >
-          {busy ? "Adding…" : "Add slot"}
+          {busy
+            ? isEdit
+              ? "Saving…"
+              : "Adding…"
+            : isEdit
+              ? "Save changes"
+              : "Add slot"}
         </Button>
       }
     >
@@ -172,6 +202,7 @@ export function OpenSlotModal({
   onAllocate,
   onRemove,
   onUpdateLocation,
+  onEdit,
   onOfferSent,
   onClose,
   busy,
@@ -183,6 +214,7 @@ export function OpenSlotModal({
   onAllocate: (slotId: string, clientId: string) => Promise<void>;
   onRemove: (slotId: string) => Promise<void>;
   onUpdateLocation: (slotId: string, locationId: string) => Promise<void>;
+  onEdit?: () => void;
   onOfferSent: () => void | Promise<void>;
   onClose: () => void;
   busy: boolean;
@@ -224,6 +256,16 @@ export function OpenSlotModal({
       onClose={onClose}
       footer={
         <>
+          {onEdit ? (
+            <Button
+              variant="secondary"
+              className="w-full py-3 sm:py-2"
+              disabled={busy || offerActive}
+              onClick={onEdit}
+            >
+              Edit slot
+            </Button>
+          ) : null}
           {clients.length > 0 && (
             <Button
               className="w-full py-3 sm:py-2"
@@ -251,7 +293,8 @@ export function OpenSlotModal({
     >
       {offerActive && (
         <p className="text-sm text-amber-800">
-          This slot cannot be removed while a last-minute offer is active.
+          This slot cannot be edited or removed while a last-minute offer is
+          active.
         </p>
       )}
       {entry.lastMinute && (
