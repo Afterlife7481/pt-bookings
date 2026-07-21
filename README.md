@@ -83,14 +83,16 @@ npx playwright install chromium
 
 ## Invoices (email & WhatsApp)
 
-**Send invoice** opens a channel picker:
+**Send invoice** opens a channel picker (email or WhatsApp — not both):
 
-- **Email** — if the client has an email (sent via Resend; needs `RESEND_API_KEY`)
-- **WhatsApp** — if the client has a valid mobile; opens `wa.me` so the trainer
-  sends from their own number
-- **Both** — email now, then open WhatsApp
+- **Email** — default when available (sent via Resend; needs `RESEND_API_KEY`)
+- **WhatsApp** — used when email is missing, or when both contacts exist and the
+  client profile prefers WhatsApp; opens `wa.me` so the trainer sends from their
+  own number
+- If neither contact is available, the trainer is prompted to add email and phone
+  on the client profile
 
-Each send is logged to the Feed (Email and/or WhatsApp badges). Client phones
+Each send is logged to the Feed (Email or WhatsApp badge). Client phones
 should include a country code (e.g. `+447…`); UK `07…` mobiles are normalised
 automatically.
 

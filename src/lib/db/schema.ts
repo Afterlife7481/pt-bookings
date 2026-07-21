@@ -122,7 +122,7 @@ export const clients = pgTable("clients", {
     enum: ["email", "whatsapp"],
   })
     .notNull()
-    .default("whatsapp"),
+    .default("email"),
   lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
   lastMinutePruneNotify: boolean("last_minute_prune_notify")
     .notNull()

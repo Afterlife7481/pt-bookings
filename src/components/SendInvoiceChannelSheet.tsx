@@ -23,7 +23,7 @@ export function SendInvoiceChannelSheet({
   onSend,
   title = "Send invoice",
   subtitle,
-  emptyHint = "Add an email or a valid mobile number on this client's profile before sending.",
+  emptyHint = "Add an email and a phone number on this client's profile before sending.",
 }: {
   clientName: string;
   email: string;
@@ -85,16 +85,10 @@ export function SendInvoiceChannelSheet({
           </p>
         ) : null}
 
-        {preferredNotifyChannel ? (
+        {canEmail && canWhatsApp && preferredNotifyChannel ? (
           <p className="text-xs text-slate-500">
             Preferred on profile:{" "}
             {preferredNotifyChannel === "email" ? "Email" : "WhatsApp"}
-            {preferredNotifyChannel === "email" && !canEmail
-              ? " (email missing — pick another option)"
-              : null}
-            {preferredNotifyChannel === "whatsapp" && !canWhatsApp
-              ? " (phone missing — pick another option)"
-              : null}
           </p>
         ) : null}
 
@@ -151,33 +145,6 @@ export function SendInvoiceChannelSheet({
                 {canWhatsApp
                   ? `${phone.trim()} — opens WhatsApp on this device with the message ready`
                   : "No valid mobile number for WhatsApp"}
-              </span>
-            </span>
-          </label>
-
-          <label
-            className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 ${
-              canEmail && canWhatsApp
-                ? "border-slate-200 hover:border-slate-300"
-                : "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
-            }`}
-          >
-            <input
-              type="radio"
-              name="notify-channel"
-              className="mt-1"
-              disabled={!canEmail || !canWhatsApp}
-              checked={choice === "both"}
-              onChange={() => setChoice("both")}
-            />
-            <span>
-              <span className="block text-sm font-medium text-slate-900">
-                Email and WhatsApp
-              </span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                {canEmail && canWhatsApp
-                  ? "Email now, then open WhatsApp so you can send from your number"
-                  : "Needs both an email and a valid mobile number"}
               </span>
             </span>
           </label>

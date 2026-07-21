@@ -176,8 +176,8 @@ export function SessionPaymentSection({
         {variant === "card" ? (
           <>
             <p className="text-sm text-slate-500">
-              Send the session amount and your bank payment details by email,
-              WhatsApp, or both.
+              Send the session amount and your bank payment details by email or
+              WhatsApp.
             </p>
             {booking.invoiceSentAt ? (
               <p className="mt-1 text-sm text-slate-500">

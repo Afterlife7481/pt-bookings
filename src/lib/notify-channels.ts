@@ -9,7 +9,8 @@ export type NotifyChannel = "email" | "whatsapp";
 /** Single preferred channel stored on the client profile. */
 export type PreferredNotifyChannel = NotifyChannel;
 
-export type InvoiceChannelChoice = "email" | "whatsapp" | "both";
+/** Single channel selected in the send picker (never both). */
+export type InvoiceChannelChoice = NotifyChannel;
 
 export function hasClientEmail(email: string | null | undefined): boolean {
   const trimmed = (email ?? "").trim();
@@ -45,35 +46,27 @@ export function parsePreferredNotifyChannel(
 }
 
 /**
- * Default invoice picker selection from the client's saved preference,
- * falling back when that channel isn't available yet.
+ * Default send-picker selection.
+ * Prefer email, then WhatsApp. When both contacts exist, use the client
+ * profile preference (profile default is email).
  */
 export function defaultInvoiceChoice(params: {
   preferred?: PreferredNotifyChannel | null;
   canEmail: boolean;
   canWhatsApp: boolean;
 }): InvoiceChannelChoice | null {
-  const preferred =
-    params.preferred === "email" || params.preferred === "whatsapp"
-      ? params.preferred
-      : null;
-
-  if (preferred === "email" && params.canEmail) return "email";
-  if (preferred === "whatsapp" && params.canWhatsApp) return "whatsapp";
+  if (!params.canEmail && !params.canWhatsApp) return null;
 
   if (params.canEmail && params.canWhatsApp) {
-    if (preferred === "email") return "whatsapp";
-    if (preferred === "whatsapp") return "email";
-    return "both";
+    return params.preferred === "whatsapp" ? "whatsapp" : "email";
   }
+
   if (params.canEmail) return "email";
-  if (params.canWhatsApp) return "whatsapp";
-  return null;
+  return "whatsapp";
 }
 
 export function channelsFromInvoiceChoice(
   choice: InvoiceChannelChoice,
 ): NotifyChannel[] {
-  if (choice === "both") return ["email", "whatsapp"];
   return [choice];
 }
