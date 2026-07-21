@@ -27,7 +27,6 @@ export default function SchedulePage() {
       onAddSlot={schedule.addScheduleSlot}
       onRemoveSlot={schedule.removeScheduleSlot}
       onAllocateSlot={schedule.allocateScheduleSlot}
-      onUpdateSlotLocation={schedule.updateScheduleSlotLocation}
       onUpdateSlot={schedule.updateScheduleSlot}
       onRefresh={schedule.refresh}
     />

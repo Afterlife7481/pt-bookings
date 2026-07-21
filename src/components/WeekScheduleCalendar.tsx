@@ -456,7 +456,6 @@ export function WeekScheduleCalendar({
   onAddSlot,
   onRemoveSlot,
   onAllocateSlot,
-  onUpdateSlotLocation,
   onUpdateSlot,
   onRefresh,
 }: {
@@ -484,10 +483,6 @@ export function WeekScheduleCalendar({
   ) => Promise<void> | void;
   onRemoveSlot?: (slotId: string) => Promise<void> | void;
   onAllocateSlot?: (slotId: string, clientId: string) => Promise<void> | void;
-  onUpdateSlotLocation?: (
-    slotId: string,
-    locationId: string,
-  ) => Promise<void> | void;
   onUpdateSlot?: (
     slotId: string,
     dayOfWeek: number,
@@ -656,25 +651,6 @@ export function WeekScheduleCalendar({
       );
       setEditingOpenSlot(false);
       setSelectedOpenSlot(null);
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function handleUpdateLocation(slotId: string, locationId: string) {
-    if (!onUpdateSlotLocation || busyKey) return;
-    setBusyKey(`location-${slotId}`);
-    try {
-      await onUpdateSlotLocation(slotId, locationId);
-      const loc = locations.find((l) => l.id === locationId);
-      setSelectedOpenSlot((prev) =>
-        prev && prev.slotId === slotId
-          ? {
-              ...prev,
-              location: loc ? { id: loc.id, name: loc.name } : null,
-            }
-          : prev,
-      );
     } finally {
       setBusyKey(null);
     }
@@ -857,11 +833,9 @@ export function WeekScheduleCalendar({
         <OpenSlotModal
           entry={selectedOpenSlot}
           clients={clients}
-          locations={locations}
           lockHours={lockHours}
           onAllocate={handleAllocate}
           onRemove={handleRemove}
-          onUpdateLocation={handleUpdateLocation}
           onEdit={onUpdateSlot ? () => setEditingOpenSlot(true) : undefined}
           onOfferSent={handleOfferSent}
           onClose={() => !busyKey && setSelectedOpenSlot(null)}

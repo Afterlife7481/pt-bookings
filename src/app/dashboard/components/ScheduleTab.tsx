@@ -35,7 +35,6 @@ export function ScheduleTab({
   onAddSlot,
   onRemoveSlot,
   onAllocateSlot,
-  onUpdateSlotLocation,
   onUpdateSlot,
   onRefresh,
 }: {
@@ -66,7 +65,6 @@ export function ScheduleTab({
   ) => Promise<void>;
   onRemoveSlot: (slotId: string) => Promise<void>;
   onAllocateSlot: (slotId: string, clientId: string) => Promise<void>;
-  onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
   onUpdateSlot: (
     slotId: string,
     dayOfWeek: number,
@@ -81,6 +79,7 @@ export function ScheduleTab({
   const [applyTemplateNotice, setApplyTemplateNotice] = useState<ApplyTemplateOutcome | null>(
     null,
   );
+  const [applyTemplateError, setApplyTemplateError] = useState<string | null>(null);
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
@@ -114,7 +113,10 @@ export function ScheduleTab({
               variant="secondary"
               className="shrink-0"
               disabled={applyingTemplate}
-              onClick={() => setApplyTemplateOpen(true)}
+              onClick={() => {
+                setApplyTemplateError(null);
+                setApplyTemplateOpen(true);
+              }}
             >
               {applyingTemplate ? "Applying…" : "Apply template"}
             </Button>
@@ -219,7 +221,6 @@ export function ScheduleTab({
           onAddSlot={onAddSlot}
           onRemoveSlot={onRemoveSlot}
           onAllocateSlot={onAllocateSlot}
-          onUpdateSlotLocation={onUpdateSlotLocation}
           onUpdateSlot={onUpdateSlot}
           onRefresh={onRefresh}
         />
@@ -233,7 +234,9 @@ export function ScheduleTab({
         <ApplyTemplateModal
           hasTemplate={hasTemplate}
           applying={applyingTemplate}
+          error={applyTemplateError}
           onApply={async () => {
+            setApplyTemplateError(null);
             const result = await onApplyTemplate();
             if (result.ok) {
               setApplyTemplateOpen(false);
@@ -242,9 +245,15 @@ export function ScheduleTab({
               } else {
                 setApplyTemplateNotice(null);
               }
+            } else {
+              setApplyTemplateError(result.error ?? "Failed to apply template");
             }
           }}
-          onClose={() => !applyingTemplate && setApplyTemplateOpen(false)}
+          onClose={() => {
+            if (applyingTemplate) return;
+            setApplyTemplateError(null);
+            setApplyTemplateOpen(false);
+          }}
         />
       )}
     </Card>
