@@ -3,7 +3,6 @@ import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
 import type { DashboardClient, TrainerLocation } from "../types";
-import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 import { useTrainerSettings } from "./useTrainerSettings";
 
 export type ApplyTemplateOutcome = {
@@ -345,29 +344,13 @@ export function useSchedulePage() {
   }
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
-    const client = clients.find((c) => c.id === clientId);
-    const phoneCheck = validateWhatsAppPhone(client?.phone);
-    const waOpen = phoneCheck.ok ? prepareWhatsAppOpen() : null;
-    let whatsappOpened = false;
-
-    try {
-      await runScheduleAction(async () => {
-        const result = await fetchJson<{
-          whatsappUrl?: string | null;
-        }>("/api/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "allocate", slotId, clientId }),
-        });
-        if (waOpen) {
-          waOpen.finish(result.whatsappUrl);
-          whatsappOpened = true;
-        }
-      }, { bannerError: false });
-    } catch (e) {
-      if (!whatsappOpened) waOpen?.finish(null);
-      throw e;
-    }
+    await runScheduleAction(async () => {
+      await fetchJson("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "allocate", slotId, clientId }),
+      });
+    }, { bannerError: false });
   }
 
   return {
