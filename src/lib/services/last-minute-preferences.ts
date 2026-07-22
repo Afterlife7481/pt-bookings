@@ -9,7 +9,7 @@ import {
   nowIso,
   isScheduleTimeAligned,
 } from "@/lib/constants";
-import { hasClientEmail } from "@/lib/notify-channels";
+import { hasClientEmail, canNotifyByWhatsApp, defaultInvoiceChoice } from "@/lib/notify-channels";
 import { getTrainerTemplateOverlay } from "./templates";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
 import {
@@ -25,7 +25,9 @@ export type PrunedLastMinuteClient = {
   clientId: string;
   clientName: string;
   email: string;
+  phone: string;
   token: string;
+  preferredNotifyChannel: "email" | "whatsapp";
   pruneNotify: boolean;
   removed: LastMinuteSlotRef[];
   remainingCount: number;
@@ -49,7 +51,9 @@ export async function pruneLastMinutePreferencesToTemplateSlots(
       startTime: clientLastMinutePreferences.startTime,
       clientName: clients.name,
       email: clients.email,
+      phone: clients.phone,
       token: clients.token,
+      preferredNotifyChannel: clients.preferredNotifyChannel,
       pruneNotify: clients.lastMinutePruneNotify,
     })
     .from(clientLastMinutePreferences)
@@ -116,7 +120,10 @@ export async function pruneLastMinutePreferencesToTemplateSlots(
       clientId: orphan.clientId,
       clientName: orphan.clientName,
       email: orphan.email,
+      phone: orphan.phone,
       token: orphan.token,
+      preferredNotifyChannel:
+        orphan.preferredNotifyChannel === "whatsapp" ? "whatsapp" : "email",
       pruneNotify: orphan.pruneNotify,
       removed: [
         { dayOfWeek: orphan.dayOfWeek, startTime: orphan.startTime },
@@ -133,14 +140,39 @@ export async function pruneLastMinutePreferencesToTemplateSlots(
 }
 
 export async function notifyClientsOfLastMinutePrune(
+  trainerId: string,
   prunedClients: PrunedLastMinuteClient[],
 ): Promise<void> {
   const { sendLastMinutePruneEmail } = await import("@/lib/email");
+  const { sendLastMinutePruneWhatsApp } = await import("@/lib/whatsapp");
+
   for (const client of prunedClients) {
-    if (!client.pruneNotify || !hasClientEmail(client.email)) continue;
+    if (!client.pruneNotify) continue;
     if (client.removed.length === 0) continue;
-    await sendLastMinutePruneEmail({
-      to: client.email,
+
+    const channel = defaultInvoiceChoice({
+      preferred: client.preferredNotifyChannel,
+      canEmail: hasClientEmail(client.email),
+      canWhatsApp: canNotifyByWhatsApp(client.phone),
+    });
+    if (!channel) continue;
+
+    if (channel === "email") {
+      await sendLastMinutePruneEmail({
+        trainerId,
+        to: client.email,
+        clientName: client.clientName,
+        clientToken: client.token,
+        removed: client.removed,
+        optedOut: client.optedOut,
+      });
+      continue;
+    }
+
+    await sendLastMinutePruneWhatsApp({
+      trainerId,
+      clientId: client.clientId,
+      phone: client.phone,
       clientName: client.clientName,
       clientToken: client.token,
       removed: client.removed,

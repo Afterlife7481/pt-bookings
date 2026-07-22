@@ -223,9 +223,7 @@ export async function createClient(params: {
 
   let preferredNotifyChannel = params.preferredNotifyChannel
     ? parsePreferredNotifyChannel(params.preferredNotifyChannel)
-    : phone
-      ? "whatsapp"
-      : "email";
+    : "email";
   if (preferredNotifyChannel === "whatsapp" && !phone && hasClientEmail(email)) {
     preferredNotifyChannel = "email";
   } else if (

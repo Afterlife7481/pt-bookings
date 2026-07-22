@@ -16,6 +16,7 @@ import {
 import { whatsappClickToChatUrl } from "@/lib/whatsapp-link";
 import type { NotifyChannel } from "@/lib/notify-channels";
 import { sendEmail } from "@/lib/email";
+import { renderTrainerMessageTemplate } from "@/lib/services/message-templates";
 
 export type WhatsAppDraft = {
   phone: string;
@@ -35,7 +36,8 @@ type WhatsAppMessageType =
   | "session_canceled"
   | "session_changed"
   | "template_conflict"
-  | "portal_link";
+  | "portal_link"
+  | "last_minute_prune";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -71,28 +73,54 @@ async function logWhatsAppMessage(params: {
   return { phone: params.phone, body: params.body, sendUrl, channel };
 }
 
-export function buildInvoiceMessageBody(params: {
+function lockHoursLabel(lockHours: number): string {
+  return `${lockHours} hour${lockHours === 1 ? "" : "s"}`;
+}
+
+export async function buildInvoiceMessageBody(params: {
+  trainerId: string;
   clientName: string;
   slotStartAt: string;
   slotEndAt?: string | null;
   amountPence: number;
   currency?: string;
   paymentDetails: PaymentDetailsForMessage;
-}): string {
+}): Promise<string> {
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
   const amount = formatInvoiceAmount(params.amountPence, params.currency);
-  const paymentLines = formatPaymentOptionsText(params.paymentDetails);
-  return `Hi ${params.clientName}, please pay ${amount} for your PT session on ${sessionLabel}.\n\n${paymentLines}`;
+  const paymentDetails = formatPaymentOptionsText(params.paymentDetails);
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "invoice_whatsapp",
+    {
+      clientName: params.clientName,
+      amount,
+      slotLabel: sessionLabel,
+      paymentDetails,
+    },
+  );
+  return body;
 }
 
-export function buildConfirmationMessageBody(params: {
+export async function buildConfirmationMessageBody(params: {
+  trainerId: string;
   clientName: string;
   bookingToken: string;
   slotStartAt: string;
   slotEndAt?: string | null;
-}): string {
+}): Promise<string> {
   const link = bookingUrl(params.bookingToken);
-  return `Hi ${params.clientName}, your PT session is booked for ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. View details and manage your booking: ${link}`;
+  const slotLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "confirmation_whatsapp",
+    {
+      clientName: params.clientName,
+      slotLabel,
+      bookingUrl: link,
+    },
+  );
+  return body;
 }
 
 export async function sendWhatsAppConfirmation(params: {
@@ -104,7 +132,7 @@ export async function sendWhatsAppConfirmation(params: {
   slotEndAt?: string | null;
   clientName: string;
 }): Promise<WhatsAppDraft> {
-  const body = buildConfirmationMessageBody(params);
+  const body = await buildConfirmationMessageBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -128,10 +156,19 @@ export async function sendConfirmationEmail(params: {
   clientName: string;
   replyTo?: string | null;
 }): Promise<WhatsAppDraft> {
-  const body = buildConfirmationMessageBody(params);
-  const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
   const link = bookingUrl(params.bookingToken);
-  const subject = `Your PT session on ${sessionLabel}`;
+  const slotLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "confirmation_email",
+    {
+      clientName: params.clientName,
+      slotLabel,
+      bookingUrl: link,
+    },
+  );
+  const body = rendered.body;
+  const subject = rendered.subject ?? `Your PT session on ${slotLabel}`;
 
   const html = `<!doctype html>
 <html>
@@ -172,15 +209,26 @@ export async function sendConfirmationEmail(params: {
   });
 }
 
-export function buildLastMinuteOfferBody(params: {
+export async function buildLastMinuteOfferBody(params: {
+  trainerId: string;
   clientName: string;
   offerToken: string;
   slotStartAt: string;
   slotEndAt?: string | null;
   lockHours: number;
-}): string {
+}): Promise<string> {
   const link = interestUrl(params.offerToken);
-  return `Hi ${params.clientName}, a last-minute slot opened: ${formatSlotLabel(params.slotStartAt, params.slotEndAt)}. You have ${params.lockHours} hour${params.lockHours === 1 ? "" : "s"} to accept or decline. View offer: ${link}`;
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "last_minute_whatsapp",
+    {
+      clientName: params.clientName,
+      slotLabel: formatSlotLabel(params.slotStartAt, params.slotEndAt),
+      lockHoursLabel: lockHoursLabel(params.lockHours),
+      offerUrl: link,
+    },
+  );
+  return body;
 }
 
 export async function sendWhatsAppLastMinute(params: {
@@ -193,7 +241,7 @@ export async function sendWhatsAppLastMinute(params: {
   clientName: string;
   lockHours: number;
 }): Promise<WhatsAppDraft> {
-  const body = buildLastMinuteOfferBody(params);
+  const body = await buildLastMinuteOfferBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -218,9 +266,21 @@ export async function sendLastMinuteEmail(params: {
   lockHours: number;
   replyTo?: string | null;
 }): Promise<WhatsAppDraft> {
-  const body = buildLastMinuteOfferBody(params);
+  const link = interestUrl(params.offerToken);
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
-  const subject = `Last-minute PT slot available: ${sessionLabel}`;
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "last_minute_email",
+    {
+      clientName: params.clientName,
+      slotLabel: sessionLabel,
+      lockHoursLabel: lockHoursLabel(params.lockHours),
+      offerUrl: link,
+    },
+  );
+  const body = rendered.body;
+  const subject =
+    rendered.subject ?? `Last-minute PT slot available: ${sessionLabel}`;
 
   const html = `<!doctype html>
 <html>
@@ -357,7 +417,7 @@ export async function sendWhatsAppInvoice(params: {
   currency?: string;
   paymentDetails: PaymentDetailsForMessage;
 }): Promise<WhatsAppDraft> {
-  const body = buildInvoiceMessageBody(params);
+  const body = await buildInvoiceMessageBody(params);
 
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
@@ -383,10 +443,22 @@ export async function sendInvoiceEmail(params: {
   paymentDetails: PaymentDetailsForMessage;
   replyTo?: string | null;
 }): Promise<WhatsAppDraft> {
-  const body = buildInvoiceMessageBody(params);
   const sessionLabel = formatSlotLabel(params.slotStartAt, params.slotEndAt);
   const amount = formatInvoiceAmount(params.amountPence, params.currency);
-  const subject = `Invoice for your PT session on ${sessionLabel}`;
+  const paymentDetails = formatPaymentOptionsText(params.paymentDetails);
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "invoice_email",
+    {
+      clientName: params.clientName,
+      amount,
+      slotLabel: sessionLabel,
+      paymentDetails,
+    },
+  );
+  const body = rendered.body;
+  const subject =
+    rendered.subject ?? `Invoice for your PT session on ${sessionLabel}`;
 
   const html = `<!doctype html>
 <html>
@@ -451,14 +523,88 @@ export async function sendWhatsAppTemplateConflictToClient(params: {
     phone: params.phone,
     messageType: "template_conflict",
     body: params.body,
+    channel: "whatsapp",
   });
 }
 
-export function buildPortalLinkMessageBody(params: {
+export async function sendTemplateConflictEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  clientName: string;
+  slotLabel: string;
+  reason: string;
+  conflictUrl: string;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "template_conflict_email",
+    {
+      clientName: params.clientName,
+      slotLabel: params.slotLabel,
+      reason: params.reason,
+      conflictUrl: params.conflictUrl,
+    },
+  );
+  const body = rendered.body;
+  const subject =
+    rendered.subject ??
+    `Your PT session on ${params.slotLabel} cannot be booked`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">Schedule clash</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeHtml(params.conflictUrl)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+            Confirm received
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Conflict email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "template_conflict",
+    body,
+    channel: "email",
+  });
+}
+
+export async function buildPortalLinkMessageBody(params: {
+  trainerId: string;
   clientName: string;
   portalUrl: string;
-}): string {
-  return `Hi ${params.clientName}, here is your personal training portal link. You can view sessions, book, and manage your bookings here: ${params.portalUrl}`;
+}): Promise<string> {
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "portal_link_whatsapp",
+    {
+      clientName: params.clientName,
+      portalUrl: params.portalUrl,
+    },
+  );
+  return body;
 }
 
 export async function sendWhatsAppPortalLink(params: {
@@ -468,7 +614,7 @@ export async function sendWhatsAppPortalLink(params: {
   clientName: string;
   portalUrl: string;
 }): Promise<WhatsAppDraft> {
-  const body = buildPortalLinkMessageBody(params);
+  const body = await buildPortalLinkMessageBody(params);
   console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
 
   return logWhatsAppMessage({
@@ -489,8 +635,16 @@ export async function sendPortalLinkEmail(params: {
   portalUrl: string;
   replyTo?: string | null;
 }): Promise<WhatsAppDraft> {
-  const body = buildPortalLinkMessageBody(params);
-  const subject = "Your personal training portal link";
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "portal_link_email",
+    {
+      clientName: params.clientName,
+      portalUrl: params.portalUrl,
+    },
+  );
+  const body = rendered.body;
+  const subject = rendered.subject ?? "Your personal training portal link";
 
   const html = `<!doctype html>
 <html>
@@ -528,6 +682,47 @@ export async function sendPortalLinkEmail(params: {
     messageType: "portal_link",
     body,
     channel: "email",
+  });
+}
+
+export async function sendLastMinutePruneWhatsApp(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  clientToken: string;
+  removed: Array<{ dayOfWeek: number; startTime: string }>;
+  optedOut: boolean;
+}): Promise<WhatsAppDraft> {
+  const { dayOfWeekLabel } = await import("@/lib/schedule-grid");
+  const { appBaseUrl } = await import("@/lib/constants");
+  const prefsUrl = `${appBaseUrl()}/c/${params.clientToken}/last-minute`;
+  const removedSlots = params.removed
+    .map((slot) => `• ${dayOfWeekLabel(slot.dayOfWeek)} ${slot.startTime}`)
+    .join("\n");
+  const statusNote = params.optedOut
+    ? "You no longer have any last-minute selections, so you have been opted out."
+    : "Your remaining selections are unchanged.";
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "last_minute_prune_whatsapp",
+    {
+      clientName: params.clientName,
+      removedSlots,
+      statusNote,
+      prefsUrl,
+    },
+  );
+
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "last_minute_prune",
+    body,
+    channel: "whatsapp",
   });
 }
 

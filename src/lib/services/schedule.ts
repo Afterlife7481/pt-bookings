@@ -23,6 +23,7 @@ import {
   parseTimeOnDate,
   slotDayOfWeek,
   slotTimeLabel,
+  startOfWeekMonday,
   toLocalDateTimeString,
 } from "@/lib/constants";
 import { createBookingForSlot } from "./bookings";
@@ -407,6 +408,122 @@ export async function updateScheduleSlotLocation(
     .update(slots)
     .set({ locationId })
     .where(eq(slots.id, slotId));
+}
+
+export async function updateScheduleSlot(
+  trainerId: string,
+  slotId: string,
+  updates: {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    locationId: string;
+  },
+): Promise<{ recurringBooked: boolean }> {
+  const db = getDb();
+  await assertTrainerLocation(trainerId, updates.locationId);
+  assertValidScheduleSlotTimes(updates.startTime, updates.endTime);
+
+  const slot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!slot) throw new Error("Slot not found");
+  if (slot.status !== "available") {
+    throw new Error("Only open slots can be edited. Cancel the booking first.");
+  }
+
+  const booking = await db.query.bookings.findFirst({
+    where: eq(bookings.slotId, slotId),
+  });
+  if (booking && !isInactiveBookingStatus(booking.status)) {
+    throw new Error("This slot has a booking and cannot be edited.");
+  }
+
+  await clearExpiredSlotHolds(trainerId);
+
+  const refreshedSlot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.trainerId, trainerId)),
+  });
+  if (!refreshedSlot) throw new Error("Slot not found");
+
+  const activeOffer = await db.query.lastMinuteInterests.findFirst({
+    where: and(
+      eq(lastMinuteInterests.slotId, slotId),
+      eq(lastMinuteInterests.status, "offered"),
+    ),
+  });
+  if (activeOffer || refreshedSlot.heldForClientId) {
+    throw new Error(
+      "Cannot edit this slot while a last-minute offer is active. Wait for the offer to expire or for the client to respond.",
+    );
+  }
+
+  const weekStart = formatDate(startOfWeekMonday(parseDateOnly(slot.startAt.slice(0, 10))));
+  const weekDate = parseDateOnly(weekStart);
+  const slotDate = addDays(
+    weekDate,
+    (updates.dayOfWeek - weekDate.getDay() + 7) % 7,
+  );
+  const startAt = parseTimeOnDate(formatDate(slotDate), updates.startTime);
+  const endAt = parseTimeOnDate(formatDate(slotDate), updates.endTime);
+  const startAtStr = toLocalDateTimeString(startAt);
+  const endAtStr = toLocalDateTimeString(endAt);
+
+  const holidays = await listHolidaysOverlappingRange(
+    trainerId,
+    `${formatDate(slotDate)}T00:00:00`,
+    `${formatDate(addDays(slotDate, 1))}T00:00:00`,
+  );
+  assertSlotNotDuringHoliday(startAtStr, endAtStr, holidays);
+
+  const existing = await db.query.slots.findFirst({
+    where: and(
+      eq(slots.trainerId, trainerId),
+      eq(slots.startAt, startAtStr),
+      ne(slots.id, slotId),
+    ),
+  });
+  if (existing) {
+    throw new Error("A slot already exists at this time.");
+  }
+
+  await assertNoOverlappingSlot(trainerId, startAtStr, endAtStr, slotId);
+
+  await db
+    .update(slots)
+    .set({
+      startAt: startAtStr,
+      endAt: endAtStr,
+      locationId: updates.locationId,
+    })
+    .where(eq(slots.id, slotId));
+
+  let recurringBooked = false;
+  const prefs = await db
+    .select()
+    .from(recurringPreferences)
+    .where(eq(recurringPreferences.trainerId, trainerId));
+
+  for (const pref of prefs) {
+    if (
+      slotDayOfWeek(startAtStr) !== pref.dayOfWeek ||
+      slotTimeLabel(startAtStr) !== pref.startTime
+    ) {
+      continue;
+    }
+
+    await createBookingForSlot({
+      slotId,
+      clientId: pref.clientId,
+      trainerId: pref.trainerId,
+      isRecurring: true,
+      sendConfirmation: false,
+    });
+    recurringBooked = true;
+    break;
+  }
+
+  return { recurringBooked };
 }
 
 export async function removeScheduleSlot(

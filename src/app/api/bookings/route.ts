@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         clientId: body.clientId,
         trainerId,
         isRecurring: false,
-        sendConfirmation: true,
+        sendConfirmation: false,
         locationValidation: "trainer",
       });
       return Response.json(result);

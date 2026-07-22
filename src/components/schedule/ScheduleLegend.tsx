@@ -1,46 +1,62 @@
 import { cn } from "@/lib/utils";
 
 export function ScheduleLegend({ className }: { className?: string }) {
-  const items = [
-    {
-      swatch: "border border-sky-200 bg-sky-100",
-      label: "Booked slot",
-    },
-    {
-      swatch: "border-2 border-sky-500 bg-sky-100",
-      label: "Recurring booked",
-    },
-    { swatch: "border border-green-200 bg-green-50", label: "Open slot" },
-    {
-      swatch: "border-2 border-green-500 bg-green-50",
-      label: "Open slot with last-minute match",
-    },
-    {
-      swatch: "border border-purple-400 bg-purple-600",
-      label: "Locked offer",
-    },
-    {
-      swatch: "past-day-hatch border border-red-200",
-      label: "Past day",
-    },
-    {
-      swatch: "holiday-hatch border border-slate-300",
-      label: "Time off (blocked slots)",
-    },
-  ] as const;
+  const rows: {
+    swatch: string;
+    label: string;
+    marker?: string;
+  }[][] = [
+    [
+      {
+        swatch: "border border-sky-200 bg-sky-100",
+        label: "Booked slot",
+      },
+      {
+        swatch: "relative border border-sky-200 bg-sky-100",
+        marker: "R",
+        label: "Recurring slot",
+      },
+    ],
+    [
+      { swatch: "border border-green-200 bg-green-50", label: "Open slot" },
+      {
+        swatch: "border-2 border-green-500 bg-green-50",
+        label: "Open slot with match",
+      },
+    ],
+    [
+      {
+        swatch: "border border-purple-400 bg-purple-600",
+        label: "Locked slot",
+      },
+      {
+        swatch: "past-day-hatch border border-red-200",
+        label: "Past day",
+      },
+      {
+        swatch: "holiday-hatch border border-slate-300",
+        label: "Time off",
+      },
+    ],
+  ];
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600",
-        className,
-      )}
-    >
-      {items.map((item) => (
-        <span key={item.label} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-3 w-3 shrink-0 rounded", item.swatch)} />
-          {item.label}
-        </span>
+    <div className={cn("space-y-2 text-xs text-slate-600", className)}>
+      {rows.map((row) => (
+        <div key={row.map((item) => item.label).join("|")} className="flex flex-wrap gap-x-4 gap-y-2">
+          {row.map((item) => (
+            <span key={item.label} className="inline-flex items-center gap-1.5">
+              <span className={cn("relative h-3 w-3 shrink-0 rounded", item.swatch)}>
+                {item.marker ? (
+                  <span className="absolute right-px top-px text-[6px] font-semibold leading-none text-sky-700">
+                    {item.marker}
+                  </span>
+                ) : null}
+              </span>
+              {item.label}
+            </span>
+          ))}
+        </div>
       ))}
     </div>
   );

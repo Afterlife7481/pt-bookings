@@ -91,19 +91,10 @@ export default function ClientSettingsPage() {
               Communication preference
             </legend>
             <p className="text-xs text-slate-500">
-              Used as the default when sending invoices and portal links. You
-              can still choose the other channel (or both) each time.
+              Used as the default when sending invoices and confirmations. You
+              can still choose the other channel each time.
             </p>
             <div className="flex flex-wrap gap-4">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="preferred-notify-channel"
-                  checked={preferredNotifyChannel === "whatsapp"}
-                  onChange={() => setPreferredNotifyChannel("whatsapp")}
-                />
-                <span>WhatsApp</span>
-              </label>
               <label className="inline-flex items-center gap-2">
                 <input
                   type="radio"
@@ -112,6 +103,15 @@ export default function ClientSettingsPage() {
                   onChange={() => setPreferredNotifyChannel("email")}
                 />
                 <span>Email</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "whatsapp"}
+                  onChange={() => setPreferredNotifyChannel("whatsapp")}
+                />
+                <span>WhatsApp</span>
               </label>
             </div>
           </fieldset>

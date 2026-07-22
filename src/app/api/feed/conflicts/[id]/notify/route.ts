@@ -3,7 +3,7 @@ import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { notifyClientOfScheduleConflict } from "@/lib/services/template-conflicts";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   await ensureDb();
@@ -11,9 +11,14 @@ export async function POST(
   if (!trainerId) return unauthorizedResponse();
 
   const { id } = await params;
+  const body = await request.json().catch(() => ({}));
 
   try {
-    const result = await notifyClientOfScheduleConflict(id, trainerId);
+    const result = await notifyClientOfScheduleConflict(
+      id,
+      trainerId,
+      body.channels,
+    );
     return Response.json(result);
   } catch (error) {
     const message =

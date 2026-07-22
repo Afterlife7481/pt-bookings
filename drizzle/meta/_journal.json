@@ -134,6 +134,27 @@
       "when": 1784500000000,
       "tag": "0018_trainer_otp",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784600000000,
+      "tag": "0019_invitations_viewed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784700000000,
+      "tag": "0020_preferred_notify_email_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784800000000,
+      "tag": "0021_message_templates",
+      "breakpoints": true
     }
   ]
 }

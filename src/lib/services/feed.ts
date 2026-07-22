@@ -30,6 +30,9 @@ export type FeedEntry = {
     id: string;
     status: "open" | "notified" | "acknowledged";
     canNotify: boolean;
+    clientEmail: string;
+    clientPhone: string;
+    preferredNotifyChannel: "email" | "whatsapp";
   };
   whatsapp?: {
     id: string;
@@ -51,6 +54,7 @@ const TRAINER_SENT_WHATSAPP_TYPES = new Set([
   "invoice",
   "template_conflict",
   "portal_link",
+  "last_minute_prune",
 ]);
 
 export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
@@ -61,7 +65,13 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
 
   const entries: FeedEntry[] = [];
 
-  for (const { alert, clientName } of alerts) {
+  for (const {
+    alert,
+    clientName,
+    clientEmail,
+    clientPhone,
+    preferredNotifyChannel,
+  } of alerts) {
     const acknowledged = alert.status === "acknowledged";
     entries.push({
       id: `conflict-${alert.id}`,
@@ -88,6 +98,10 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
         id: alert.id,
         status: alert.status,
         canNotify: !acknowledged,
+        clientEmail,
+        clientPhone,
+        preferredNotifyChannel:
+          preferredNotifyChannel === "whatsapp" ? "whatsapp" : "email",
       },
     });
   }
@@ -214,5 +228,8 @@ function feedTitleForMessage(
   if (messageType === "interest_ack") return "Interest acknowledgement";
   if (messageType === "invoice") return `Invoice${via}`;
   if (messageType === "portal_link") return `Portal link${via}`;
+  if (messageType === "last_minute_prune") {
+    return `Last-minute preferences updated${via}`;
+  }
   return messageType;
 }

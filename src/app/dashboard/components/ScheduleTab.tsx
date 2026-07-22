@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, Card, InlineNotice } from "@/components/ui";
+import { Button, InlineNotice } from "@/components/ui";
 import {
   ScheduleViewToggle,
   type ScheduleView,
@@ -35,7 +35,7 @@ export function ScheduleTab({
   onAddSlot,
   onRemoveSlot,
   onAllocateSlot,
-  onUpdateSlotLocation,
+  onUpdateSlot,
   onRefresh,
 }: {
   settings: TrainerSettings | null;
@@ -65,7 +65,13 @@ export function ScheduleTab({
   ) => Promise<void>;
   onRemoveSlot: (slotId: string) => Promise<void>;
   onAllocateSlot: (slotId: string, clientId: string) => Promise<void>;
-  onUpdateSlotLocation: (slotId: string, locationId: string) => Promise<void>;
+  onUpdateSlot: (
+    slotId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    locationId: string,
+  ) => Promise<void>;
   onRefresh: () => void;
 }) {
   const [viewMode, setViewMode] = useState<ScheduleView>("day");
@@ -73,10 +79,21 @@ export function ScheduleTab({
   const [applyTemplateNotice, setApplyTemplateNotice] = useState<ApplyTemplateOutcome | null>(
     null,
   );
+  const [applyTemplateError, setApplyTemplateError] = useState<string | null>(null);
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
-    if (settings && !appliedDefaultView.current) {
+    if (appliedDefaultView.current) return;
+
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    // Desktop always opens in week view; smaller screens use the trainer setting.
+    if (isDesktop) {
+      setViewMode("week");
+      appliedDefaultView.current = true;
+      return;
+    }
+
+    if (settings) {
       setViewMode(settings.scheduleDefaultView);
       appliedDefaultView.current = true;
     }
@@ -86,8 +103,8 @@ export function ScheduleTab({
   const canApplyTemplate = !scheduleEntries.some((entry) => entry.booking);
 
   return (
-    <Card className="!p-0">
-      <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <h2 className="font-semibold">Weekly schedule</h2>
         <div className="flex flex-wrap items-center gap-2">
           <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
@@ -96,7 +113,10 @@ export function ScheduleTab({
               variant="secondary"
               className="shrink-0"
               disabled={applyingTemplate}
-              onClick={() => setApplyTemplateOpen(true)}
+              onClick={() => {
+                setApplyTemplateError(null);
+                setApplyTemplateOpen(true);
+              }}
             >
               {applyingTemplate ? "Applying…" : "Apply template"}
             </Button>
@@ -201,20 +221,20 @@ export function ScheduleTab({
           onAddSlot={onAddSlot}
           onRemoveSlot={onRemoveSlot}
           onAllocateSlot={onAllocateSlot}
-          onUpdateSlotLocation={onUpdateSlotLocation}
+          onUpdateSlot={onUpdateSlot}
           onRefresh={onRefresh}
         />
       ) : (
-        <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
-          Loading schedule…
-        </p>
+        <p className="text-sm text-slate-500">Loading schedule…</p>
       )}
 
       {applyTemplateOpen && (
         <ApplyTemplateModal
           hasTemplate={hasTemplate}
           applying={applyingTemplate}
+          error={applyTemplateError}
           onApply={async () => {
+            setApplyTemplateError(null);
             const result = await onApplyTemplate();
             if (result.ok) {
               setApplyTemplateOpen(false);
@@ -223,11 +243,17 @@ export function ScheduleTab({
               } else {
                 setApplyTemplateNotice(null);
               }
+            } else {
+              setApplyTemplateError(result.error ?? "Failed to apply template");
             }
           }}
-          onClose={() => !applyingTemplate && setApplyTemplateOpen(false)}
+          onClose={() => {
+            if (applyingTemplate) return;
+            setApplyTemplateError(null);
+            setApplyTemplateOpen(false);
+          }}
         />
       )}
-    </Card>
+    </div>
   );
 }

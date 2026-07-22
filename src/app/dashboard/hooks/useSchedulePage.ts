@@ -3,7 +3,6 @@ import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import { defaultWeekStart, shiftWeekStart } from "@/lib/schedule-utils";
 import type { ScheduleEntry, ScheduleHoliday } from "@/lib/services/schedule";
 import type { DashboardClient, TrainerLocation } from "../types";
-import { prepareWhatsAppOpen, validateWhatsAppPhone } from "@/lib/whatsapp-link";
 import { useTrainerSettings } from "./useTrainerSettings";
 
 export type ApplyTemplateOutcome = {
@@ -11,6 +10,7 @@ export type ApplyTemplateOutcome = {
   conflicts: string[];
   recommendations: string[];
   slotsCreated: number;
+  error?: string;
 };
 
 export type CachedWeekSchedule = {
@@ -227,7 +227,11 @@ export function useSchedulePage() {
     selectWeek(nextWeekStart);
   }
 
-  async function runScheduleAction(action: () => Promise<void>) {
+  async function runScheduleAction(
+    action: () => Promise<void>,
+    options?: { bannerError?: boolean },
+  ) {
+    const bannerError = options?.bannerError !== false;
     setScheduleError(null);
     try {
       await action();
@@ -235,7 +239,9 @@ export function useSchedulePage() {
     } catch (e) {
       const message =
         e instanceof ApiError ? e.message : "Something went wrong";
-      setScheduleError(message);
+      if (bannerError) {
+        setScheduleError(message);
+      }
       throw e instanceof Error ? e : new Error(message);
     }
   }
@@ -264,14 +270,12 @@ export function useSchedulePage() {
         slotsCreated: result.slotsCreated ?? 0,
       };
     } catch (e) {
-      setScheduleError(
-        e instanceof ApiError ? e.message : "Failed to apply template",
-      );
       return {
         ok: false,
         conflicts: [],
         recommendations: [],
         slotsCreated: 0,
+        error: e instanceof ApiError ? e.message : "Failed to apply template",
       };
     } finally {
       setApplyingTemplate(false);
@@ -296,7 +300,7 @@ export function useSchedulePage() {
           locationId,
         }),
       });
-    });
+    }, { bannerError: false });
   }
 
   async function updateScheduleSlotLocation(slotId: string, locationId: string) {
@@ -306,7 +310,29 @@ export function useSchedulePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slotId, locationId }),
       });
-    });
+    }, { bannerError: false });
+  }
+
+  async function updateScheduleSlot(
+    slotId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    locationId: string,
+  ) {
+    await runScheduleAction(async () => {
+      await fetchJson("/api/schedule/slots", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          locationId,
+        }),
+      });
+    }, { bannerError: false });
   }
 
   async function removeScheduleSlot(slotId: string) {
@@ -314,33 +340,17 @@ export function useSchedulePage() {
       await fetchJson(`/api/schedule/slots?slotId=${slotId}`, {
         method: "DELETE",
       });
-    });
+    }, { bannerError: false });
   }
 
   async function allocateScheduleSlot(slotId: string, clientId: string) {
-    const client = clients.find((c) => c.id === clientId);
-    const phoneCheck = validateWhatsAppPhone(client?.phone);
-    const waOpen = phoneCheck.ok ? prepareWhatsAppOpen() : null;
-    let whatsappOpened = false;
-
-    try {
-      await runScheduleAction(async () => {
-        const result = await fetchJson<{
-          whatsappUrl?: string | null;
-        }>("/api/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "allocate", slotId, clientId }),
-        });
-        if (waOpen) {
-          waOpen.finish(result.whatsappUrl);
-          whatsappOpened = true;
-        }
+    await runScheduleAction(async () => {
+      await fetchJson("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "allocate", slotId, clientId }),
       });
-    } catch (e) {
-      if (!whatsappOpened) waOpen?.finish(null);
-      throw e;
-    }
+    }, { bannerError: false });
   }
 
   return {
@@ -363,6 +373,7 @@ export function useSchedulePage() {
     applyTemplateToCurrentWeek,
     addScheduleSlot,
     updateScheduleSlotLocation,
+    updateScheduleSlot,
     removeScheduleSlot,
     allocateScheduleSlot,
   };

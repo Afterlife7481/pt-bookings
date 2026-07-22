@@ -27,17 +27,23 @@ export type ScheduleClientOption = {
 export type ScheduleLocationOption = { id: string; name: string };
 
 export function AddSlotModal({
+  mode = "add",
   weekStart,
   dayOfWeek: initialDayOfWeek,
   startTime: initialStartTime,
+  endTime: initialEndTime,
+  locationId: initialLocationId,
   locations,
   onConfirm,
   onClose,
   busy,
 }: {
+  mode?: "add" | "edit";
   weekStart: string;
   dayOfWeek: number;
   startTime: string;
+  endTime?: string;
+  locationId?: string;
   locations: ScheduleLocationOption[];
   onConfirm: (
     locationId: string,
@@ -50,21 +56,33 @@ export function AddSlotModal({
 }) {
   const [dayOfWeek, setDayOfWeek] = useState(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
-  const [endTime, setEndTime] = useState(defaultSlotEndTime(initialStartTime));
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  const [endTime, setEndTime] = useState(
+    initialEndTime ?? defaultSlotEndTime(initialStartTime),
+  );
+  const [locationId, setLocationId] = useState(
+    initialLocationId ?? locations[0]?.id ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const slotDate = formatDate(dateForWeekDay(weekStart, dayOfWeek));
   const slotLabel = formatSlotLabel(
     `${slotDate}T${startTime}:00`,
     `${slotDate}T${endTime}:00`,
   );
+  const isEdit = mode === "edit";
 
   useEffect(() => {
     setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
-    setEndTime(defaultSlotEndTime(initialStartTime));
+    setEndTime(initialEndTime ?? defaultSlotEndTime(initialStartTime));
+    setLocationId(initialLocationId ?? locations[0]?.id ?? "");
     setError(null);
-  }, [initialDayOfWeek, initialStartTime]);
+  }, [
+    initialDayOfWeek,
+    initialStartTime,
+    initialEndTime,
+    initialLocationId,
+    locations,
+  ]);
 
   const durationMinutes =
     startTime && endTime ? slotDurationMinutes(startTime, endTime) : null;
@@ -79,7 +97,13 @@ export function AddSlotModal({
       setError(null);
       void onConfirm(locationId, endTime, startTime, dayOfWeek).catch(
         (e: unknown) => {
-          setError(e instanceof Error ? e.message : "Failed to add slot");
+          setError(
+            e instanceof Error
+              ? e.message
+              : isEdit
+                ? "Failed to update slot"
+                : "Failed to add slot",
+          );
         },
       );
     } catch (e) {
@@ -89,7 +113,7 @@ export function AddSlotModal({
 
   return (
     <SheetModal
-      title="Add open slot"
+      title={isEdit ? "Edit open slot" : "Add open slot"}
       subtitle={slotLabel}
       onClose={onClose}
       footer={
@@ -98,7 +122,13 @@ export function AddSlotModal({
           disabled={!locationId || !durationValid || busy}
           onClick={handleConfirm}
         >
-          {busy ? "Adding…" : "Add slot"}
+          {busy
+            ? isEdit
+              ? "Saving…"
+              : "Adding…"
+            : isEdit
+              ? "Save changes"
+              : "Add slot"}
         </Button>
       }
     >
@@ -167,37 +197,52 @@ export function AddSlotModal({
 export function OpenSlotModal({
   entry,
   clients,
-  locations,
   lockHours,
   onAllocate,
   onRemove,
-  onUpdateLocation,
+  onEdit,
   onOfferSent,
   onClose,
   busy,
 }: {
   entry: ScheduleEntry;
   clients: ScheduleClientOption[];
-  locations: ScheduleLocationOption[];
   lockHours: number;
   onAllocate: (slotId: string, clientId: string) => Promise<void>;
   onRemove: (slotId: string) => Promise<void>;
-  onUpdateLocation: (slotId: string, locationId: string) => Promise<void>;
+  onEdit?: () => void;
   onOfferSent: () => void | Promise<void>;
   onClose: () => void;
   busy: boolean;
 }) {
   const [clientId, setClientId] = useState("");
-  const [locationId, setLocationId] = useState(entry.location?.id ?? locations[0]?.id ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const locationId = entry.location?.id ?? "";
 
   useEffect(() => {
     setClientId("");
-    setLocationId(entry.location?.id ?? locations[0]?.id ?? "");
-  }, [entry.slotId, entry.location?.id, locations]);
+    setError(null);
+  }, [entry.slotId]);
 
-  async function saveLocation(nextLocationId: string) {
-    if (!nextLocationId || nextLocationId === entry.location?.id) return;
-    await onUpdateLocation(entry.slotId, nextLocationId);
+  async function handleAllocate(nextClientId: string) {
+    if (!nextClientId) return;
+    setError(null);
+    setClientId(nextClientId);
+    try {
+      await onAllocate(entry.slotId, nextClientId);
+    } catch (e) {
+      setClientId("");
+      setError(e instanceof Error ? e.message : "Failed to allocate slot");
+    }
+  }
+
+  async function handleRemove() {
+    setError(null);
+    try {
+      await onRemove(entry.slotId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove slot");
+    }
   }
 
   const offerActive = hasActiveLastMinuteOffer(entry.lastMinute);
@@ -209,14 +254,6 @@ export function OpenSlotModal({
 
   const eligibleClients = clients.filter(clientCanUseSlotLocation);
 
-  useEffect(() => {
-    if (!clientId || !locationId) return;
-    const selected = clients.find((client) => client.id === clientId);
-    if (selected && !selected.enabledLocationIds.includes(locationId)) {
-      setClientId("");
-    }
-  }, [clientId, clients, locationId]);
-
   return (
     <SheetModal
       title="Open slot"
@@ -224,25 +261,21 @@ export function OpenSlotModal({
       onClose={onClose}
       footer={
         <>
-          {clients.length > 0 && (
+          {onEdit ? (
             <Button
+              variant="secondary"
               className="w-full py-3 sm:py-2"
-              disabled={
-                !clientId ||
-                !locationId ||
-                busy ||
-                !eligibleClients.some((client) => client.id === clientId)
-              }
-              onClick={() => onAllocate(entry.slotId, clientId)}
+              disabled={busy || offerActive}
+              onClick={onEdit}
             >
-              {busy ? "Saving…" : "Allocate to client"}
+              Edit slot
             </Button>
-          )}
+          ) : null}
           <Button
             variant="danger"
             className="w-full py-3 sm:py-2"
             disabled={busy || offerActive}
-            onClick={() => onRemove(entry.slotId)}
+            onClick={() => void handleRemove()}
           >
             Remove slot
           </Button>
@@ -251,9 +284,11 @@ export function OpenSlotModal({
     >
       {offerActive && (
         <p className="text-sm text-amber-800">
-          This slot cannot be removed while a last-minute offer is active.
+          This slot cannot be edited or removed while a last-minute offer is
+          active.
         </p>
       )}
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       {entry.lastMinute && (
         <OpenSlotLastMinuteSection
           slotId={entry.slotId}
@@ -267,21 +302,21 @@ export function OpenSlotModal({
       <div className="mt-4">
         <h3 className="text-sm font-medium text-slate-900">Direct allocation</h3>
         <p className="mt-1 text-xs text-slate-500">
-          Book any client immediately, without the last-minute offer flow.
+          Choose a client to book this slot immediately, without the last-minute
+          offer flow.
         </p>
       </div>
 
-      <div className="mt-3">
-        <LocationSelect
-          locations={locations}
-          value={locationId}
-          onChange={async (next) => {
-            setLocationId(next);
-            if (next) await saveLocation(next);
-          }}
-          disabled={busy}
-        />
-      </div>
+      {entry.location ? (
+        <p className="mt-3 text-sm text-slate-600">
+          Location:{" "}
+          <span className="font-medium text-slate-900">{entry.location.name}</span>
+        </p>
+      ) : (
+        <p className="mt-3 text-sm text-amber-800">
+          This slot has no location. Use Edit slot to set one before allocating.
+        </p>
+      )}
 
       {clients.length > 0 ? (
         <>
@@ -296,8 +331,10 @@ export function OpenSlotModal({
             <select
               className="rounded-lg border border-slate-300 px-3 py-3 text-base sm:py-2 sm:text-sm"
               value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              disabled={busy || !locationId}
+              onChange={(e) => {
+                void handleAllocate(e.target.value);
+              }}
+              disabled={busy || !locationId || eligibleClients.length === 0}
             >
               <option value="">-- Select client --</option>
               {clients.map((c) => {
@@ -330,11 +367,13 @@ export function ApplyTemplateModal({
   onApply,
   onClose,
   applying,
+  error,
 }: {
   hasTemplate: boolean;
   onApply: () => void | Promise<boolean | void>;
   onClose: () => void;
   applying: boolean;
+  error?: string | null;
 }) {
   return (
     <SheetModal
@@ -364,6 +403,7 @@ export function ApplyTemplateModal({
           Recurring client sessions are booked automatically where they match.
         </p>
       )}
+      {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
     </SheetModal>
   );
 }

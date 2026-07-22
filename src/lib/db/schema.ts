@@ -34,6 +34,7 @@ export const trainers = pgTable("trainers", {
   paymentPayeeName: text("payment_payee_name"),
   regionalSettingsConfiguredAt: text("regional_settings_configured_at"),
   scheduleHoursConfiguredAt: text("schedule_hours_configured_at"),
+  invitationsViewedAt: text("invitations_viewed_at"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -121,7 +122,7 @@ export const clients = pgTable("clients", {
     enum: ["email", "whatsapp"],
   })
     .notNull()
-    .default("whatsapp"),
+    .default("email"),
   lastMinuteOptIn: boolean("last_minute_opt_in").notNull().default(false),
   lastMinutePruneNotify: boolean("last_minute_prune_notify")
     .notNull()
@@ -505,6 +506,7 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
       "template_conflict",
       "template_conflict_ack",
       "portal_link",
+      "last_minute_prune",
     ],
   }).notNull(),
   recipient: text("recipient", { enum: ["client", "trainer"] })
@@ -519,6 +521,28 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   }).notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+/** Trainer overrides for client-facing email / WhatsApp copy. */
+export const messageTemplates = pgTable(
+  "message_templates",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    templateKey: text("template_key").notNull(),
+    subject: text("subject"),
+    body: text("body").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    trainerKeyUid: uniqueIndex("message_templates_trainer_key_uidx").on(
+      table.trainerId,
+      table.templateKey,
+    ),
+    trainerIdx: index("message_templates_trainer_idx").on(table.trainerId),
+  }),
+);
 
 export type Trainer = typeof trainers.$inferSelect;
 export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
@@ -545,3 +569,4 @@ export type ChangeRequest = typeof changeRequests.$inferSelect;
 export type LastMinuteInterest = typeof lastMinuteInterests.$inferSelect;
 export type ClientNote = typeof clientNotes.$inferSelect;
 export type ClientNoteVisibility = ClientNote["visibility"];
+export type MessageTemplate = typeof messageTemplates.$inferSelect;

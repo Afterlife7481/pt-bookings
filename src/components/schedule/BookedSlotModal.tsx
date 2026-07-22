@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { SheetModal } from "@/components/SheetModal";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import { TrainerChangeSessionSection } from "@/app/dashboard/components/TrainerChangeSessionSection";
 import {
   SessionPaymentModals,
@@ -40,17 +41,23 @@ export function BookedSlotModal({
     error,
     invoiceError,
     invoiceNotice,
+    confirmationError,
+    confirmationNotice,
     showPaidModal,
     setShowPaidModal,
     paidModalMode,
     showInvoiceSheet,
     setShowInvoiceSheet,
+    showConfirmationSheet,
+    setShowConfirmationSheet,
     patchUpdates,
     confirmPaymentMethod,
     openMarkPaidModal,
     openEditPaymentMethodModal,
     openInvoiceSheet,
+    openConfirmationSheet,
     sendInvoice,
+    sendConfirmation,
     cancelSession,
     voidSession,
   } = useTrainerBookingActions(bookingId, {
@@ -143,6 +150,14 @@ export function BookedSlotModal({
                         variant="secondary"
                         disabled={busy}
                         className="w-full"
+                        onClick={openConfirmationSheet}
+                      >
+                        Notify client
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        className="w-full"
                         onClick={() => setShowChangeSlots((open) => !open)}
                       >
                         Change slot
@@ -158,6 +173,12 @@ export function BookedSlotModal({
                     </>
                   )}
                 </div>
+                {!isPast && confirmationNotice && (
+                  <p className="text-sm text-green-700">{confirmationNotice}</p>
+                )}
+                {!isPast && confirmationError && !showConfirmationSheet && (
+                  <p className="text-sm text-red-600">{confirmationError}</p>
+                )}
                 {!isPast && showChangeSlots && (
                   <TrainerChangeSessionSection
                     bookingId={booking.id}
@@ -187,6 +208,21 @@ export function BookedSlotModal({
           onCloseInvoiceSheet={() => setShowInvoiceSheet(false)}
           onConfirmPaymentMethod={confirmPaymentMethod}
           onSendInvoice={sendInvoice}
+        />
+      ) : null}
+
+      {detail && showConfirmationSheet ? (
+        <SendInvoiceChannelSheet
+          clientName={detail.client.name}
+          email={detail.client.email}
+          phone={detail.client.phone}
+          preferredNotifyChannel={detail.client.preferredNotifyChannel}
+          busy={busy}
+          error={confirmationError}
+          title="Notify client"
+          subtitle={`Choose how to send the session confirmation to ${detail.client.name}.`}
+          onClose={() => setShowConfirmationSheet(false)}
+          onSend={sendConfirmation}
         />
       ) : null}
     </>

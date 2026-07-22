@@ -3,6 +3,7 @@ import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   addScheduleSlot,
   removeScheduleSlot,
+  updateScheduleSlot,
   updateScheduleSlotLocation,
 } from "@/lib/services/schedule";
 
@@ -37,6 +38,21 @@ export async function PATCH(request: Request) {
   const body = await request.json();
 
   try {
+    if (
+      body.dayOfWeek != null &&
+      body.startTime != null &&
+      body.endTime != null &&
+      body.locationId
+    ) {
+      const result = await updateScheduleSlot(trainerId, body.slotId, {
+        dayOfWeek: body.dayOfWeek,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        locationId: body.locationId,
+      });
+      return Response.json({ ok: true, ...result });
+    }
+
     await updateScheduleSlotLocation(trainerId, body.slotId, body.locationId);
     return Response.json({ ok: true });
   } catch (e) {

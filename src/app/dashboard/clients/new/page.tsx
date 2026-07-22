@@ -29,7 +29,7 @@ export default function AddClientPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [preferredNotifyChannel, setPreferredNotifyChannel] =
-    useState<PreferredNotifyChannel>("whatsapp");
+    useState<PreferredNotifyChannel>("email");
   const [sessionPrice, setSessionPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,19 +126,10 @@ export default function AddClientPage() {
           <fieldset className="space-y-2 text-sm">
             <legend className="text-slate-600">Communication preference</legend>
             <p className="text-xs text-slate-500">
-              Default for invoices. You can still choose the other option when
-              sending.
+              Default for invoices and confirmations. You can still choose the
+              other option when sending.
             </p>
             <div className="flex flex-wrap gap-4">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="preferred-notify-channel"
-                  checked={preferredNotifyChannel === "whatsapp"}
-                  onChange={() => setPreferredNotifyChannel("whatsapp")}
-                />
-                <span>WhatsApp</span>
-              </label>
               <label className="inline-flex items-center gap-2">
                 <input
                   type="radio"
@@ -147,6 +138,15 @@ export default function AddClientPage() {
                   onChange={() => setPreferredNotifyChannel("email")}
                 />
                 <span>Email</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="preferred-notify-channel"
+                  checked={preferredNotifyChannel === "whatsapp"}
+                  onChange={() => setPreferredNotifyChannel("whatsapp")}
+                />
+                <span>WhatsApp</span>
               </label>
             </div>
           </fieldset>

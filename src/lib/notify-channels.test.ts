@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canNotifyByWhatsApp,
+  channelsFromInvoiceChoice,
   defaultInvoiceChoice,
   hasClientEmail,
   parseNotifyChannels,
@@ -31,13 +32,9 @@ describe("canNotifyByWhatsApp", () => {
 });
 
 describe("parseNotifyChannels", () => {
-  it("parses email, whatsapp, and both", () => {
+  it("parses email and whatsapp", () => {
     expect(parseNotifyChannels(["email"])).toEqual(["email"]);
     expect(parseNotifyChannels(["whatsapp"])).toEqual(["whatsapp"]);
-    expect(parseNotifyChannels(["email", "whatsapp"])).toEqual([
-      "email",
-      "whatsapp",
-    ]);
   });
 
   it("dedupes and rejects invalid input", () => {
@@ -59,7 +56,17 @@ describe("parsePreferredNotifyChannel", () => {
 });
 
 describe("defaultInvoiceChoice", () => {
-  it("uses the preferred channel when available", () => {
+  it("prefers email when both contacts exist and preference is unset", () => {
+    expect(
+      defaultInvoiceChoice({
+        preferred: null,
+        canEmail: true,
+        canWhatsApp: true,
+      }),
+    ).toBe("email");
+  });
+
+  it("uses the preferred channel when both contacts exist", () => {
     expect(
       defaultInvoiceChoice({
         preferred: "email",
@@ -76,7 +83,7 @@ describe("defaultInvoiceChoice", () => {
     ).toBe("whatsapp");
   });
 
-  it("falls back when the preferred channel is unavailable", () => {
+  it("falls back to the only available channel", () => {
     expect(
       defaultInvoiceChoice({
         preferred: "email",
@@ -84,5 +91,29 @@ describe("defaultInvoiceChoice", () => {
         canWhatsApp: true,
       }),
     ).toBe("whatsapp");
+    expect(
+      defaultInvoiceChoice({
+        preferred: "whatsapp",
+        canEmail: true,
+        canWhatsApp: false,
+      }),
+    ).toBe("email");
+  });
+
+  it("returns null when neither channel is available", () => {
+    expect(
+      defaultInvoiceChoice({
+        preferred: "email",
+        canEmail: false,
+        canWhatsApp: false,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("channelsFromInvoiceChoice", () => {
+  it("maps a single choice to one channel", () => {
+    expect(channelsFromInvoiceChoice("email")).toEqual(["email"]);
+    expect(channelsFromInvoiceChoice("whatsapp")).toEqual(["whatsapp"]);
   });
 });

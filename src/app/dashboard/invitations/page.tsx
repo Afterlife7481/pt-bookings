@@ -1,15 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, InlineNotice } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { TrainerInvitationsView } from "@/lib/services/invites";
 import { formatDateTimeInTimezone } from "@/lib/utils";
+import { useOnboardingBackLink } from "../hooks/useOnboardingBackLink";
 import { useTrainerSettings } from "../hooks/useTrainerSettings";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 
 export default function InvitationsPage() {
   const { settings } = useTrainerSettings();
+  const back = useOnboardingBackLink({
+    backHref: "/dashboard/schedule",
+    backLabel: "Schedule",
+  });
   const [data, setData] = useState<TrainerInvitationsView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +52,16 @@ export default function InvitationsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Invitations</h1>
+        <Link
+          href={back.backHref}
+          className="text-sm text-slate-500 hover:text-slate-900"
+        >
+          ← Back to {back.backLabel}
+        </Link>
+        <h1 className="mt-2 text-xl font-bold text-slate-900">Invitations</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Share your invite code so other trainers can sign up. Track who has
-          used it.
+          Share your invite code so other trainers can sign up. New accounts can
+          only join with an invitation code.
         </p>
       </div>
 
