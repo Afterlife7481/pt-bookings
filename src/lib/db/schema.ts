@@ -506,6 +506,7 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
       "template_conflict",
       "template_conflict_ack",
       "portal_link",
+      "last_minute_prune",
     ],
   }).notNull(),
   recipient: text("recipient", { enum: ["client", "trainer"] })

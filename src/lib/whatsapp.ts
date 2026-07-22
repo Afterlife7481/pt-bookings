@@ -36,7 +36,8 @@ type WhatsAppMessageType =
   | "session_canceled"
   | "session_changed"
   | "template_conflict"
-  | "portal_link";
+  | "portal_link"
+  | "last_minute_prune";
 
 async function logWhatsAppMessage(params: {
   trainerId: string;
@@ -681,6 +682,47 @@ export async function sendPortalLinkEmail(params: {
     messageType: "portal_link",
     body,
     channel: "email",
+  });
+}
+
+export async function sendLastMinutePruneWhatsApp(params: {
+  trainerId: string;
+  clientId: string;
+  phone: string;
+  clientName: string;
+  clientToken: string;
+  removed: Array<{ dayOfWeek: number; startTime: string }>;
+  optedOut: boolean;
+}): Promise<WhatsAppDraft> {
+  const { dayOfWeekLabel } = await import("@/lib/schedule-grid");
+  const { appBaseUrl } = await import("@/lib/constants");
+  const prefsUrl = `${appBaseUrl()}/c/${params.clientToken}/last-minute`;
+  const removedSlots = params.removed
+    .map((slot) => `• ${dayOfWeekLabel(slot.dayOfWeek)} ${slot.startTime}`)
+    .join("\n");
+  const statusNote = params.optedOut
+    ? "You no longer have any last-minute selections, so you have been opted out."
+    : "Your remaining selections are unchanged.";
+  const { body } = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "last_minute_prune_whatsapp",
+    {
+      clientName: params.clientName,
+      removedSlots,
+      statusNote,
+      prefsUrl,
+    },
+  );
+
+  console.log(`[WhatsApp draft → ${params.phone}] ${body}`);
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.phone,
+    messageType: "last_minute_prune",
+    body,
+    channel: "whatsapp",
   });
 }
 

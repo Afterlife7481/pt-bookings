@@ -54,6 +54,7 @@ const TRAINER_SENT_WHATSAPP_TYPES = new Set([
   "invoice",
   "template_conflict",
   "portal_link",
+  "last_minute_prune",
 ]);
 
 export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
@@ -227,5 +228,8 @@ function feedTitleForMessage(
   if (messageType === "interest_ack") return "Interest acknowledgement";
   if (messageType === "invoice") return `Invoice${via}`;
   if (messageType === "portal_link") return `Portal link${via}`;
+  if (messageType === "last_minute_prune") {
+    return `Last-minute preferences updated${via}`;
+  }
   return messageType;
 }

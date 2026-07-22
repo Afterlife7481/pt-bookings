@@ -15,6 +15,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   "template_conflict_email",
   "template_conflict_whatsapp",
   "last_minute_prune_email",
+  "last_minute_prune_whatsapp",
 ] as const;
 
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
@@ -224,6 +225,27 @@ export const MESSAGE_TEMPLATE_DEFINITIONS: MessageTemplateDefinition[] = [
     ].join("\n"),
     placeholders: [CLIENT_NAME, REMOVED_SLOTS, STATUS_NOTE, PREFS_URL],
   },
+  {
+    key: "last_minute_prune_whatsapp",
+    label: "Last-minute preferences updated",
+    channel: "whatsapp",
+    description:
+      "Sent when weekly template changes remove some of a client's last-minute selections.",
+    hasSubject: false,
+    defaultSubject: null,
+    defaultBody: [
+      "Hi {{clientName}},",
+      "",
+      "Your trainer updated their weekly template, so some of your last-minute opening selections were removed:",
+      "",
+      "{{removedSlots}}",
+      "",
+      "{{statusNote}}",
+      "",
+      "Review or update your preferences: {{prefsUrl}}",
+    ].join("\n"),
+    placeholders: [CLIENT_NAME, REMOVED_SLOTS, STATUS_NOTE, PREFS_URL],
+  },
 ];
 
 /** Message types shown in settings; keys are ordered email then WhatsApp. */
@@ -264,7 +286,7 @@ export const MESSAGE_TEMPLATE_GROUPS = [
     label: "Last-minute preferences updated",
     description:
       "Sent when weekly template changes remove some of a client's last-minute selections.",
-    keys: ["last_minute_prune_email"],
+    keys: ["last_minute_prune_email", "last_minute_prune_whatsapp"],
   },
 ] as const satisfies ReadonlyArray<{
   slug: string;
