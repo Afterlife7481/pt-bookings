@@ -159,8 +159,8 @@ export function WeeklyHourGrid({
   return (
     <div
       className={cn(
-        "w-full rounded-lg border border-slate-200",
-        fitViewport && "flex min-h-0 flex-col overflow-visible",
+        "w-full overflow-hidden rounded-lg border border-slate-200",
+        fitViewport && "flex min-h-0 flex-col",
         className,
       )}
       style={effectiveHeight != null ? { height: effectiveHeight } : undefined}

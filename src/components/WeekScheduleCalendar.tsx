@@ -784,7 +784,7 @@ export function WeekScheduleCalendar({
       <div
         ref={legendRef}
         className={cn(
-          "border-t border-slate-100 pt-5 pb-5",
+          "pt-5 pb-5",
           viewMode === "week" ? "mt-6" : "mt-4",
         )}
       >
