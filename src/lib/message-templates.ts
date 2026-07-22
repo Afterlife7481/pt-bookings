@@ -213,12 +213,75 @@ export const MESSAGE_TEMPLATE_DEFINITIONS: MessageTemplateDefinition[] = [
   },
 ];
 
+/** Message types shown in settings; keys are ordered email then WhatsApp. */
+export const MESSAGE_TEMPLATE_GROUPS = [
+  {
+    slug: "session-confirmation",
+    label: "Session confirmation",
+    description: "Sent when you notify a client about a booked session.",
+    keys: ["confirmation_email", "confirmation_whatsapp"],
+  },
+  {
+    slug: "last-minute-offer",
+    label: "Last-minute offer",
+    description: "Offer a newly opened slot to an eligible client.",
+    keys: ["last_minute_email", "last_minute_whatsapp"],
+  },
+  {
+    slug: "invoice",
+    label: "Invoice",
+    description: "Payment request with your bank details.",
+    keys: ["invoice_email", "invoice_whatsapp"],
+  },
+  {
+    slug: "portal-link",
+    label: "Portal link",
+    description: "Share the client's personal booking portal.",
+    keys: ["portal_link_email", "portal_link_whatsapp"],
+  },
+  {
+    slug: "schedule-clash",
+    label: "Schedule clash",
+    description:
+      "Notify a recurring client when their usual session cannot be booked.",
+    keys: ["template_conflict_whatsapp"],
+  },
+  {
+    slug: "last-minute-preferences-updated",
+    label: "Last-minute preferences updated",
+    description:
+      "Sent when weekly template changes remove some of a client's last-minute selections.",
+    keys: ["last_minute_prune_email"],
+  },
+] as const satisfies ReadonlyArray<{
+  slug: string;
+  label: string;
+  description: string;
+  keys: readonly MessageTemplateKey[];
+}>;
+
+export type MessageTemplateGroupSlug =
+  (typeof MESSAGE_TEMPLATE_GROUPS)[number]["slug"];
+
+export type MessageTemplateGroup =
+  (typeof MESSAGE_TEMPLATE_GROUPS)[number];
+
 const DEFINITION_BY_KEY = new Map(
   MESSAGE_TEMPLATE_DEFINITIONS.map((def) => [def.key, def]),
 );
 
+const GROUP_BY_SLUG = new Map(
+  MESSAGE_TEMPLATE_GROUPS.map((group) => [group.slug, group]),
+);
+
 export function isMessageTemplateKey(value: string): value is MessageTemplateKey {
   return DEFINITION_BY_KEY.has(value as MessageTemplateKey);
+}
+
+export function isMessageTemplateGroupSlug(
+  value: string,
+): value is MessageTemplateGroupSlug {
+  return GROUP_BY_SLUG.has(value as MessageTemplateGroupSlug);
 }
 
 export function getMessageTemplateDefinition(
@@ -227,6 +290,14 @@ export function getMessageTemplateDefinition(
   const def = DEFINITION_BY_KEY.get(key);
   if (!def) throw new Error(`Unknown message template: ${key}`);
   return def;
+}
+
+export function getMessageTemplateGroup(
+  slug: MessageTemplateGroupSlug,
+): MessageTemplateGroup {
+  const group = GROUP_BY_SLUG.get(slug);
+  if (!group) throw new Error(`Unknown message template group: ${slug}`);
+  return group;
 }
 
 /** Replace `{{name}}` placeholders. Unknown keys become empty strings. */
