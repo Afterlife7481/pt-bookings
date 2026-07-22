@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, Card, InlineNotice } from "@/components/ui";
+import { Button, InlineNotice } from "@/components/ui";
 import {
   ScheduleViewToggle,
   type ScheduleView,
@@ -103,8 +103,8 @@ export function ScheduleTab({
   const canApplyTemplate = !scheduleEntries.some((entry) => entry.booking);
 
   return (
-    <Card className="!p-0">
-      <div className="flex flex-col gap-3 p-4 sm:p-5 sm:pb-4">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <h2 className="font-semibold">Weekly schedule</h2>
         <div className="flex flex-wrap items-center gap-2">
           <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
@@ -225,9 +225,7 @@ export function ScheduleTab({
           onRefresh={onRefresh}
         />
       ) : (
-        <p className="px-4 pb-4 text-sm text-slate-500 sm:px-5 sm:pb-5">
-          Loading schedule…
-        </p>
+        <p className="text-sm text-slate-500">Loading schedule…</p>
       )}
 
       {applyTemplateOpen && (
@@ -256,6 +254,6 @@ export function ScheduleTab({
           }}
         />
       )}
-    </Card>
+    </div>
   );
 }

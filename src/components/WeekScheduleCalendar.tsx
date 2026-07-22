@@ -11,7 +11,7 @@ import {
 import {
   type ScheduleView,
 } from "@/components/ScheduleViewToggle";
-import { WeeklyHourGrid, WEEK_GRID_EDGE_CLASS } from "@/components/WeeklyHourGrid";
+import { WeeklyHourGrid } from "@/components/WeeklyHourGrid";
 import { ScheduleCell } from "@/components/schedule/ScheduleCell";
 import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
 import { BookedSlotModal } from "@/components/schedule/BookedSlotModal";
@@ -345,7 +345,6 @@ function WeekGrid({
       wide={!compact}
       viewportHeight={viewportHeight}
       compactRowSize={compact ? "2rem" : undefined}
-      className={WEEK_GRID_EDGE_CLASS}
       splitDayHeaderRows
       isPastDay={(dayOfWeek) => isPastWeekDay(weekStart, dayOfWeek)}
       isUnavailableDay={(dayOfWeek) =>
