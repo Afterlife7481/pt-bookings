@@ -694,7 +694,7 @@ export function WeekScheduleCalendar({
   return (
     <div>
       {viewMode === "day" ? (
-        <div className="px-4 sm:px-5">
+        <div>
           <div className="mb-4">
             <DayPicker
               weekStart={weekStart}
@@ -784,7 +784,7 @@ export function WeekScheduleCalendar({
       <div
         ref={legendRef}
         className={cn(
-          "border-t border-slate-100 px-4 pt-5 pb-5 sm:px-5",
+          "border-t border-slate-100 pt-5 pb-5",
           viewMode === "week" ? "mt-6" : "mt-4",
         )}
       >
