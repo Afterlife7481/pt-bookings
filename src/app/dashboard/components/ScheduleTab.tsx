@@ -80,6 +80,7 @@ export function ScheduleTab({
     null,
   );
   const [applyTemplateError, setApplyTemplateError] = useState<string | null>(null);
+  const [focusTodayKey, setFocusTodayKey] = useState(0);
   const appliedDefaultView = useRef(false);
 
   useEffect(() => {
@@ -108,6 +109,16 @@ export function ScheduleTab({
         <h2 className="font-semibold">Weekly schedule</h2>
         <div className="flex flex-wrap items-center gap-2">
           <ScheduleViewToggle value={viewMode} onChange={setViewMode} />
+          <Button
+            variant="secondary"
+            className="shrink-0"
+            onClick={() => {
+              onGoToThisWeek();
+              setFocusTodayKey((key) => key + 1);
+            }}
+          >
+            Today
+          </Button>
           {canApplyTemplate ? (
             <Button
               variant="secondary"
@@ -187,13 +198,6 @@ export function ScheduleTab({
           <Button
             variant="secondary"
             className="px-4 text-sm"
-            onClick={onGoToThisWeek}
-          >
-            This week
-          </Button>
-          <Button
-            variant="secondary"
-            className="px-4 text-sm"
             onClick={() => onChangeWeek(1)}
           >
             Next →
@@ -209,6 +213,7 @@ export function ScheduleTab({
           scheduleStartTime={settings.scheduleStartTime}
           scheduleEndTime={settings.scheduleEndTime}
           viewMode={viewMode}
+          focusTodayKey={focusTodayKey}
           lockHours={settings.lastMinuteOfferLockHours}
           clients={clients.map((c) => ({
             id: c.id,
