@@ -260,7 +260,7 @@ function DayPicker({
   return (
     <div
       ref={scrollerRef}
-      className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       aria-label="Choose day"
     >
       <div className="flex w-max gap-1">
