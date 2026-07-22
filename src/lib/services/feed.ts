@@ -30,6 +30,9 @@ export type FeedEntry = {
     id: string;
     status: "open" | "notified" | "acknowledged";
     canNotify: boolean;
+    clientEmail: string;
+    clientPhone: string;
+    preferredNotifyChannel: "email" | "whatsapp";
   };
   whatsapp?: {
     id: string;
@@ -61,7 +64,13 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
 
   const entries: FeedEntry[] = [];
 
-  for (const { alert, clientName } of alerts) {
+  for (const {
+    alert,
+    clientName,
+    clientEmail,
+    clientPhone,
+    preferredNotifyChannel,
+  } of alerts) {
     const acknowledged = alert.status === "acknowledged";
     entries.push({
       id: `conflict-${alert.id}`,
@@ -88,6 +97,10 @@ export async function listFeed(trainerId: string): Promise<FeedEntry[]> {
         id: alert.id,
         status: alert.status,
         canNotify: !acknowledged,
+        clientEmail,
+        clientPhone,
+        preferredNotifyChannel:
+          preferredNotifyChannel === "whatsapp" ? "whatsapp" : "email",
       },
     });
   }

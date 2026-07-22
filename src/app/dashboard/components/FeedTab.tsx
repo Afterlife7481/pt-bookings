@@ -3,9 +3,14 @@
 import { useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
+import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import { cn, formatDateTimeInTimezone } from "@/lib/utils";
 import type { FeedEntry } from "@/lib/services/feed";
-import { prepareWhatsAppOpen } from "@/lib/whatsapp-link";
+import type { NotifyChannel } from "@/lib/notify-channels";
+import {
+  prepareWhatsAppOpen,
+  prepareWhatsAppOpenForPhone,
+} from "@/lib/whatsapp-link";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -125,6 +130,7 @@ export function FeedTab({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [notifyingId, setNotifyingId] = useState<string | null>(null);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  const [notifyTarget, setNotifyTarget] = useState<FeedEntry | null>(null);
 
   function handleCopied(id: string) {
     setCopiedId(id);
@@ -133,34 +139,53 @@ export function FeedTab({
     }, 2000);
   }
 
-  async function notifyClient(alertId: string) {
-    setNotifyingId(alertId);
+  async function notifyClient(channels: NotifyChannel[]) {
+    const alert = notifyTarget?.conflictAlert;
+    if (!alert) return;
+
+    const wantWhatsApp = channels.includes("whatsapp");
+    let waOpen: ReturnType<typeof prepareWhatsAppOpen> | null = null;
+    if (wantWhatsApp) {
+      const prepared = prepareWhatsAppOpenForPhone(alert.clientPhone);
+      if (!prepared.ok) {
+        setNotifyError(prepared.error);
+        return;
+      }
+      waOpen = prepared.opener;
+    }
+
+    setNotifyingId(alert.id);
     setNotifyError(null);
-    // Phone is validated on the server; open the placeholder tab only after
-    // we know notify succeeded would lose the user gesture, so open first and
-    // close it if the number is bad.
-    const waOpen = prepareWhatsAppOpen();
     try {
-      const res = await fetch(`/api/feed/conflicts/${alertId}/notify`, {
+      const res = await fetch(`/api/feed/conflicts/${alert.id}/notify`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels }),
       });
       const data = await res.json();
       if (!res.ok) {
-        waOpen.finish(null);
+        waOpen?.finish(null);
         setNotifyError(data.error ?? "Failed to prepare message");
         return;
       }
-      if (typeof data.whatsappUrl === "string" && data.whatsappUrl.length > 0) {
-        waOpen.finish(data.whatsappUrl);
-      } else {
-        waOpen.finish(null);
-        setNotifyError(
-          "Add or check this client's phone number before sending on WhatsApp.",
-        );
+      if (wantWhatsApp) {
+        if (
+          typeof data.whatsappUrl === "string" &&
+          data.whatsappUrl.length > 0
+        ) {
+          waOpen?.finish(data.whatsappUrl);
+        } else {
+          waOpen?.finish(null);
+          setNotifyError(
+            "Message logged, but WhatsApp could not open. Check the client phone number.",
+          );
+          return;
+        }
       }
+      setNotifyTarget(null);
       await onRefresh();
     } catch {
-      waOpen.finish(null);
+      waOpen?.finish(null);
       setNotifyError("Failed to prepare message");
     } finally {
       setNotifyingId(null);
@@ -177,7 +202,7 @@ export function FeedTab({
         </p>
       </Card>
 
-      {notifyError ? (
+      {notifyError && !notifyTarget ? (
         <p className="text-sm text-red-600" role="alert">
           {notifyError}
         </p>
@@ -264,9 +289,10 @@ export function FeedTab({
                 <Button
                   variant="secondary"
                   disabled={notifyingId === entry.conflictAlert.id}
-                  onClick={() =>
-                    void notifyClient(entry.conflictAlert!.id)
-                  }
+                  onClick={() => {
+                    setNotifyError(null);
+                    setNotifyTarget(entry);
+                  }}
                 >
                   {notifyingId === entry.conflictAlert.id
                     ? "Sending…"
@@ -282,6 +308,26 @@ export function FeedTab({
           </Card>
         );
       })}
+
+      {notifyTarget?.conflictAlert && notifyTarget.clientName ? (
+        <SendInvoiceChannelSheet
+          clientName={notifyTarget.clientName}
+          email={notifyTarget.conflictAlert.clientEmail}
+          phone={notifyTarget.conflictAlert.clientPhone}
+          preferredNotifyChannel={
+            notifyTarget.conflictAlert.preferredNotifyChannel
+          }
+          busy={notifyingId === notifyTarget.conflictAlert.id}
+          error={notifyError}
+          title="Notify client"
+          subtitle={`Choose how to send the schedule clash notice to ${notifyTarget.clientName}.`}
+          onClose={() => {
+            setNotifyTarget(null);
+            setNotifyError(null);
+          }}
+          onSend={notifyClient}
+        />
+      ) : null}
     </div>
   );
 }

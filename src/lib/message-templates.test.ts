@@ -21,6 +21,7 @@ describe("message templates", () => {
     expect(keys).toContain("confirmation_whatsapp");
     expect(keys).toContain("invoice_email");
     expect(keys).toContain("invoice_whatsapp");
+    expect(keys).toContain("template_conflict_email");
     expect(keys).toContain("template_conflict_whatsapp");
     expect(keys).toContain("last_minute_prune_email");
   });

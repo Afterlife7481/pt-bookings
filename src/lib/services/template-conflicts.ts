@@ -4,7 +4,6 @@ import { getDb } from "@/lib/db";
 import {
   clients,
   scheduleConflictAlerts,
-  trainers,
 } from "@/lib/db/schema";
 import {
   addDays,
@@ -17,8 +16,19 @@ import {
   toLocalDateTimeString,
 } from "@/lib/constants";
 import { dayOfWeekLabel } from "@/lib/schedule-grid";
-import { sendWhatsAppTemplateConflictToClient } from "@/lib/whatsapp";
+import {
+  sendTemplateConflictEmail,
+  sendWhatsAppTemplateConflictToClient,
+} from "@/lib/whatsapp";
 import { assertWhatsAppPhone } from "@/lib/whatsapp-link";
+import {
+  hasClientEmail,
+  parseNotifyChannels,
+  type NotifyChannel,
+} from "@/lib/notify-channels";
+import { getTrainerById } from "@/lib/services/trainers";
+import { getTrainerSettings } from "@/lib/services/settings";
+import { renderTrainerMessageTemplate } from "@/lib/services/message-templates";
 
 export type TemplateConflictInput = {
   trainerId: string;
@@ -120,6 +130,9 @@ export async function listScheduleConflictAlerts(trainerId: string) {
     .select({
       alert: scheduleConflictAlerts,
       clientName: clients.name,
+      clientEmail: clients.email,
+      clientPhone: clients.phone,
+      preferredNotifyChannel: clients.preferredNotifyChannel,
     })
     .from(scheduleConflictAlerts)
     .innerJoin(clients, eq(scheduleConflictAlerts.clientId, clients.id))
@@ -133,12 +146,11 @@ async function getConflictAlertForTrainer(alertId: string, trainerId: string) {
     .select({
       alert: scheduleConflictAlerts,
       clientName: clients.name,
+      clientEmail: clients.email,
       clientPhone: clients.phone,
-      trainerEmail: trainers.email,
     })
     .from(scheduleConflictAlerts)
     .innerJoin(clients, eq(scheduleConflictAlerts.clientId, clients.id))
-    .innerJoin(trainers, eq(scheduleConflictAlerts.trainerId, trainers.id))
     .where(
       and(
         eq(scheduleConflictAlerts.id, alertId),
@@ -153,40 +165,75 @@ async function getConflictAlertForTrainer(alertId: string, trainerId: string) {
 export async function notifyClientOfScheduleConflict(
   alertId: string,
   trainerId: string,
+  channelsInput?: unknown,
 ) {
+  const channels = parseNotifyChannels(channelsInput ?? ["whatsapp"]);
   const row = await getConflictAlertForTrainer(alertId, trainerId);
   if (!row) throw new Error("Clash alert not found");
   if (row.alert.status === "acknowledged") {
     throw new Error("Client has already acknowledged this clash");
   }
 
+  const wantEmail = channels.includes("email");
+  const wantWhatsApp = channels.includes("whatsapp");
+
+  if (wantEmail && !hasClientEmail(row.clientEmail)) {
+    throw new Error(
+      "This client has no email address. Add one on their profile, or send by WhatsApp instead.",
+    );
+  }
+  if (wantWhatsApp) {
+    assertWhatsAppPhone(row.clientPhone);
+  }
+
   const link = conflictUrl(row.alert.acknowledgmentToken);
   const reason = row.alert.holidayLabel
     ? ` (${row.alert.holidayLabel})`
     : " (trainer time off)";
-  const { renderTrainerMessageTemplate } = await import(
-    "@/lib/services/message-templates"
-  );
-  const { body } = await renderTrainerMessageTemplate(
-    trainerId,
-    "template_conflict_whatsapp",
-    {
+
+  let whatsappUrl: string | null = null;
+  const sentVia: NotifyChannel[] = [];
+
+  if (wantEmail) {
+    const [trainer, settings] = await Promise.all([
+      getTrainerById(trainerId),
+      getTrainerSettings(trainerId),
+    ]);
+    await sendTemplateConflictEmail({
+      trainerId,
+      clientId: row.alert.clientId,
+      email: row.clientEmail,
       clientName: row.clientName,
       slotLabel: row.alert.slotLabel,
       reason,
       conflictUrl: link,
-    },
-  );
+      replyTo: trainer?.email ?? settings.email,
+    });
+    sentVia.push("email");
+  }
 
-  assertWhatsAppPhone(row.clientPhone);
+  if (wantWhatsApp) {
+    const { body } = await renderTrainerMessageTemplate(
+      trainerId,
+      "template_conflict_whatsapp",
+      {
+        clientName: row.clientName,
+        slotLabel: row.alert.slotLabel,
+        reason,
+        conflictUrl: link,
+      },
+    );
 
-  const draft = await sendWhatsAppTemplateConflictToClient({
-    trainerId,
-    clientId: row.alert.clientId,
-    phone: row.clientPhone,
-    clientName: row.clientName,
-    body,
-  });
+    const draft = await sendWhatsAppTemplateConflictToClient({
+      trainerId,
+      clientId: row.alert.clientId,
+      phone: row.clientPhone,
+      clientName: row.clientName,
+      body,
+    });
+    whatsappUrl = draft.sendUrl;
+    sentVia.push("whatsapp");
+  }
 
   const db = getDb();
   const notifiedAt = nowIso();
@@ -198,7 +245,7 @@ export async function notifyClientOfScheduleConflict(
     })
     .where(eq(scheduleConflictAlerts.id, alertId));
 
-  return { ok: true as const, whatsappUrl: draft.sendUrl };
+  return { ok: true as const, whatsappUrl, sentVia };
 }
 
 export async function getScheduleConflictPreview(

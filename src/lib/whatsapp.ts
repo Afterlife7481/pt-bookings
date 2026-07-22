@@ -522,6 +522,71 @@ export async function sendWhatsAppTemplateConflictToClient(params: {
     phone: params.phone,
     messageType: "template_conflict",
     body: params.body,
+    channel: "whatsapp",
+  });
+}
+
+export async function sendTemplateConflictEmail(params: {
+  trainerId: string;
+  clientId: string;
+  email: string;
+  clientName: string;
+  slotLabel: string;
+  reason: string;
+  conflictUrl: string;
+  replyTo?: string | null;
+}): Promise<WhatsAppDraft> {
+  const rendered = await renderTrainerMessageTemplate(
+    params.trainerId,
+    "template_conflict_email",
+    {
+      clientName: params.clientName,
+      slotLabel: params.slotLabel,
+      reason: params.reason,
+      conflictUrl: params.conflictUrl,
+    },
+  );
+  const body = rendered.body;
+  const subject =
+    rendered.subject ??
+    `Your PT session on ${params.slotLabel} cannot be booked`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">
+      <tr><td>
+        <h1 style="font-size:18px;margin:0 0 16px;">Schedule clash</h1>
+        <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
+        <p style="margin:0 0 16px;">
+          <a href="${escapeHtml(params.conflictUrl)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+            Confirm received
+          </a>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+
+  const delivered = await sendEmail({
+    to: params.email.trim(),
+    subject,
+    html,
+    text: body,
+    replyTo: params.replyTo?.trim() || undefined,
+  });
+
+  if (!delivered) {
+    console.log(`[Conflict email → ${params.email}] ${subject}\n${body}`);
+  }
+
+  return logWhatsAppMessage({
+    trainerId: params.trainerId,
+    clientId: params.clientId,
+    phone: params.email.trim(),
+    messageType: "template_conflict",
+    body,
+    channel: "email",
   });
 }
 

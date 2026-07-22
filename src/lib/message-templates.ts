@@ -12,6 +12,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   "invoice_whatsapp",
   "portal_link_email",
   "portal_link_whatsapp",
+  "template_conflict_email",
   "template_conflict_whatsapp",
   "last_minute_prune_email",
 ] as const;
@@ -179,6 +180,18 @@ export const MESSAGE_TEMPLATE_DEFINITIONS: MessageTemplateDefinition[] = [
     placeholders: [CLIENT_NAME, PORTAL_URL],
   },
   {
+    key: "template_conflict_email",
+    label: "Schedule clash",
+    channel: "email",
+    description:
+      "Notify a recurring client when their usual session cannot be booked.",
+    hasSubject: true,
+    defaultSubject: "Your PT session on {{slotLabel}} cannot be booked",
+    defaultBody:
+      "Hi {{clientName}}, your regular PT session on {{slotLabel}} cannot be booked{{reason}}. Please confirm you have received this: {{conflictUrl}}",
+    placeholders: [CLIENT_NAME, SLOT_LABEL, REASON, CONFLICT_URL],
+  },
+  {
     key: "template_conflict_whatsapp",
     label: "Schedule clash",
     channel: "whatsapp",
@@ -244,7 +257,7 @@ export const MESSAGE_TEMPLATE_GROUPS = [
     label: "Schedule clash",
     description:
       "Notify a recurring client when their usual session cannot be booked.",
-    keys: ["template_conflict_whatsapp"],
+    keys: ["template_conflict_email", "template_conflict_whatsapp"],
   },
   {
     slug: "last-minute-preferences-updated",
