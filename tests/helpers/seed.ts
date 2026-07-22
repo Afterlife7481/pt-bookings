@@ -25,6 +25,7 @@ export async function wipeTestDatabase() {
   await db.execute(sql`
     TRUNCATE TABLE
       whatsapp_messages,
+      message_templates,
       last_minute_interests,
       client_last_minute_preferences,
       client_email_verifications,

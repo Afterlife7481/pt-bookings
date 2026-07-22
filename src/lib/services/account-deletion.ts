@@ -11,6 +11,7 @@ import {
   inviteRedemptions,
   lastMinuteInterests,
   locations,
+  messageTemplates,
   trainerPaymentMethods,
   recurringPreferences,
   slots,
@@ -46,6 +47,9 @@ export async function deleteTrainerAccount(
   const db = getDb();
 
   await db.transaction(async (tx) => {
+    await tx
+      .delete(messageTemplates)
+      .where(eq(messageTemplates.trainerId, trainerId));
     await tx
       .delete(whatsappMessages)
       .where(eq(whatsappMessages.trainerId, trainerId));

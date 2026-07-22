@@ -133,6 +133,7 @@ export async function pruneLastMinutePreferencesToTemplateSlots(
 }
 
 export async function notifyClientsOfLastMinutePrune(
+  trainerId: string,
   prunedClients: PrunedLastMinuteClient[],
 ): Promise<void> {
   const { sendLastMinutePruneEmail } = await import("@/lib/email");
@@ -140,6 +141,7 @@ export async function notifyClientsOfLastMinutePrune(
     if (!client.pruneNotify || !hasClientEmail(client.email)) continue;
     if (client.removed.length === 0) continue;
     await sendLastMinutePruneEmail({
+      trainerId,
       to: client.email,
       clientName: client.clientName,
       clientToken: client.token,

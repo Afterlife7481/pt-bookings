@@ -521,6 +521,28 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   createdAt: text("created_at").notNull(),
 });
 
+/** Trainer overrides for client-facing email / WhatsApp copy. */
+export const messageTemplates = pgTable(
+  "message_templates",
+  {
+    id: text("id").primaryKey(),
+    trainerId: text("trainer_id")
+      .notNull()
+      .references(() => trainers.id, { onDelete: "cascade" }),
+    templateKey: text("template_key").notNull(),
+    subject: text("subject"),
+    body: text("body").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    trainerKeyUid: uniqueIndex("message_templates_trainer_key_uidx").on(
+      table.trainerId,
+      table.templateKey,
+    ),
+    trainerIdx: index("message_templates_trainer_idx").on(table.trainerId),
+  }),
+);
+
 export type Trainer = typeof trainers.$inferSelect;
 export type TrainerMagicLink = typeof trainerMagicLinks.$inferSelect;
 export type TrainerSession = typeof trainerSessions.$inferSelect;
@@ -546,3 +568,4 @@ export type ChangeRequest = typeof changeRequests.$inferSelect;
 export type LastMinuteInterest = typeof lastMinuteInterests.$inferSelect;
 export type ClientNote = typeof clientNotes.$inferSelect;
 export type ClientNoteVisibility = ClientNote["visibility"];
+export type MessageTemplate = typeof messageTemplates.$inferSelect;

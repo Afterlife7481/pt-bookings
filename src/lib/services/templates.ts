@@ -204,7 +204,7 @@ export async function saveTrainerTemplate(
       trainerId,
       normalized,
     );
-    await notifyClientsOfLastMinutePrune(pruneResult.prunedClients);
+    await notifyClientsOfLastMinutePrune(trainerId, pruneResult.prunedClients);
     return existing.id;
   }
 
@@ -226,7 +226,7 @@ export async function saveTrainerTemplate(
     trainerId,
     normalized,
   );
-  await notifyClientsOfLastMinutePrune(pruneResult.prunedClients);
+  await notifyClientsOfLastMinutePrune(trainerId, pruneResult.prunedClients);
   return id;
 }
 

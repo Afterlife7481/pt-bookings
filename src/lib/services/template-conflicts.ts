@@ -161,7 +161,22 @@ export async function notifyClientOfScheduleConflict(
   }
 
   const link = conflictUrl(row.alert.acknowledgmentToken);
-  const body = `Hi ${row.clientName}, your regular PT session on ${row.alert.slotLabel} cannot be booked${row.alert.holidayLabel ? ` (${row.alert.holidayLabel})` : " (trainer time off)"}. Please confirm you have received this: ${link}`;
+  const reason = row.alert.holidayLabel
+    ? ` (${row.alert.holidayLabel})`
+    : " (trainer time off)";
+  const { renderTrainerMessageTemplate } = await import(
+    "@/lib/services/message-templates"
+  );
+  const { body } = await renderTrainerMessageTemplate(
+    trainerId,
+    "template_conflict_whatsapp",
+    {
+      clientName: row.clientName,
+      slotLabel: row.alert.slotLabel,
+      reason,
+      conflictUrl: link,
+    },
+  );
 
   assertWhatsAppPhone(row.clientPhone);
 

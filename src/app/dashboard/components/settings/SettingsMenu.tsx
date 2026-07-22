@@ -60,6 +60,10 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
           detail={bookingDetail}
         />
         <SettingsRowLink
+          href="/dashboard/settings/message-templates"
+          title="Message templates"
+        />
+        <SettingsRowLink
           href="/dashboard/settings/regional"
           title="Regional settings"
           detail={regionalMenuDetail(settings)}
