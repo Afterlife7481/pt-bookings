@@ -447,6 +447,7 @@ export function WeekScheduleCalendar({
   scheduleStartTime = "07:00",
   scheduleEndTime = "21:00",
   viewMode,
+  focusTodayKey = 0,
   lockHours = 1,
   clients = [],
   locations = [],
@@ -469,6 +470,8 @@ export function WeekScheduleCalendar({
   scheduleStartTime?: string;
   scheduleEndTime?: string;
   viewMode: ScheduleView;
+  /** Increment to jump day view onto today's date within the current week. */
+  focusTodayKey?: number;
   lockHours?: number;
   clients?: ClientOption[];
   locations?: LocationOption[];
@@ -557,6 +560,15 @@ export function WeekScheduleCalendar({
     }
     setSelectedDay(defaultSelectedDay(weekStart));
   }, [weekStart]);
+
+  useEffect(() => {
+    if (focusTodayKey === 0) return;
+    const today = new Date().getDay();
+    pendingWeekDayRef.current = null;
+    shiftingRef.current = false;
+    selectedDayRef.current = today;
+    setSelectedDay(today);
+  }, [focusTodayKey]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1023px)");
