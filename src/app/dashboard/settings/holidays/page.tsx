@@ -1,10 +1,7 @@
 "use client";
 
 import { HolidaysSection } from "../../components/HolidaysSection";
-import {
-  SettingsInset,
-  SettingsPageLayout,
-} from "../../components/settings/settings-ui";
+import { SettingsPageLayout } from "../../components/settings/settings-ui";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
 
 export default function HolidaysSettingsPage() {
@@ -17,9 +14,7 @@ export default function HolidaysSettingsPage() {
       backHref={back.backHref}
       backLabel={back.backLabel}
     >
-      <SettingsInset>
-        <HolidaysSection embedded />
-      </SettingsInset>
+      <HolidaysSection embedded />
     </SettingsPageLayout>
   );
 }

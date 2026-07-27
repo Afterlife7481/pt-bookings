@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { SessionWhen } from "@/components/SessionWhen";
 import { parseLocalDateTime } from "@/lib/constants";
 import { cn, splitClientName } from "@/lib/utils";
@@ -79,8 +79,8 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
   const sortedClients = useMemo(() => sortClients(clients, sort), [clients, sort]);
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-3">
           <div>
             <h2 className="font-semibold">All clients</h2>
@@ -93,7 +93,7 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
         </Link>
       </div>
       {clients.length === 0 ? (
-        <p className="p-4 text-sm text-slate-500">No clients yet.</p>
+        <p className="text-sm text-slate-500">No clients yet.</p>
       ) : (
         <ul className="divide-y divide-slate-100">
           {sortedClients.map((c) => {
@@ -102,7 +102,7 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
               <li key={c.id}>
                 <Link
                   href={`/dashboard/clients/${c.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+                  className="flex items-center gap-3 py-3 transition hover:bg-slate-50"
                 >
                   <span className="flex min-w-0 flex-[0_0_44%] flex-col text-sm font-medium leading-snug text-slate-900">
                     <span>{givenName}</span>
@@ -127,6 +127,6 @@ export function ClientsTab({ clients }: { clients: DashboardClient[] }) {
           })}
         </ul>
       )}
-    </Card>
+    </div>
   );
 }
