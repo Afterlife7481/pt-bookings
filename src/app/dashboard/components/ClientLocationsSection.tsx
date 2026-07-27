@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Card } from "@/components/ui";
 import type {
   ClientDetail,
   ClientLocationOption,
@@ -77,9 +76,13 @@ export function ClientLocationsSection({
   }
 
   return (
-    <Card>
+    <div>
       {showHeading ? <h2 className="font-semibold">Locations</h2> : null}
-      <p className={showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"}>
+      <p
+        className={
+          showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"
+        }
+      >
         Choose which of your training locations are available for this client.
       </p>
 
@@ -120,6 +123,6 @@ export function ClientLocationsSection({
       {saving && (
         <p className="mt-3 text-sm text-slate-500">Saving locations…</p>
       )}
-    </Card>
+    </div>
   );
 }
