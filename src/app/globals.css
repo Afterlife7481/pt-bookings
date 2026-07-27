@@ -22,12 +22,13 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
-/* iOS Safari zooms focused inputs below 16px; keep mobile fields readable without auto-zoom. */
+/* iOS Safari zooms focused inputs below 16px; keep mobile fields readable without auto-zoom.
+   !important beats Tailwind text-* utilities (e.g. text-sm) on the same elements. */
 @media (max-width: 639px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
   }
 }
 
