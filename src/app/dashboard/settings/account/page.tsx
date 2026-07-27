@@ -2,10 +2,7 @@
 
 import { AccountSettingsForm } from "../../components/settings/AccountSettingsForm";
 import { DeleteAccountSection } from "../../components/settings/DeleteAccountSection";
-import {
-  SettingsInset,
-  SettingsPageLayout,
-} from "../../components/settings/settings-ui";
+import { SettingsPageLayout } from "../../components/settings/settings-ui";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 
 export default function AccountSettingsPage() {
@@ -17,10 +14,8 @@ export default function AccountSettingsPage() {
       description="Email and phone for sign-in and notifications."
       showBackLink={false}
     >
-      <SettingsInset>
-        <AccountSettingsForm settings={settings} onSaved={refresh} />
-        <DeleteAccountSection settings={settings} />
-      </SettingsInset>
+      <AccountSettingsForm settings={settings} onSaved={refresh} />
+      <DeleteAccountSection settings={settings} />
     </SettingsPageLayout>
   );
 }

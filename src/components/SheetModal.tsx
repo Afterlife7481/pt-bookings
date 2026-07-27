@@ -11,10 +11,12 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const EXIT_MS = 280;
+const EXIT_MS = 400;
 const DISMISS_DISTANCE_PX = 96;
 const DISMISS_VELOCITY = 0.55;
 const DRAG_START_PX = 8;
+/** iOS-like sheet rise: fast start, soft settle. */
+const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
@@ -92,10 +94,15 @@ export function SheetModal({
   const velocityY = useRef(0);
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setEntered(true));
+    // Ensure the off-screen frame paints before we animate in.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setEntered(true));
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
   }, []);
 
   const requestClose = useCallback((options?: { fromDrag?: boolean }) => {
@@ -218,10 +225,13 @@ export function SheetModal({
         type="button"
         aria-label="Close"
         className={cn(
-          "absolute inset-0 bg-black/40 transition-opacity ease-out motion-reduce:transition-none",
-          dragging ? "duration-0" : "duration-300",
+          "absolute inset-0 bg-black/40 ease-out motion-reduce:transition-none",
+          dragging ? "duration-0" : "duration-500",
         )}
-        style={{ opacity: backdropOpacity }}
+        style={{
+          opacity: backdropOpacity,
+          transitionTimingFunction: SHEET_EASE,
+        }}
         onClick={() => requestClose()}
       />
 
@@ -232,17 +242,18 @@ export function SheetModal({
         className={cn(
           "relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden bg-white shadow-lg",
           "rounded-t-2xl sm:max-w-sm sm:rounded-xl",
-          "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          "transition-[transform,opacity] duration-500 motion-reduce:transition-none",
           dragging && "transition-none",
-          !entered && "translate-y-full sm:translate-y-0 sm:opacity-0",
+          !entered && "translate-y-[110%] sm:translate-y-3 sm:opacity-0",
           entered && "translate-y-0 sm:opacity-100",
           className,
         )}
-        style={
-          dragY > 0 || dragging
+        style={{
+          transitionTimingFunction: SHEET_EASE,
+          ...(dragY > 0 || dragging
             ? { transform: `translateY(${dragY}px)` }
-            : undefined
-        }
+            : undefined),
+        }}
         onClick={(e) => e.stopPropagation()}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -264,24 +275,7 @@ export function SheetModal({
           )}
           onPointerDown={(e) => onPointerDown(e, false)}
         >
-          <div className="relative pr-8">
-            <button
-              type="button"
-              onClick={() => requestClose()}
-              className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Close"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="h-5 w-5"
-                aria-hidden
-              >
-                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-              </svg>
-            </button>
+          <div>
             <h3 className="font-semibold text-slate-900">
               {titleHref ? (
                 <Link href={titleHref} className="text-blue-600 hover:underline">
