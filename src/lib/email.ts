@@ -3,6 +3,7 @@ import {
   FEEDBACK_INBOX,
   type TrainerContactKind,
 } from "@/lib/contact";
+import { brand } from "@/lib/brand";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_FROM = "PT Bookings <noreply@example.com>";
@@ -216,7 +217,7 @@ export async function sendLastMinutePruneEmail(params: {
       <tr><td>
         <h1 style="font-size:18px;margin:0 0 12px;">Last-minute openings updated</h1>
         <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtml(text).replace(/\n/g, "<br>")}</p>
-        <p style="margin:0 0 8px;"><a href="${safeUrl}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">Review preferences</a></p>
+        <p style="margin:0 0 8px;"><a href="${safeUrl}" style="display:inline-block;background:${brand.green};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">Review preferences</a></p>
       </td></tr>
     </table>
   </body>

@@ -179,7 +179,7 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
                 className={cn(
                   "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition",
                   active
-                    ? "border-slate-900 bg-slate-900 text-white"
+                    ? "border-brand bg-brand text-brand-foreground"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
                 )}
               >
@@ -260,7 +260,7 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
                           href={item.href}
                           className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
                             active
-                              ? "bg-slate-900 text-white"
+                              ? "bg-brand text-brand-foreground"
                               : "text-slate-700 hover:bg-slate-100"
                           }`}
                         >

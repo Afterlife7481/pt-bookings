@@ -84,8 +84,8 @@ export function ScheduleCell({
     const className = cn(
       sizeClass,
       "relative flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
+      "outline-none [-webkit-tap-highlight-color:transparent] focus-visible:outline-none",
       bookedSlotColorClasses(onPastDay),
-      selected && "ring-2 ring-slate-900 ring-offset-1",
     );
 
     if (onOpen) {
@@ -133,6 +133,7 @@ export function ScheduleCell({
         className={cn(
           sizeClass,
           "flex w-full flex-col items-center justify-center rounded-lg border text-center transition",
+          "outline-none [-webkit-tap-highlight-color:transparent] focus-visible:outline-none",
           openSlotColorClasses(lm, !!selected, onPastDay),
         )}
       >

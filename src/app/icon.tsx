@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brand } from "@/lib/brand";
 import { SITE_NAME } from "@/lib/seo";
 
 export const size = { width: 512, height: 512 };
@@ -14,8 +15,8 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #020617 0%, #064e3b 100%)",
-          color: "#ffffff",
+          background: `linear-gradient(135deg, ${brand.ink} 0%, ${brand.green} 100%)`,
+          color: brand.foreground,
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -42,7 +43,7 @@ export default function Icon() {
               marginTop: 8,
               fontSize: 28,
               fontWeight: 600,
-              color: "#6ee7b7",
+              color: brand.mint,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
             }}

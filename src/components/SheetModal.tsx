@@ -11,7 +11,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const EXIT_MS = 400;
+const EXIT_MS = 420;
 const DISMISS_DISTANCE_PX = 96;
 const DISMISS_VELOCITY = 0.55;
 const DRAG_START_PX = 8;
@@ -23,25 +23,43 @@ function useBodyScrollLock(active: boolean) {
     if (!active) return;
 
     const scrollY = window.scrollY;
-    const { style } = document.body;
+    const html = document.documentElement;
+    const { style: bodyStyle } = document.body;
+    const { style: htmlStyle } = html;
     const previous = {
-      overflow: style.overflow,
-      position: style.position,
-      top: style.top,
-      width: style.width,
+      bodyOverflow: bodyStyle.overflow,
+      bodyPosition: bodyStyle.position,
+      bodyTop: bodyStyle.top,
+      bodyLeft: bodyStyle.left,
+      bodyRight: bodyStyle.right,
+      bodyWidth: bodyStyle.width,
+      htmlOverflow: htmlStyle.overflow,
+      htmlOverscroll: htmlStyle.overscrollBehavior,
     };
 
-    style.overflow = "hidden";
-    style.position = "fixed";
-    style.top = `-${scrollY}px`;
-    style.width = "100%";
+    // Avoid position:fixed when the page isn't scrolled — it causes a visible jump
+    // behind the sheet on mobile.
+    htmlStyle.overflow = "hidden";
+    htmlStyle.overscrollBehavior = "none";
+    bodyStyle.overflow = "hidden";
+    if (scrollY > 0) {
+      bodyStyle.position = "fixed";
+      bodyStyle.top = `-${scrollY}px`;
+      bodyStyle.left = "0";
+      bodyStyle.right = "0";
+      bodyStyle.width = "100%";
+    }
 
     return () => {
-      style.overflow = previous.overflow;
-      style.position = previous.position;
-      style.top = previous.top;
-      style.width = previous.width;
-      window.scrollTo(0, scrollY);
+      bodyStyle.overflow = previous.bodyOverflow;
+      bodyStyle.position = previous.bodyPosition;
+      bodyStyle.top = previous.bodyTop;
+      bodyStyle.left = previous.bodyLeft;
+      bodyStyle.right = previous.bodyRight;
+      bodyStyle.width = previous.bodyWidth;
+      htmlStyle.overflow = previous.htmlOverflow;
+      htmlStyle.overscrollBehavior = previous.htmlOverscroll;
+      if (scrollY > 0) window.scrollTo(0, scrollY);
     };
   }, [active]);
 }
@@ -68,6 +86,7 @@ export function SheetModal({
   children,
   footer,
   className,
+  size = "default",
 }: {
   title: string;
   titleHref?: string;
@@ -76,6 +95,8 @@ export function SheetModal({
   children?: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** default: narrow form sheet; wide: week schedule / denser content */
+  size?: "default" | "wide";
 }) {
   useBodyScrollLock(true);
   const isMobile = useIsMobileSheet();
@@ -216,6 +237,15 @@ export function SheetModal({
     ? Math.max(0.12, 1 - dragY / 320)
     : 0;
 
+  const sheetTransform =
+    dragY > 0 || dragging
+      ? `translate3d(0, ${dragY}px, 0)`
+      : entered
+        ? "translate3d(0, 0, 0)"
+        : isMobile
+          ? "translate3d(0, 110%, 0)"
+          : "translate3d(0, 12px, 0)";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4"
@@ -226,7 +256,7 @@ export function SheetModal({
         aria-label="Close"
         className={cn(
           "absolute inset-0 bg-black/40 ease-out motion-reduce:transition-none",
-          dragging ? "duration-0" : "duration-500",
+          dragging ? "duration-0" : "duration-[420ms]",
         )}
         style={{
           opacity: backdropOpacity,
@@ -241,18 +271,17 @@ export function SheetModal({
         aria-label={title}
         className={cn(
           "relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden bg-white shadow-lg",
-          "rounded-t-2xl sm:max-w-sm sm:rounded-xl",
-          "transition-[transform,opacity] duration-500 motion-reduce:transition-none",
-          dragging && "transition-none",
-          !entered && "translate-y-[110%] sm:translate-y-3 sm:opacity-0",
-          entered && "translate-y-0 sm:opacity-100",
+          "rounded-t-2xl sm:rounded-xl",
+          size === "wide" ? "sm:max-w-3xl" : "sm:max-w-sm",
+          "motion-reduce:transition-none",
+          !dragging && "transition-[transform,opacity] duration-[420ms]",
           className,
         )}
         style={{
           transitionTimingFunction: SHEET_EASE,
-          ...(dragY > 0 || dragging
-            ? { transform: `translateY(${dragY}px)` }
-            : undefined),
+          transform: sheetTransform,
+          opacity: isMobile || entered ? 1 : 0,
+          willChange: "transform",
         }}
         onClick={(e) => e.stopPropagation()}
         onPointerMove={onPointerMove}

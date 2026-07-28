@@ -212,7 +212,10 @@ function DayScheduleGrid({
                     entry={entry}
                     editable={editable}
                     onOpen={editable ? onOpenSlot : undefined}
-                    selected={selectedOpenSlot?.slotId === entry.slotId}
+                    selected={
+                      selectedOpenSlot?.slotId === entry.slotId &&
+                      !entry.booking
+                    }
                     mobile
                     onPastDay={entryPast}
                   />
@@ -280,7 +283,7 @@ function DayPicker({
               className={cn(
                 "flex w-11 shrink-0 flex-col items-center rounded-xl border px-1 py-2",
                 isSelected
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-brand bg-brand text-brand-foreground"
                   : isPast
                     ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
                     : isToday
@@ -424,7 +427,10 @@ function WeekGrid({
                       entry={entry}
                       editable={editable}
                       onOpen={editable ? onOpenSlot : undefined}
-                      selected={selectedOpenSlot?.slotId === entry.slotId}
+                      selected={
+                      selectedOpenSlot?.slotId === entry.slotId &&
+                      !entry.booking
+                    }
                       compact={denseCells}
                       onPastDay={entryPast}
                     />
@@ -697,6 +703,10 @@ export function WeekScheduleCalendar({
   }
 
   function openSlotActions(entry: ScheduleEntry) {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
     setEditingOpenSlot(false);
     setSelectedOpenSlot(entry);
   }

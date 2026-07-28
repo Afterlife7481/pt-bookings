@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { brand } from "@/lib/brand";
 import { SITE_NAME } from "@/lib/seo";
 
 export const TRAINER_MANIFEST_PATH = "/manifest.webmanifest";
@@ -27,8 +28,8 @@ const PWA_ICONS: MetadataRoute.Manifest["icons"] = [
 const PWA_BASE = {
   display: "standalone" as const,
   orientation: "portrait-primary" as const,
-  background_color: "#020617",
-  theme_color: "#020617",
+  background_color: brand.ink,
+  theme_color: brand.green,
   lang: "en-GB",
   dir: "ltr" as const,
   categories: ["business", "productivity"],

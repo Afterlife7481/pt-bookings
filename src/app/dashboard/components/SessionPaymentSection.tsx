@@ -78,7 +78,7 @@ export function SessionPaymentSection({
         className={cn(
           "rounded-md px-3 py-1.5 text-sm font-medium transition",
           paymentStatus === "unpaid"
-            ? "bg-slate-900 text-white"
+            ? "bg-brand text-brand-foreground"
             : "text-slate-600 hover:text-slate-900",
         )}
       >
@@ -90,7 +90,7 @@ export function SessionPaymentSection({
         className={cn(
           "rounded-md px-3 py-1.5 text-sm font-medium transition",
           paymentStatus === "requested"
-            ? "bg-slate-900 text-white"
+            ? "bg-brand text-brand-foreground"
             : "text-slate-400",
         )}
       >
@@ -105,7 +105,7 @@ export function SessionPaymentSection({
         className={cn(
           "rounded-md px-3 py-1.5 text-sm font-medium transition",
           paymentStatus === "paid"
-            ? "bg-slate-900 text-white"
+            ? "bg-brand text-brand-foreground"
             : "text-slate-600 hover:text-slate-900",
         )}
       >

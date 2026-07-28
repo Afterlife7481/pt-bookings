@@ -74,7 +74,7 @@ export function MarkSessionPaidModal({
                 className={cn(
                   "min-w-0 rounded-lg border px-3 py-2.5 text-sm font-medium transition",
                   isSelected
-                    ? "border-slate-900 bg-slate-900 text-white"
+                    ? "border-brand bg-brand text-brand-foreground"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
                   busy && "opacity-60",
                 )}

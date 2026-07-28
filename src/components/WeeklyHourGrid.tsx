@@ -231,7 +231,7 @@ export function WeeklyHourGrid({
                 className={cn(
                   "relative z-[1] flex flex-col items-center justify-center gap-0.5 border-b px-0.5 py-1 text-center",
                   todayDay
-                    ? "border-sky-700 bg-slate-900"
+                    ? "border-brand bg-brand"
                     : "border-slate-200",
                   !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
                 )}
@@ -265,7 +265,7 @@ export function WeeklyHourGrid({
               className={cn(
                 "relative z-[1] border-b px-0.5 text-center",
                 todayDay
-                  ? "border-sky-700 bg-slate-900"
+                  ? "border-brand bg-brand"
                   : "border-slate-200",
                 !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
                 denseDuration ? "py-1" : "py-2",

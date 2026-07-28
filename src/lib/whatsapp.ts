@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { whatsappMessages } from "@/lib/db/schema";
+import { brand } from "@/lib/brand";
 import {
   bookingUrl,
   formatSlotLabel,
@@ -178,7 +179,7 @@ export async function sendConfirmationEmail(params: {
         <h1 style="font-size:18px;margin:0 0 16px;">Session confirmation</h1>
         <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
         <p style="margin:0 0 16px;">
-          <a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+          <a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 16px;background:${brand.green};color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
             View session
           </a>
         </p>
@@ -560,7 +561,7 @@ export async function sendTemplateConflictEmail(params: {
         <h1 style="font-size:18px;margin:0 0 16px;">Schedule clash</h1>
         <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
         <p style="margin:0 0 16px;">
-          <a href="${escapeHtml(params.conflictUrl)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+          <a href="${escapeHtml(params.conflictUrl)}" style="display:inline-block;padding:10px 16px;background:${brand.green};color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
             Confirm received
           </a>
         </p>
@@ -654,7 +655,7 @@ export async function sendPortalLinkEmail(params: {
         <h1 style="font-size:18px;margin:0 0 16px;">Your PT portal</h1>
         <p style="font-size:14px;line-height:22px;margin:0 0 16px;white-space:pre-line;">${escapeHtmlPreservingNewlines(body)}</p>
         <p style="margin:0 0 16px;">
-          <a href="${escapeHtml(params.portalUrl)}" style="display:inline-block;padding:10px 16px;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
+          <a href="${escapeHtml(params.portalUrl)}" style="display:inline-block;padding:10px 16px;background:${brand.green};color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;">
             Open portal
           </a>
         </p>
