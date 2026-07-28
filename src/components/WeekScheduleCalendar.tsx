@@ -667,7 +667,6 @@ export function WeekScheduleCalendar({
         locationId,
       );
       setEditingOpenSlot(false);
-      setSelectedOpenSlot(null);
     } finally {
       setBusyKey(null);
     }
@@ -835,6 +834,24 @@ export function WeekScheduleCalendar({
         />
       ) : null}
 
+      {selectedOpenSlot && !selectedOpenSlot.booking ? (
+        <OpenSlotModal
+          entry={selectedOpenSlot}
+          clients={clients}
+          lockHours={lockHours}
+          onAllocate={handleAllocate}
+          onRemove={handleRemove}
+          onEdit={onUpdateSlot ? () => setEditingOpenSlot(true) : undefined}
+          onOfferSent={handleOfferSent}
+          onClose={() => {
+            if (busyKey) return;
+            setEditingOpenSlot(false);
+            setSelectedOpenSlot(null);
+          }}
+          busy={!!busyKey}
+        />
+      ) : null}
+
       {selectedOpenSlot && !selectedOpenSlot.booking && editingOpenSlot ? (
         <AddSlotModal
           mode="edit"
@@ -846,20 +863,6 @@ export function WeekScheduleCalendar({
           locations={locations}
           onConfirm={handleConfirmEdit}
           onClose={() => !busyKey && setEditingOpenSlot(false)}
-          busy={!!busyKey}
-        />
-      ) : null}
-
-      {selectedOpenSlot && !selectedOpenSlot.booking && !editingOpenSlot ? (
-        <OpenSlotModal
-          entry={selectedOpenSlot}
-          clients={clients}
-          lockHours={lockHours}
-          onAllocate={handleAllocate}
-          onRemove={handleRemove}
-          onEdit={onUpdateSlot ? () => setEditingOpenSlot(true) : undefined}
-          onOfferSent={handleOfferSent}
-          onClose={() => !busyKey && setSelectedOpenSlot(null)}
           busy={!!busyKey}
         />
       ) : null}
