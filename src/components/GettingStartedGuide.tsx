@@ -9,6 +9,15 @@ export function GettingStartedGuide() {
       </p>
       <ol className="list-decimal space-y-3 pl-5">
         <li>
+          <strong className="text-slate-800">Set your regional settings.</strong>{" "}
+          In{" "}
+          <Link href="/dashboard/settings/regional" className="underline">
+            Settings → Regional
+          </Link>
+          , choose your time zone (and currency if needed) so session times
+          display correctly for you and your clients.
+        </li>
+        <li>
           <strong className="text-slate-800">Set up your locations.</strong> In{" "}
           <Link href="/dashboard/settings/locations" className="underline">
             Settings → Your locations
@@ -16,6 +25,13 @@ export function GettingStartedGuide() {
           , add every place you train (studio, gym, park, home visits). Every
           slot must have a location, so nothing else works until you have at
           least one.
+        </li>
+        <li>
+          <strong className="text-slate-800">Set your schedule hours.</strong> In{" "}
+          <Link href="/dashboard/settings/schedule" className="underline">
+            Settings → Schedule hours
+          </Link>
+          , choose the start and end times shown on your weekly diary.
         </li>
         <li>
           <strong className="text-slate-800">Build your weekly template.</strong>{" "}
@@ -39,7 +55,8 @@ export function GettingStartedGuide() {
           <Link href="/dashboard/clients" className="underline">
             Clients
           </Link>{" "}
-          tab, add each client&apos;s name, phone, and session price.
+          tab, add each client&apos;s name plus a phone number and/or email, and
+          their session price.
         </li>
         <li>
           <strong className="text-slate-800">Configure each client.</strong> Open
@@ -47,13 +64,20 @@ export function GettingStartedGuide() {
           <ul className="mt-1 list-disc space-y-1 pl-5">
             <li>Enable the locations they can train at.</li>
             <li>
-              Set any recurring slots (these must match template slots at enabled
-              locations).
+              Set their preferred contact channel (email or WhatsApp) and
+              session price.
             </li>
             <li>
-              Add notes — shared notes appear on the client&apos;s portal (e.g.
-              training instructions); private notes are only ever seen by you
-              (e.g. injury reminders).
+              Assign recurring slots (these must match template slots at their
+              enabled locations).
+            </li>
+            <li>
+              Add notes — public notes appear on the client&apos;s portal;
+              private notes are only ever seen by you.
+            </li>
+            <li>
+              Send their portal link so they can view, book, and change
+              sessions, and opt in to last-minute offers.
             </li>
           </ul>
         </li>
@@ -66,14 +90,36 @@ export function GettingStartedGuide() {
             Schedule
           </Link>
           , use <em>Apply template</em> to generate that week&apos;s slots and
-          auto-book your recurring clients.
+          auto-book your recurring clients. You can also open empty cells to add
+          one-off slots, allocate clients directly, or send last-minute offers
+          when something frees up.
         </li>
         <li>
-          <strong className="text-slate-800">Share portal links and go live.</strong>{" "}
-          Send each client their portal link so they can view, book, and change
-          sessions within your booking window, and opt in to last-minute offers.
-          Optionally add your payment details in Settings so you can send
-          invoices.
+          <strong className="text-slate-800">
+            Review booking rules and payment details.
+          </strong>{" "}
+          Optionally set how far ahead clients can book and cancel in{" "}
+          <Link href="/dashboard/settings/booking-rules" className="underline">
+            Settings → Booking rules
+          </Link>
+          , and add payment methods in{" "}
+          <Link href="/dashboard/settings/payment" className="underline">
+            Settings → Payment details
+          </Link>{" "}
+          so you can mark sessions paid and send invoices from the Sessions tab
+          or schedule.
+        </li>
+        <li>
+          <strong className="text-slate-800">
+            Invite other personal trainers.
+          </strong>{" "}
+          In{" "}
+          <Link href="/dashboard/invitations" className="underline">
+            Invitations
+          </Link>
+          , copy your invite code and share it with PTs you trust. New trainers
+          can only create an account with a valid invitation code — this keeps
+          signup invite-only.
         </li>
       </ol>
     </>

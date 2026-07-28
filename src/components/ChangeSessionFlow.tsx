@@ -113,8 +113,9 @@ export function ChangeSessionFlow({
     }
   }
 
-  async function confirmChange() {
-    if (!changeRequestId || !selectedSlot) return;
+  async function selectAndSave(slotId: string) {
+    if (!changeRequestId || busy) return;
+    setSelectedSlot(slotId);
     setBusy(true);
     setError(null);
     try {
@@ -125,7 +126,7 @@ export function ChangeSessionFlow({
           action: "confirm",
           bookingToken,
           changeRequestId,
-          toSlotId: selectedSlot,
+          toSlotId: slotId,
         }),
       });
       const data = await res.json();
@@ -134,7 +135,6 @@ export function ChangeSessionFlow({
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to confirm change");
-    } finally {
       setBusy(false);
     }
   }
@@ -224,11 +224,10 @@ export function ChangeSessionFlow({
         <ChangeSlotPickerSheet
           slots={slots}
           selectedSlotId={selectedSlot}
-          onSelect={setSelectedSlot}
+          onSelect={selectAndSave}
           onClose={() => {
             if (!busy) setShowPicker(false);
           }}
-          onConfirm={confirmChange}
           busy={busy}
           error={error}
           subtitle={`Current session: ${currentSlotLabel}`}

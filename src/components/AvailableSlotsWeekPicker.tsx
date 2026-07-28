@@ -84,6 +84,7 @@ export function AvailableSlotsWeekPicker({
   selectedSlotId,
   onSelect,
   disabled = false,
+  busy = false,
   scheduleStartTime: scheduleStartProp,
   scheduleEndTime: scheduleEndProp,
 }: {
@@ -91,6 +92,7 @@ export function AvailableSlotsWeekPicker({
   selectedSlotId: string | null;
   onSelect: (slotId: string) => void;
   disabled?: boolean;
+  busy?: boolean;
   scheduleStartTime?: string;
   scheduleEndTime?: string;
 }) {
@@ -243,16 +245,18 @@ export function AvailableSlotsWeekPicker({
         }}
       />
 
-      {selected ? (
+      {busy && selected ? (
         <p className="text-sm text-slate-600">
-          Selected:{" "}
+          Moving to{" "}
           <span className="font-medium text-slate-900">
             {formatSlotLabel(selected.startAt)}
           </span>
-          {selected.locationName ? ` · ${selected.locationName}` : null}
+          {selected.locationName ? ` · ${selected.locationName}` : null}…
         </p>
       ) : (
-        <p className="text-sm text-slate-500">Tap an open slot to select it.</p>
+        <p className="text-sm text-slate-500">
+          Tap an open slot to move this session.
+        </p>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui";
 import { SheetModal } from "@/components/SheetModal";
 import {
   AvailableSlotsWeekPicker,
@@ -12,23 +11,19 @@ export function ChangeSlotPickerSheet({
   selectedSlotId,
   onSelect,
   onClose,
-  onConfirm,
   busy = false,
   disabled = false,
   error = null,
   subtitle,
-  confirmLabel = "Confirm new time",
 }: {
   slots: AvailablePickerSlot[];
   selectedSlotId: string | null;
   onSelect: (slotId: string) => void;
   onClose: () => void;
-  onConfirm: () => void;
   busy?: boolean;
   disabled?: boolean;
   error?: string | null;
   subtitle?: string;
-  confirmLabel?: string;
 }) {
   return (
     <SheetModal
@@ -38,15 +33,6 @@ export function ChangeSlotPickerSheet({
       onClose={() => {
         if (!busy) onClose();
       }}
-      footer={
-        <Button
-          className="w-full"
-          disabled={disabled || busy || !selectedSlotId}
-          onClick={onConfirm}
-        >
-          {busy ? "Changing…" : confirmLabel}
-        </Button>
-      }
     >
       <div className="mt-4">
         <AvailableSlotsWeekPicker
@@ -54,6 +40,7 @@ export function ChangeSlotPickerSheet({
           selectedSlotId={selectedSlotId}
           onSelect={onSelect}
           disabled={disabled || busy}
+          busy={busy}
         />
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </div>

@@ -55,14 +55,15 @@ export function TrainerChangeSessionSection({
     });
   }, [loadSlots]);
 
-  async function confirmChange() {
-    if (!selectedSlot) return;
+  async function selectAndSave(slotId: string) {
+    if (busy || disabled) return;
+    setSelectedSlot(slotId);
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/bookings/${bookingId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "change_slot", toSlotId: selectedSlot }),
+      body: JSON.stringify({ action: "change_slot", toSlotId: slotId }),
     });
     const data = await res.json();
     setBusy(false);
@@ -76,11 +77,7 @@ export function TrainerChangeSessionSection({
 
   if (loading) {
     return (
-      <SheetModal
-        title="Pick a new time"
-        size="wide"
-        onClose={onClose}
-      >
+      <SheetModal title="Pick a new time" size="wide" onClose={onClose}>
         <p className="mt-4 text-sm text-slate-500">Loading available slots…</p>
       </SheetModal>
     );
@@ -112,9 +109,8 @@ export function TrainerChangeSessionSection({
     <ChangeSlotPickerSheet
       slots={slots}
       selectedSlotId={selectedSlot}
-      onSelect={setSelectedSlot}
+      onSelect={selectAndSave}
       onClose={onClose}
-      onConfirm={confirmChange}
       busy={busy}
       disabled={disabled}
       error={error}

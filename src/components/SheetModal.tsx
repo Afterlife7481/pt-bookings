@@ -5,9 +5,11 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -18,15 +20,31 @@ const DRAG_START_PX = 8;
 /** iOS-like sheet rise: fast start, soft settle. */
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
-function useBodyScrollLock(active: boolean) {
-  useEffect(() => {
-    if (!active) return;
+type BodyScrollSnapshot = {
+  bodyOverflow: string;
+  bodyPosition: string;
+  bodyTop: string;
+  bodyLeft: string;
+  bodyRight: string;
+  bodyWidth: string;
+  htmlOverflow: string;
+  htmlOverscroll: string;
+  scrollY: number;
+};
 
+let bodyScrollLockCount = 0;
+let bodyScrollSnapshot: BodyScrollSnapshot | null = null;
+
+function acquireBodyScrollLock() {
+  if (typeof document === "undefined") return;
+
+  if (bodyScrollLockCount === 0) {
     const scrollY = window.scrollY;
     const html = document.documentElement;
     const { style: bodyStyle } = document.body;
     const { style: htmlStyle } = html;
-    const previous = {
+
+    bodyScrollSnapshot = {
       bodyOverflow: bodyStyle.overflow,
       bodyPosition: bodyStyle.position,
       bodyTop: bodyStyle.top,
@@ -35,6 +53,7 @@ function useBodyScrollLock(active: boolean) {
       bodyWidth: bodyStyle.width,
       htmlOverflow: htmlStyle.overflow,
       htmlOverscroll: htmlStyle.overscrollBehavior,
+      scrollY,
     };
 
     // Avoid position:fixed when the page isn't scrolled — it causes a visible jump
@@ -49,18 +68,41 @@ function useBodyScrollLock(active: boolean) {
       bodyStyle.right = "0";
       bodyStyle.width = "100%";
     }
+  }
 
-    return () => {
-      bodyStyle.overflow = previous.bodyOverflow;
-      bodyStyle.position = previous.bodyPosition;
-      bodyStyle.top = previous.bodyTop;
-      bodyStyle.left = previous.bodyLeft;
-      bodyStyle.right = previous.bodyRight;
-      bodyStyle.width = previous.bodyWidth;
-      htmlStyle.overflow = previous.htmlOverflow;
-      htmlStyle.overscrollBehavior = previous.htmlOverscroll;
-      if (scrollY > 0) window.scrollTo(0, scrollY);
-    };
+  bodyScrollLockCount += 1;
+}
+
+function releaseBodyScrollLock() {
+  if (typeof document === "undefined") return;
+  if (bodyScrollLockCount === 0) return;
+
+  bodyScrollLockCount -= 1;
+  if (bodyScrollLockCount > 0 || !bodyScrollSnapshot) return;
+
+  const snapshot = bodyScrollSnapshot;
+  bodyScrollSnapshot = null;
+
+  const html = document.documentElement;
+  const { style: bodyStyle } = document.body;
+  const { style: htmlStyle } = html;
+
+  bodyStyle.overflow = snapshot.bodyOverflow;
+  bodyStyle.position = snapshot.bodyPosition;
+  bodyStyle.top = snapshot.bodyTop;
+  bodyStyle.left = snapshot.bodyLeft;
+  bodyStyle.right = snapshot.bodyRight;
+  bodyStyle.width = snapshot.bodyWidth;
+  htmlStyle.overflow = snapshot.htmlOverflow;
+  htmlStyle.overscrollBehavior = snapshot.htmlOverscroll;
+  if (snapshot.scrollY > 0) window.scrollTo(0, snapshot.scrollY);
+}
+
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    acquireBodyScrollLock();
+    return () => releaseBodyScrollLock();
   }, [active]);
 }
 
@@ -100,6 +142,7 @@ export function SheetModal({
 }) {
   useBodyScrollLock(true);
   const isMobile = useIsMobileSheet();
+  const [mounted, setMounted] = useState(false);
 
   const [entered, setEntered] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -113,6 +156,10 @@ export function SheetModal({
   const originY = useRef(0);
   const lastSample = useRef({ y: 0, t: 0 });
   const velocityY = useRef(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Ensure the off-screen frame paints before we animate in.
@@ -246,9 +293,18 @@ export function SheetModal({
           ? "translate3d(0, 110%, 0)"
           : "translate3d(0, 12px, 0)";
 
-  return (
+  if (!mounted) return null;
+
+  const sheetStyle: CSSProperties = {
+    transitionTimingFunction: SHEET_EASE,
+    transform: sheetTransform,
+    opacity: isMobile || entered ? 1 : 0,
+    willChange: "transform",
+  };
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4"
       role="presentation"
     >
       <button
@@ -277,12 +333,7 @@ export function SheetModal({
           !dragging && "transition-[transform,opacity] duration-[420ms]",
           className,
         )}
-        style={{
-          transitionTimingFunction: SHEET_EASE,
-          transform: sheetTransform,
-          opacity: isMobile || entered ? 1 : 0,
-          willChange: "transform",
-        }}
+        style={sheetStyle}
         onClick={(e) => e.stopPropagation()}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -324,6 +375,7 @@ export function SheetModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
