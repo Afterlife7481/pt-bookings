@@ -176,7 +176,7 @@ export function SessionPaymentSection({
         {variant === "card" ? (
           <>
             <p className="text-sm text-slate-500">
-              Send the session amount and your bank payment details by email or
+              Send the session amount and your payment methods by email or
               WhatsApp.
             </p>
             {booking.invoiceSentAt ? (
@@ -193,11 +193,7 @@ export function SessionPaymentSection({
         ) : null}
         <Button
           variant="secondary"
-          disabled={
-            controlsDisabled ||
-            effectiveSessionPrice == null ||
-            !detail.paymentDetailsReady
-          }
+          disabled={controlsDisabled || effectiveSessionPrice == null}
           className={cn("w-full", variant === "card" && "mt-3 sm:w-auto")}
           onClick={onOpenInvoiceSheet}
         >
@@ -222,21 +218,6 @@ export function SessionPaymentSection({
               className="underline hover:text-amber-900"
             >
               client profile
-            </Link>{" "}
-            before sending an invoice.
-          </p>
-        ) : null}
-        {showSetupHints &&
-        effectiveSessionPrice != null &&
-        !detail.paymentDetailsReady &&
-        !disabled ? (
-          <p className="mt-2 text-sm text-amber-700">
-            Add bank account and sort code in{" "}
-            <Link
-              href="/dashboard/settings/payment"
-              className="underline hover:text-amber-900"
-            >
-              Settings → Payment details
             </Link>{" "}
             before sending an invoice.
           </p>

@@ -28,8 +28,8 @@ import { resolveMoneyCurrency } from "@/lib/currency";
 import { getTrainerSettings } from "./settings";
 import { getTrainerById } from "./trainers";
 import {
-  getPaymentDetailsForMessage,
-  hasBankTransferDetails,
+  paymentDetailsFromMethods,
+  hasPaymentDetailsForInvoice,
 } from "@/lib/payments";
 import { getClientByToken } from "./clients";
 import { assertClientCanUseSlotLocation } from "./locations";
@@ -563,13 +563,10 @@ export async function getBookingDetailForTrainer(
     : null;
 
   const settings = await getTrainerSettings(trainerId);
-  const paymentDetailsReady = hasBankTransferDetails(
-    getPaymentDetailsForMessage(settings),
+  const paymentMethods = await listPaymentMethods(trainerId);
+  const paymentDetailsReady = hasPaymentDetailsForInvoice(
+    paymentDetailsFromMethods(paymentMethods),
   );
-  const paymentMethods = (await listPaymentMethods(trainerId)).map((method) => ({
-    id: method.id,
-    name: method.name,
-  }));
 
   const currency = resolveMoneyCurrency({
     bookingCurrency: booking.currency,
@@ -615,7 +612,10 @@ export async function getBookingDetailForTrainer(
     },
     currency,
     paymentDetailsReady,
-    paymentMethods,
+    paymentMethods: paymentMethods.map((method) => ({
+      id: method.id,
+      name: method.name,
+    })),
   };
 }
 
@@ -772,10 +772,11 @@ export async function sendInvoiceForBooking(
     clientCurrency: client.currency,
     trainerCurrency: settings.currency,
   });
-  const paymentDetails = getPaymentDetailsForMessage(settings);
-  if (!hasBankTransferDetails(paymentDetails)) {
+  const paymentMethods = await listPaymentMethods(booking.trainerId);
+  const paymentDetails = paymentDetailsFromMethods(paymentMethods);
+  if (!hasPaymentDetailsForInvoice(paymentDetails)) {
     throw new Error(
-      "Add bank account and sort code in Settings → Payment details before sending an invoice",
+      "Add payment methods in Settings → Payment details before sending an invoice",
     );
   }
 

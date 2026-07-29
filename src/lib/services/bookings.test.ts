@@ -10,7 +10,6 @@ import {
   updateBookingPaymentForTrainer,
   voidBookingForTrainer,
 } from "@/lib/services/bookings";
-import { updateTrainerSettings } from "@/lib/services/settings";
 import { setClientLocations } from "@/lib/services/locations";
 import { seedTestFixtures } from "@tests/helpers/db";
 import { DEFAULT_TRAINER_ID, toLocalDateTimeString } from "@/lib/constants";
@@ -298,14 +297,10 @@ describe("voidBookingForTrainer", () => {
 });
 
 describe("sendInvoiceForBooking", () => {
-  it("records invoiceSentAt when price and bank details are set", async () => {
+  it("records invoiceSentAt when price and payment methods are set", async () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
 
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
-      bankAccountNumber: "12345678",
-      bankSortCode: "12-34-56",
-    });
     await db
       .update(clients)
       .set({ sessionPrice: 5000 })
@@ -326,10 +321,6 @@ describe("sendInvoiceForBooking", () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
 
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
-      bankAccountNumber: "12345678",
-      bankSortCode: "12-34-56",
-    });
     await db
       .update(clients)
       .set({ sessionPrice: 5000 })
@@ -361,10 +352,6 @@ describe("sendInvoiceForBooking", () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
 
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
-      bankAccountNumber: "12345678",
-      bankSortCode: "12-34-56",
-    });
     await db
       .update(clients)
       .set({ sessionPrice: 5000, email: "casey@example.com" })
@@ -393,10 +380,6 @@ describe("sendInvoiceForBooking", () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
 
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
-      bankAccountNumber: "12345678",
-      bankSortCode: "12-34-56",
-    });
     await db
       .update(clients)
       .set({ sessionPrice: 5000, email: "" })
@@ -418,10 +401,6 @@ describe("sendInvoiceForBooking", () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
 
-    await updateTrainerSettings(DEFAULT_TRAINER_ID, {
-      bankAccountNumber: "12345678",
-      bankSortCode: "12-34-56",
-    });
     await db
       .update(clients)
       .set({ sessionPrice: 5000 })

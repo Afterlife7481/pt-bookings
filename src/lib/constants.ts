@@ -76,7 +76,16 @@ export const SESSION_COOKIE = "pt_session";
 export const DEFAULT_TIMEZONE = "Europe/London";
 
 /** Default payment methods seeded for every trainer. */
-export const DEFAULT_PAYMENT_METHODS = ["Cash", "Transfer", "Monzo"] as const;
+export const DEFAULT_PAYMENT_METHODS = ["Cash", "Transfer"] as const;
+
+/** Built-in methods that always exist and cannot be renamed or deleted. */
+export const PROTECTED_PAYMENT_METHODS = ["Cash", "Transfer"] as const;
+
+export function isProtectedPaymentMethod(name: string): boolean {
+  return PROTECTED_PAYMENT_METHODS.some(
+    (protectedName) => protectedName.toLowerCase() === name.trim().toLowerCase(),
+  );
+}
 
 /** Stored on bookings as the selected method name (trainer-configurable). */
 export type SessionPaymentType = string;

@@ -226,6 +226,7 @@ export const trainerPaymentMethods = pgTable(
       .notNull()
       .references(() => trainers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    note: text("note"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },

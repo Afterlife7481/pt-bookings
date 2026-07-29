@@ -155,6 +155,13 @@
       "when": 1784800000000,
       "tag": "0021_message_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784900000000,
+      "tag": "0022_payment_method_notes",
+      "breakpoints": true
     }
   ]
 }
