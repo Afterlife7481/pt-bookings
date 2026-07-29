@@ -3,16 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui";
-import { formatBookingWindowWeeks } from "@/lib/constants";
-import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
-
-type Slot = {
-  id: string;
-  startAt: string;
-  locationName: string | null;
-  locationAddress: string | null;
-};
+import {
+  AvailableSlotsWeekPicker,
+  type AvailablePickerSlot,
+} from "@/components/AvailableSlotsWeekPicker";
+import { formatBookingWindowWeeks, formatSlotLabel } from "@/lib/constants";
 
 export function BookSessionFlow({
   clientToken,
@@ -21,7 +16,7 @@ export function BookSessionFlow({
   showHeader = true,
 }: {
   clientToken: string;
-  slots: Slot[];
+  slots: AvailablePickerSlot[];
   bookingWindowWeeks: number;
   showHeader?: boolean;
 }) {
@@ -30,15 +25,15 @@ export function BookSessionFlow({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function confirmBooking() {
-    if (!selectedSlot) return;
+  async function bookSlot(slotId: string) {
+    setSelectedSlot(slotId);
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/client-book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientToken, slotId: selectedSlot }),
+        body: JSON.stringify({ clientToken, slotId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -46,74 +41,69 @@ export function BookSessionFlow({
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to book session");
-    } finally {
       setLoading(false);
     }
+  }
+
+  function handleSelect(slotId: string) {
+    if (loading) return;
+    const slot = slots.find((s) => s.id === slotId);
+    const label = slot
+      ? `${formatSlotLabel(slot.startAt)}${
+          slot.locationName ? ` · ${slot.locationName}` : ""
+        }`
+      : "this time";
+    if (
+      !window.confirm(
+        `Book ${label}?\n\nWe'll check it's still available before saving.`,
+      )
+    ) {
+      return;
+    }
+    void bookSlot(slotId);
   }
 
   return (
     <div className="space-y-4">
       {showHeader ? (
-        <>
-          <h2 className="text-lg font-semibold">Book a session</h2>
-          <p className="text-sm text-slate-600">
-            Pick an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
-          </p>
-        </>
-      ) : null}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="space-y-4">
-        {slots.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            No open slots at your locations right now.
-          </p>
-        ) : (
-          groupSlotsByDay(slots).map((group) => (
-            <div key={group.dateKey}>
-              <h3 className="text-sm font-medium text-slate-900">{group.label}</h3>
-              <div className="mt-2 space-y-2">
-                {group.slots.map((slot) => (
-                  <label
-                    key={slot.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
-                      selectedSlot === slot.id
-                        ? "border-slate-900 bg-slate-50"
-                        : "border-slate-200"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="slot"
-                      value={slot.id}
-                      checked={selectedSlot === slot.id}
-                      onChange={() => setSelectedSlot(slot.id)}
-                    />
-                    <div>
-                      <span className="text-sm font-medium tabular-nums">
-                        {formatTimeOnly(slot.startAt)}
-                      </span>
-                      {slot.locationName && (
-                        <p className="text-sm text-slate-600">{slot.locationName}</p>
-                      )}
-                      {slot.locationAddress && (
-                        <p className="text-xs text-slate-500">{slot.locationAddress}</p>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="flex gap-2">
-        <Button onClick={confirmBooking} disabled={!selectedSlot || loading}>
-          {loading ? "Booking…" : "Confirm booking"}
-        </Button>
-        <Link href={`/c/${clientToken}`}>
-          <Button variant="ghost">Cancel</Button>
-        </Link>
-      </div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Book a session</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Pick an open slot within{" "}
+              {formatBookingWindowWeeks(bookingWindowWeeks)}. We&apos;ll confirm
+              it&apos;s still available before saving.
+            </p>
+          </div>
+          <Link
+            href={`/c/${clientToken}`}
+            className="shrink-0 text-sm font-medium text-slate-500 hover:text-slate-900"
+          >
+            Cancel
+          </Link>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-600">
+          Tap an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
+          We&apos;ll confirm it&apos;s still available before saving.
+        </p>
+      )}
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {slots.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No open slots at your locations right now.
+        </p>
+      ) : (
+        <AvailableSlotsWeekPicker
+          slots={slots}
+          selectedSlotId={selectedSlot}
+          onSelect={handleSelect}
+          disabled={loading}
+          busy={loading}
+        />
+      )}
     </div>
   );
 }
