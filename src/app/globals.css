@@ -589,7 +589,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgb(236 253 245 / 0.9);
+  background-color: transparent;
 }
 
 .holiday-hatch::before {

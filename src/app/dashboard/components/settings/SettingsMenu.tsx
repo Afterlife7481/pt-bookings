@@ -44,7 +44,7 @@ export function SettingsMenu({ settings }: { settings: TrainerSettings | null })
         />
         <SettingsRowLink
           href="/dashboard/settings/holidays"
-          title="🏝️ Time off"
+          title="Time off 🏝️"
         />
       </SettingsGroup>
 

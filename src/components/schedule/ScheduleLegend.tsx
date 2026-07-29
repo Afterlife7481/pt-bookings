@@ -34,7 +34,7 @@ export function ScheduleLegend({ className }: { className?: string }) {
         label: "Past day",
       },
       {
-        swatch: "flex items-center justify-center border border-emerald-200 bg-emerald-50 text-[10px] leading-none",
+        swatch: "flex items-center justify-center text-[10px] leading-none",
         marker: "🏝️",
         label: "Time off",
       },
