@@ -41,6 +41,7 @@ import {
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
 import { WeekScheduleCarousel } from "@/components/schedule/WeekScheduleCarousel";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
+import { OkAlertDialog } from "@/components/OkAlertDialog";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIMEZONE, formatDate, slotDayOfWeek, slotTimeLabel } from "@/lib/constants";
 import { shiftWeekStart } from "@/lib/schedule-utils";
@@ -530,6 +531,8 @@ export function WeekScheduleCalendar({
     startTime: string;
   } | null>(null);
   const [editingOpenSlot, setEditingOpenSlot] = useState(false);
+  const [pastDayNoticeEntry, setPastDayNoticeEntry] =
+    useState<ScheduleEntry | null>(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -701,8 +704,17 @@ export function WeekScheduleCalendar({
       if (active instanceof HTMLElement) active.blur();
     }
     if (isPastScheduleEntry(entry, timeZone)) {
-      window.alert("This is a past day.");
+      setPastDayNoticeEntry(entry);
+      return;
     }
+    setEditingOpenSlot(false);
+    setSelectedOpenSlot(entry);
+  }
+
+  function confirmPastDayNotice() {
+    const entry = pastDayNoticeEntry;
+    setPastDayNoticeEntry(null);
+    if (!entry) return;
     setEditingOpenSlot(false);
     setSelectedOpenSlot(entry);
   }
@@ -820,6 +832,14 @@ export function WeekScheduleCalendar({
           busy={!!busyKey}
         />
       )}
+
+      {pastDayNoticeEntry ? (
+        <OkAlertDialog
+          message="Heads up this is a past day"
+          okLabel="Ok"
+          onOk={confirmPastDayNotice}
+        />
+      ) : null}
 
       {selectedOpenSlot?.booking ? (
         <BookedSlotModal
