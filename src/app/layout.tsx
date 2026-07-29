@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import type { CSSProperties } from "react";
 import { Figtree, Syne } from "next/font/google";
 import { SerwistProvider } from "@serwist/next/react";
 import {
@@ -7,6 +8,7 @@ import {
   DEFAULT_DESCRIPTION,
   getSiteUrl,
 } from "@/lib/seo";
+import { brand, brandCssVars } from "@/lib/brand";
 import "./globals.css";
 
 const display = Syne({
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
+  themeColor: brand.green,
 };
 
 export default function RootLayout({
@@ -52,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang={SITE_LANGUAGE}>
+    <html lang={SITE_LANGUAGE} style={brandCssVars as CSSProperties}>
       <body
         className={`${display.variable} ${body.variable} min-h-screen antialiased`}
       >

@@ -118,7 +118,7 @@ function LoginForm() {
                 onClick={() => switchMode("login")}
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
                   mode === "login"
-                    ? "bg-slate-900 text-white"
+                    ? "bg-brand text-brand-foreground"
                     : "bg-slate-100 text-slate-600"
                 }`}
               >
@@ -129,7 +129,7 @@ function LoginForm() {
                 onClick={() => switchMode("signup")}
                 className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
                   mode === "signup"
-                    ? "bg-slate-900 text-white"
+                    ? "bg-brand text-brand-foreground"
                     : "bg-slate-100 text-slate-600"
                 }`}
               >

@@ -24,6 +24,7 @@ export function SendInvoiceChannelSheet({
   title = "Send invoice",
   subtitle,
   emptyHint = "Add an email and a phone number on this client's profile before sending.",
+  showCancel = true,
 }: {
   clientName: string;
   email: string;
@@ -36,6 +37,8 @@ export function SendInvoiceChannelSheet({
   title?: string;
   subtitle?: string;
   emptyHint?: string;
+  /** When false, only the Send action is shown (swipe/backdrop still closes). */
+  showCancel?: boolean;
 }) {
   const canEmail = hasClientEmail(email);
   const canWhatsApp = canNotifyByWhatsApp(phone);
@@ -64,6 +67,7 @@ export function SendInvoiceChannelSheet({
       footer={
         <div className="flex flex-wrap gap-2">
           <Button
+            className={showCancel ? undefined : "w-full"}
             disabled={!canSend}
             onClick={() => {
               if (!choice) return;
@@ -72,9 +76,11 @@ export function SendInvoiceChannelSheet({
           >
             {busy ? "Sending…" : "Send"}
           </Button>
-          <Button variant="secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </Button>
+          {showCancel ? (
+            <Button variant="secondary" disabled={busy} onClick={onClose}>
+              Cancel
+            </Button>
+          ) : null}
         </div>
       }
     >

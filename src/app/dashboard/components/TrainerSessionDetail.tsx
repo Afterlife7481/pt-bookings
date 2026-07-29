@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import { SessionWhen } from "@/components/SessionWhen";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
-import { isWallClockPast, wallClockToUtcMs } from "@/lib/zoned-time";
+import { isWallClockPast } from "@/lib/zoned-time";
 import { useTrainerSettings } from "../hooks/useTrainerSettings";
 import { TrainerChangeSessionSection } from "./TrainerChangeSessionSection";
 import {
@@ -16,10 +16,7 @@ import {
   SessionPaymentSection,
 } from "./SessionPaymentSection";
 import { useTrainerBookingActions } from "../hooks/useTrainerBookingActions";
-import {
-  cn,
-  formatDurationMinutes,
-} from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export function TrainerSessionDetail({
   bookingId,
@@ -91,9 +88,7 @@ export function TrainerSessionDetail({
         >
           {backLabel}
         </Link>
-        <Card>
-          <p className="text-slate-600">Session not found.</p>
-        </Card>
+        <p className="text-slate-600">Session not found.</p>
       </div>
     );
   }
@@ -105,18 +100,9 @@ export function TrainerSessionDetail({
   const isVoided = booking.status === "voided";
   const isInactive = isCanceled || isVoided;
   const isPast = isWallClockPast(sessionStartAt, timeZone);
-  const durationMinutes =
-    sessionEndAt != null
-      ? Math.round(
-          (wallClockToUtcMs(sessionEndAt, timeZone) -
-            wallClockToUtcMs(sessionStartAt, timeZone)) /
-            60_000,
-        )
-      : 60;
-  const clientSessionUrl = booking.sessionUrl;
 
   return (
-    <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
+    <div className="w-full min-w-0 max-w-full space-y-8 overflow-x-hidden">
       <div className="min-w-0">
         <Link
           href={backHref}
@@ -172,9 +158,9 @@ export function TrainerSessionDetail({
         )}
       </div>
 
-      <Card className="min-w-0">
-        <h2 className="font-semibold">Session details</h2>
-        <dl className="mt-4 space-y-3 text-sm">
+      <section className="min-w-0 space-y-3">
+        <h2 className="font-semibold text-slate-900">Session</h2>
+        <dl className="space-y-3 text-sm">
           <div>
             <dt className="text-slate-500">Client</dt>
             <dd className="font-medium">
@@ -186,24 +172,20 @@ export function TrainerSessionDetail({
               </Link>
             </dd>
           </div>
-          <div>
-            <dt className="text-slate-500">Duration</dt>
-            <dd>{formatDurationMinutes(durationMinutes)}</dd>
-          </div>
-          {location && (
+          {location ? (
             <div>
               <dt className="text-slate-500">Location</dt>
-              <dd>{location.name}</dd>
+              <dd className="font-medium text-slate-900">{location.name}</dd>
             </div>
-          )}
+          ) : null}
         </dl>
-      </Card>
+      </section>
 
       {!isVoided && (
-        <Card className="min-w-0">
-          <h2 className="font-semibold">Payment</h2>
+        <section className="min-w-0 space-y-3">
+          <h2 className="font-semibold text-slate-900">Payment</h2>
           {isCanceled ? (
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="text-sm text-slate-500">
               Canceled sessions can still be invoiced or marked paid when your
               terms require it.
             </p>
@@ -221,133 +203,101 @@ export function TrainerSessionDetail({
             onOpenEditPaymentMethod={openEditPaymentMethodModal}
             onOpenInvoiceSheet={openInvoiceSheet}
           />
-        </Card>
+        </section>
       )}
 
       {!isInactive && (
-        <Card className="min-w-0">
-          <h2 className="font-semibold">Manage session</h2>
-          <div className="mt-4 space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {isPast ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    disabled
-                    className="w-full sm:w-auto"
-                  >
-                    Send confirmation
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy}
-                    className="w-full sm:w-auto"
-                    onClick={() => void voidSession()}
-                  >
-                    Void session
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    className="w-full sm:w-auto"
-                    onClick={() => setShowChangeSlots((open) => !open)}
-                  >
-                    Change slot
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    className="w-full sm:w-auto"
-                    onClick={openConfirmationSheet}
-                  >
-                    Send confirmation
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy}
-                    className="w-full sm:w-auto"
-                    onClick={() => void cancelSession()}
-                  >
-                    Cancel session
-                  </Button>
-                </>
-              )}
-            </div>
-            {!isPast && confirmationNotice && (
-              <p className="text-sm text-green-700" role="status">
-                {confirmationNotice}
-              </p>
-            )}
-            {!isPast && confirmationError && !showConfirmationSheet && (
-              <p className="text-sm text-red-600" role="alert">
-                {confirmationError}
-              </p>
-            )}
-            {!isPast && booking.confirmationSentAt && (
-              <p className="text-sm text-slate-500">
-                Last sent on{" "}
-                {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-                .
-              </p>
-            )}
-            {!isPast && showChangeSlots && (
-              <TrainerChangeSessionSection
-                bookingId={bookingId}
-                disabled={busy}
-                onChanged={setDetail}
-                onClose={() => setShowChangeSlots(false)}
-              />
+        <section className="min-w-0 space-y-3">
+          <h2 className="font-semibold text-slate-900">Manage session</h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {isPast ? (
+              <>
+                <Button
+                  variant="secondary"
+                  disabled
+                  className="w-full sm:w-auto"
+                >
+                  Send confirmation
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={() => void voidSession()}
+                >
+                  Void session
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={() => setShowChangeSlots((open) => !open)}
+                >
+                  Change slot
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={openConfirmationSheet}
+                >
+                  Send confirmation
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                  onClick={() => void cancelSession()}
+                >
+                  Cancel session
+                </Button>
+              </>
             )}
           </div>
-          <p className="mt-3 text-sm text-slate-500">
+          {!isPast && confirmationNotice && (
+            <p className="text-sm text-green-700" role="status">
+              {confirmationNotice}
+            </p>
+          )}
+          {!isPast && confirmationError && !showConfirmationSheet && (
+            <p className="text-sm text-red-600" role="alert">
+              {confirmationError}
+            </p>
+          )}
+          {!isPast && booking.confirmationSentAt && (
+            <p className="text-sm text-slate-500">
+              Last sent on{" "}
+              {new Date(booking.confirmationSentAt).toLocaleString("en-GB", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+              .
+            </p>
+          )}
+          {!isPast && showChangeSlots && (
+            <TrainerChangeSessionSection
+              bookingId={bookingId}
+              disabled={busy}
+              onChanged={setDetail}
+              onClose={() => setShowChangeSlots(false)}
+            />
+          )}
+          <p className="text-sm text-slate-500">
             {isPast
               ? "This session has already taken place. Use Payment above to record payment or send an invoice. Void only if the session should not count (e.g. booked in error)."
               : "Use Change slot to move this session. The client is notified when the time changes."}
           </p>
-        </Card>
+        </section>
       )}
 
       {isVoided && (
-        <Card className="min-w-0">
-          <p className="text-sm text-slate-600">
-            This session was voided and no longer counts as a completed booking.
-          </p>
-        </Card>
-      )}
-
-      <Card className="min-w-0">
-        <h2 className="font-semibold">Client link</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Share this link with your client so they can view, change, or cancel
-          their session.
+        <p className="text-sm text-slate-600">
+          This session was voided and no longer counts as a completed booking.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <a
-            href={clientSessionUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Open client session page
-          </a>
-          <Button
-            variant="secondary"
-            className="text-xs"
-            onClick={() => {
-              void navigator.clipboard.writeText(clientSessionUrl);
-              setSaved(true);
-            }}
-          >
-            Copy link
-          </Button>
-        </div>
-      </Card>
+      )}
 
       <SessionPaymentModals
         detail={detail}

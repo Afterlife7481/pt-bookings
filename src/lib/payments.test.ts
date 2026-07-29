@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getPaymentStatus, paymentStatusLabel } from "@/lib/payments";
+import {
+  formatPaymentOptionsText,
+  getPaymentStatus,
+  paymentStatusLabel,
+} from "@/lib/payments";
 
 describe("getPaymentStatus", () => {
   it("returns paid when sessionPaid is true", () => {
@@ -26,5 +30,23 @@ describe("paymentStatusLabel", () => {
     expect(paymentStatusLabel("unpaid")).toBe("Unpaid");
     expect(paymentStatusLabel("requested")).toBe("Requested");
     expect(paymentStatusLabel("paid")).toBe("Paid");
+  });
+});
+
+describe("formatPaymentOptionsText", () => {
+  it("lists each payment method with its note", () => {
+    expect(
+      formatPaymentOptionsText({
+        methods: [
+          { name: "Cash", note: null },
+          {
+            name: "Transfer",
+            note: "Pay to: Alex\nSort code: 12-34-56\nAccount: 12345678",
+          },
+        ],
+      }),
+    ).toBe(
+      "Cash\n\nTransfer\nPay to: Alex\nSort code: 12-34-56\nAccount: 12345678",
+    );
   });
 });

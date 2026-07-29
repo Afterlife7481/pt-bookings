@@ -86,7 +86,7 @@ function SlotCell({
         bookedByOther && "border-amber-200 bg-amber-50",
         !bookedByOther &&
           selected &&
-          "border-slate-900 bg-slate-900 ring-1 ring-slate-900",
+          "border-brand bg-brand ring-1 ring-brand",
         !bookedByOther &&
           !selected &&
           assignment?.isCurrentClient &&

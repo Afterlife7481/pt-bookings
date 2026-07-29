@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import {
   RecurringWeekCalendar,
   slotKey,
@@ -196,14 +196,16 @@ export function ClientRecurringSection({
 
   return (
     <>
-      <Card className="overflow-hidden !p-0">
-        <div className="p-4 sm:p-5 sm:pb-4">
+      <div className="overflow-hidden">
+        <div>
           {showHeading ? (
             <h2 className="font-semibold">Recurring slots</h2>
           ) : null}
           <p
             className={
-              showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"
+              showHeading
+                ? "mt-1 text-sm text-slate-600"
+                : "text-sm text-slate-600"
             }
           >
             Assign recurring sessions from your weekly template. Each slot uses
@@ -242,18 +244,20 @@ export function ClientRecurringSection({
         </div>
 
         {!loading && (
-          <RecurringWeekCalendar
-            assignments={recurringAssignments}
-            selectedSlots={selectedSlots}
-            templateOverlay={templateOverlay}
-            onCellClick={openSlotDetail}
-            scheduleStartTime={scheduleStartTime}
-            scheduleEndTime={scheduleEndTime}
-          />
+          <div className="mt-4">
+            <RecurringWeekCalendar
+              assignments={recurringAssignments}
+              selectedSlots={selectedSlots}
+              templateOverlay={templateOverlay}
+              onCellClick={openSlotDetail}
+              scheduleStartTime={scheduleStartTime}
+              scheduleEndTime={scheduleEndTime}
+            />
+          </div>
         )}
 
         {recurringPreferences.length > 0 && (
-          <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+          <div className="mt-4">
             <Button
               variant="secondary"
               disabled={saving}
@@ -263,7 +267,7 @@ export function ClientRecurringSection({
             </Button>
           </div>
         )}
-      </Card>
+      </div>
 
       {detailSlot && (
         <RecurringSlotDetailModal

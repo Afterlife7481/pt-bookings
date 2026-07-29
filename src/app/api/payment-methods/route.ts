@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   try {
     const method = await createPaymentMethod(trainerId, {
       name: body.name ?? "",
+      note: body.note,
     });
     return Response.json(method, { status: 201 });
   } catch (e) {

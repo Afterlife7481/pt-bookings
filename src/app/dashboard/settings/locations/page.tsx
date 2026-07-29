@@ -1,10 +1,7 @@
 "use client";
 
 import { LocationsSection } from "../../components/LocationsSection";
-import {
-  SettingsInset,
-  SettingsPageLayout,
-} from "../../components/settings/settings-ui";
+import { SettingsPageLayout } from "../../components/settings/settings-ui";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
 
 export default function LocationsSettingsPage() {
@@ -17,9 +14,7 @@ export default function LocationsSettingsPage() {
       backHref={back.backHref}
       backLabel={back.backLabel}
     >
-      <SettingsInset>
-        <LocationsSection embedded />
-      </SettingsInset>
+      <LocationsSection embedded />
     </SettingsPageLayout>
   );
 }

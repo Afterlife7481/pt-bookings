@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Card } from "@/components/ui";
 import { ClientRecurringSection } from "../../../components/ClientRecurringSection";
 import { ClientPageHeader } from "../ClientPageHeader";
 import type { ClientDetail } from "../client-types";
@@ -42,9 +41,7 @@ export default function ClientRecurringPage() {
     return (
       <div className="space-y-4">
         <ClientPageHeader backHref="/dashboard/clients" backLabel="Clients" />
-        <Card>
-          <p className="text-slate-600">Client not found.</p>
-        </Card>
+        <p className="text-slate-600">Client not found.</p>
       </div>
     );
   }

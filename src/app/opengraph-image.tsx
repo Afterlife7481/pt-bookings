@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brand } from "@/lib/brand";
 import { SITE_NAME } from "@/lib/seo";
 
 export const alt = "PT Bookings — personal trainer scheduling software for the UK";
@@ -16,8 +17,8 @@ export default function OpenGraphImage() {
           flexDirection: "column",
           justifyContent: "center",
           padding: 64,
-          background: "linear-gradient(135deg, #020617 0%, #0f172a 50%, #064e3b 100%)",
-          color: "#ffffff",
+          background: `linear-gradient(135deg, ${brand.ink} 0%, #0f172a 50%, ${brand.green} 100%)`,
+          color: brand.foreground,
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -28,7 +29,7 @@ export default function OpenGraphImage() {
             fontWeight: 600,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "#6ee7b7",
+            color: brand.mint,
           }}
         >
           Built for UK personal trainers

@@ -64,7 +64,7 @@ const AMOUNT: MessageTemplatePlaceholder = {
 };
 const PAYMENT_DETAILS: MessageTemplatePlaceholder = {
   name: "paymentDetails",
-  description: "Bank payment details block",
+  description: "Payment methods and details for the client",
 };
 const PORTAL_URL: MessageTemplatePlaceholder = {
   name: "portalUrl",
@@ -140,7 +140,7 @@ export const MESSAGE_TEMPLATE_DEFINITIONS: MessageTemplateDefinition[] = [
     key: "invoice_email",
     label: "Invoice",
     channel: "email",
-    description: "Payment request with your bank details.",
+    description: "Payment request with your payment methods.",
     hasSubject: true,
     defaultSubject: "Invoice for your PT session on {{slotLabel}}",
     defaultBody:
@@ -151,7 +151,7 @@ export const MESSAGE_TEMPLATE_DEFINITIONS: MessageTemplateDefinition[] = [
     key: "invoice_whatsapp",
     label: "Invoice",
     channel: "whatsapp",
-    description: "Payment request with your bank details.",
+    description: "Payment request with your payment methods.",
     hasSubject: false,
     defaultSubject: null,
     defaultBody:
@@ -265,7 +265,7 @@ export const MESSAGE_TEMPLATE_GROUPS = [
   {
     slug: "invoice",
     label: "Invoice",
-    description: "Payment request with your bank details.",
+    description: "Payment request with your payment methods.",
     keys: ["invoice_email", "invoice_whatsapp"],
   },
   {

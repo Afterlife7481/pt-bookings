@@ -72,15 +72,18 @@ export function BookedSlotModal({
   const isPast = isWallClockPast(sessionStartAt, timeZone);
   const isCanceled = booking?.status === "canceled";
   const isVoided = booking?.status === "voided";
-  const isInactive = isCanceled || isVoided;
+  const isInactive = Boolean(booking && (isCanceled || isVoided));
   const sessionPageHref = bookingId
     ? `/dashboard/sessions/${bookingId}?from=schedule`
     : "/dashboard/sessions";
+  const clientName =
+    client?.name ?? entry.booking?.clientName ?? "Booked session";
+  const actionsReady = Boolean(detail && booking && client);
 
   return (
     <>
       <SheetModal
-        title={client?.name ?? entry.booking?.clientName ?? "Booked session"}
+        title={clientName}
         titleHref={client ? `/dashboard/clients/${client.id}` : undefined}
         subtitle={formatSlotLabel(entry.startAt, entry.endAt)}
         onClose={onClose}
@@ -93,28 +96,26 @@ export function BookedSlotModal({
           </Link>
         }
       >
-        {loading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading session…</p>
-        ) : !detail || !booking || !client ? (
-          <p className="mt-4 text-sm text-red-600">
-            {error ?? "Session not found."}
-          </p>
-        ) : (
-          <div className="mt-4 space-y-5">
-            {entry.location && (
-              <p className="text-sm">
-                <span className="text-slate-500">Location: </span>
-                <span className="font-medium text-slate-900">
-                  {entry.location.name}
-                </span>
-              </p>
-            )}
+        <div className="mt-4 space-y-5">
+          {entry.location && (
+            <p className="text-sm">
+              <span className="text-slate-500">Location: </span>
+              <span className="font-medium text-slate-900">
+                {entry.location.name}
+              </span>
+            </p>
+          )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && !loading && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
 
-            {!isVoided && (
-              <section className="space-y-3 border-t border-slate-100 pt-4">
-                <h3 className="text-sm font-medium text-slate-900">Payment</h3>
+          {!isVoided && (
+            <section className="space-y-3 border-t border-slate-100 pt-4">
+              <h3 className="text-sm font-medium text-slate-900">Payment</h3>
+              {loading || !detail ? (
+                <p className="text-sm text-slate-500">Loading payment…</p>
+              ) : (
                 <SessionPaymentSection
                   detail={detail}
                   busy={busy}
@@ -126,75 +127,76 @@ export function BookedSlotModal({
                   onOpenEditPaymentMethod={openEditPaymentMethodModal}
                   onOpenInvoiceSheet={openInvoiceSheet}
                 />
-              </section>
-            )}
+              )}
+            </section>
+          )}
 
-            {!isInactive && (
-              <section className="space-y-3 border-t border-slate-100 pt-4">
-                <h3 className="text-sm font-medium text-slate-900">
-                  Manage session
-                </h3>
-                <div className="flex flex-col gap-2">
-                  {isPast ? (
+          {!isInactive && (
+            <section className="space-y-3 border-t border-slate-100 pt-4">
+              <h3 className="text-sm font-medium text-slate-900">
+                Manage session
+              </h3>
+              <div className="flex flex-col gap-2">
+                {isPast ? (
+                  <Button
+                    variant="danger"
+                    disabled={busy || !actionsReady}
+                    className="w-full"
+                    onClick={() => void voidSession()}
+                  >
+                    Void session
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      disabled={busy || !actionsReady}
+                      className="w-full"
+                      onClick={openConfirmationSheet}
+                    >
+                      Notify client
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={busy || !actionsReady}
+                      className="w-full"
+                      onClick={() => setShowChangeSlots((open) => !open)}
+                    >
+                      Change slot
+                    </Button>
                     <Button
                       variant="danger"
-                      disabled={busy}
+                      disabled={busy || !actionsReady}
                       className="w-full"
-                      onClick={() => void voidSession()}
+                      onClick={() => void cancelSession()}
                     >
-                      Void session
+                      Cancel session
                     </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        disabled={busy}
-                        className="w-full"
-                        onClick={openConfirmationSheet}
-                      >
-                        Notify client
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        disabled={busy}
-                        className="w-full"
-                        onClick={() => setShowChangeSlots((open) => !open)}
-                      >
-                        Change slot
-                      </Button>
-                      <Button
-                        variant="danger"
-                        disabled={busy}
-                        className="w-full"
-                        onClick={() => void cancelSession()}
-                      >
-                        Cancel session
-                      </Button>
-                    </>
-                  )}
-                </div>
-                {!isPast && confirmationNotice && (
-                  <p className="text-sm text-green-700">{confirmationNotice}</p>
+                  </>
                 )}
-                {!isPast && confirmationError && !showConfirmationSheet && (
-                  <p className="text-sm text-red-600">{confirmationError}</p>
-                )}
-                {!isPast && showChangeSlots && (
-                  <TrainerChangeSessionSection
-                    bookingId={booking.id}
-                    disabled={busy}
-                    onChanged={async (next) => {
-                      setDetail(next);
-                      await onChanged();
-                    }}
-                    onClose={() => setShowChangeSlots(false)}
-                  />
-                )}
-              </section>
-            )}
-          </div>
-        )}
+              </div>
+              {!isPast && confirmationNotice && (
+                <p className="text-sm text-green-700">{confirmationNotice}</p>
+              )}
+              {!isPast && confirmationError && !showConfirmationSheet && (
+                <p className="text-sm text-red-600">{confirmationError}</p>
+              )}
+            </section>
+          )}
+        </div>
       </SheetModal>
+
+      {!isPast && showChangeSlots && bookingId ? (
+        <TrainerChangeSessionSection
+          bookingId={bookingId}
+          disabled={busy}
+          onChanged={async (next) => {
+            setDetail(next);
+            await onChanged();
+          }}
+          onClose={() => setShowChangeSlots(false)}
+        />
+      ) : null}
 
       {detail ? (
         <SessionPaymentModals

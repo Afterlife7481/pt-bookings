@@ -1,10 +1,7 @@
 "use client";
 
 import { RegionalSettingsForm } from "../../components/settings/RegionalSettingsForm";
-import {
-  SettingsInset,
-  SettingsPageLayout,
-} from "../../components/settings/settings-ui";
+import { SettingsPageLayout } from "../../components/settings/settings-ui";
 import { useTrainerSettings } from "../../hooks/useTrainerSettings";
 import { useOnboardingBackLink } from "../../hooks/useOnboardingBackLink";
 
@@ -19,9 +16,7 @@ export default function RegionalSettingsPage() {
       backHref={back.backHref}
       backLabel={back.backLabel}
     >
-      <SettingsInset>
-        <RegionalSettingsForm settings={settings} onSaved={refresh} />
-      </SettingsInset>
+      <RegionalSettingsForm settings={settings} onSaved={refresh} />
     </SettingsPageLayout>
   );
 }

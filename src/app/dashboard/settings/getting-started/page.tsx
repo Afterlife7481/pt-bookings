@@ -10,7 +10,7 @@ export default function GettingStartedSettingsPage() {
   return (
     <SettingsPageLayout
       title="Getting started guide"
-      description="Set up your account in order — locations, template, clients, then go live."
+      description="Set up your account in order — regional settings, locations, template, clients, then invite other trainers."
       showBackLink={false}
     >
       <SettingsInset>

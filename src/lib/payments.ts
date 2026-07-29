@@ -1,44 +1,39 @@
 import { DEFAULT_CURRENCY } from "@/lib/currency";
-import type { TrainerSettings } from "@/lib/services/settings";
 import { formatSessionPrice } from "@/lib/utils";
 
-export type PaymentDetailsForMessage = {
-  payeeName: string;
-  bankName: string | null;
-  bankSortCode: string | null;
-  bankAccountNumber: string | null;
+export type PaymentMethodDetails = {
+  name: string;
+  note: string | null;
 };
 
-export function getPaymentDetailsForMessage(
-  settings: TrainerSettings,
+export type PaymentDetailsForMessage = {
+  methods: PaymentMethodDetails[];
+};
+
+export function paymentDetailsFromMethods(
+  methods: PaymentMethodDetails[],
 ): PaymentDetailsForMessage {
-  return {
-    payeeName: settings.paymentPayeeName?.trim() || settings.name,
-    bankName: settings.bankName,
-    bankSortCode: settings.bankSortCode,
-    bankAccountNumber: settings.bankAccountNumber,
-  };
+  return { methods };
 }
 
-export function hasBankTransferDetails(details: PaymentDetailsForMessage): boolean {
-  return Boolean(details.bankSortCode && details.bankAccountNumber);
+export function hasPaymentDetailsForInvoice(
+  details: PaymentDetailsForMessage,
+): boolean {
+  return details.methods.length > 0;
 }
 
-/** Payment lines for WhatsApp — extend when adding Stripe, Revolut, etc. */
-export function formatPaymentOptionsText(details: PaymentDetailsForMessage): string {
-  const lines: string[] = [`Pay to: ${details.payeeName}`];
+/** Payment lines for invoices — lists each method with its optional note. */
+export function formatPaymentOptionsText(
+  details: PaymentDetailsForMessage,
+): string {
+  if (details.methods.length === 0) return "";
 
-  if (details.bankName) {
-    lines.push(`Bank: ${details.bankName}`);
-  }
-  if (details.bankSortCode) {
-    lines.push(`Sort code: ${details.bankSortCode}`);
-  }
-  if (details.bankAccountNumber) {
-    lines.push(`Account: ${details.bankAccountNumber}`);
-  }
-
-  return lines.join("\n");
+  return details.methods
+    .map((method) => {
+      const note = method.note?.trim();
+      return note ? `${method.name}\n${note}` : method.name;
+    })
+    .join("\n\n");
 }
 
 export function formatInvoiceAmount(

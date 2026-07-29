@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SessionWhen } from "@/components/SessionWhen";
 import { cn, splitClientName } from "@/lib/utils";
@@ -69,7 +69,7 @@ function SessionsList({ rows }: { rows: BookingRow[] }) {
           <li key={row.booking.id}>
             <Link
               href={`/dashboard/sessions/${row.booking.id}`}
-              className="flex items-center gap-2 py-3 pl-4 pr-3 transition hover:bg-slate-50 sm:gap-3"
+              className="flex items-center gap-2 py-3 transition hover:bg-slate-50 sm:gap-3"
             >
               <span className="flex min-w-0 flex-[0_0_24%] flex-col text-sm font-medium leading-snug text-slate-900 sm:flex-[0_0_26%]">
                 <span>{givenName}</span>
@@ -132,8 +132,8 @@ export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
         : "No past sessions.";
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="space-y-3 border-b border-slate-100 px-4 py-3">
+    <div className="space-y-3">
+      <div className="space-y-3">
         <h2 className="font-semibold">Sessions</h2>
         <SessionsViewToggle value={view} onChange={setView} />
         <p className="text-sm text-slate-500">
@@ -147,10 +147,10 @@ export function SessionsTab({ bookings }: { bookings: BookingRow[] }) {
         </p>
       </div>
       {rows.length === 0 ? (
-        <p className="p-4 text-sm text-slate-500">{emptyMessage}</p>
+        <p className="text-sm text-slate-500">{emptyMessage}</p>
       ) : (
         <SessionsList rows={rows} />
       )}
-    </Card>
+    </div>
   );
 }

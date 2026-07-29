@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Card } from "@/components/ui";
 import { ClientNotesSection } from "@/components/ClientNotesSection";
 import { ClientPageHeader } from "../../ClientPageHeader";
 import { useClientSubpage } from "../../useClientSubpage";
@@ -19,9 +18,7 @@ export default function ClientPrivateNotesPage() {
     return (
       <div className="space-y-4">
         <ClientPageHeader backHref="/dashboard/clients" backLabel="Clients" />
-        <Card>
-          <p className="text-slate-600">Client not found.</p>
-        </Card>
+        <p className="text-slate-600">Client not found.</p>
       </div>
     );
   }

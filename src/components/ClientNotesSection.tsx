@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, InlineNotice } from "@/components/ui";
+import { Button, InlineNotice } from "@/components/ui";
 import { LinkifiedText } from "@/components/LinkifiedText";
+import { SheetModal } from "@/components/SheetModal";
 import { formatCreatedDate } from "@/lib/utils";
 
 type Visibility = "shared" | "private";
@@ -35,6 +36,7 @@ export function ClientNotesSection({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [showAddSheet, setShowAddSheet] = useState(false);
   const [newBody, setNewBody] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -62,6 +64,19 @@ export function ClientNotesSection({
     load();
   }, [load]);
 
+  function openAddSheet() {
+    setCreateError(null);
+    setNewBody("");
+    setShowAddSheet(true);
+  }
+
+  function closeAddSheet() {
+    if (creating) return;
+    setShowAddSheet(false);
+    setCreateError(null);
+    setNewBody("");
+  }
+
   async function createNote(e: React.FormEvent) {
     e.preventDefault();
     if (!newBody.trim()) return;
@@ -79,6 +94,7 @@ export function ClientNotesSection({
       return;
     }
     setNewBody("");
+    setShowAddSheet(false);
     await load();
   }
 
@@ -187,61 +203,87 @@ export function ClientNotesSection({
   }
 
   return (
-    <Card>
-      {showHeading ? <h2 className="font-semibold">{title}</h2> : null}
-      <p
-        className={
-          showHeading ? "mt-1 text-sm text-slate-600" : "text-sm text-slate-600"
-        }
-      >
-        {description}
-      </p>
+    <>
+      <div>
+        {showHeading ? <h2 className="font-semibold">{title}</h2> : null}
+        <p
+          className={
+            showHeading
+              ? "mt-1 text-sm text-slate-600"
+              : "text-sm text-slate-600"
+          }
+        >
+          {description}
+        </p>
 
-      {loadError && (
-        <InlineNotice tone="error" className="mt-4">
-          {loadError}
-        </InlineNotice>
-      )}
-      {rowError && (
-        <InlineNotice tone="error" className="mt-4">
-          {rowError}
-        </InlineNotice>
-      )}
-
-      {loading ? (
-        <p className="mt-4 text-sm text-slate-500">Loading notes…</p>
-      ) : notes.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No notes yet.</p>
-      ) : (
-        <ul className="mt-4 divide-y divide-slate-100">{notes.map(renderNote)}</ul>
-      )}
-
-      <form onSubmit={createNote} className="mt-6 border-t border-slate-100 pt-4">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-slate-600">Add a note</span>
-          <textarea
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            rows={3}
-            value={newBody}
-            onChange={(e) => setNewBody(e.target.value)}
-            placeholder={
-              isPrivate
-                ? "Private reminders, context, etc."
-                : "Training instructions visible to the client…"
-            }
-          />
-        </label>
-        <div className="mt-2">
-          <Button type="submit" disabled={creating || !newBody.trim()}>
-            {creating ? "Adding…" : "Add note"}
-          </Button>
-        </div>
-        {createError && (
-          <InlineNotice tone="error" className="mt-3">
-            {createError}
+        {loadError && (
+          <InlineNotice tone="error" className="mt-4">
+            {loadError}
           </InlineNotice>
         )}
-      </form>
-    </Card>
+        {rowError && (
+          <InlineNotice tone="error" className="mt-4">
+            {rowError}
+          </InlineNotice>
+        )}
+
+        {loading ? (
+          <p className="mt-4 text-sm text-slate-500">Loading notes…</p>
+        ) : notes.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No notes yet.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-100">
+            {notes.map(renderNote)}
+          </ul>
+        )}
+
+        <div className="mt-6">
+          <Button type="button" onClick={openAddSheet}>
+            Add note
+          </Button>
+        </div>
+      </div>
+
+      {showAddSheet && (
+        <SheetModal
+          title="Add note"
+          subtitle={description}
+          onClose={closeAddSheet}
+          footer={
+            <Button
+              type="submit"
+              form="add-client-note-form"
+              className="w-full"
+              disabled={creating || !newBody.trim()}
+            >
+              {creating ? "Adding…" : "Add note"}
+            </Button>
+          }
+        >
+          <form id="add-client-note-form" onSubmit={createNote} className="mt-4">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-600">Note</span>
+              <textarea
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                rows={5}
+                autoFocus
+                value={newBody}
+                onChange={(e) => setNewBody(e.target.value)}
+                placeholder={
+                  isPrivate
+                    ? "Private reminders, context, etc."
+                    : "Training instructions visible to the client…"
+                }
+              />
+            </label>
+            {createError && (
+              <InlineNotice tone="error" className="mt-3">
+                {createError}
+              </InlineNotice>
+            )}
+          </form>
+        </SheetModal>
+      )}
+    </>
   );
 }

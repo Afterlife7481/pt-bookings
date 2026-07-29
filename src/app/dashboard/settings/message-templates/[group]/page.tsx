@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
 import { MessageTemplateGroupEditor } from "../../../components/settings/MessageTemplatesSettingsForm";
-import {
-  SettingsInset,
-  SettingsPageLayout,
-} from "../../../components/settings/settings-ui";
+import { SettingsPageLayout } from "../../../components/settings/settings-ui";
 import {
   getMessageTemplateGroup,
   isMessageTemplateGroupSlug,
@@ -29,9 +26,7 @@ export default async function MessageTemplateGroupPage({
       backHref="/dashboard/settings/message-templates"
       backLabel="Message templates"
     >
-      <SettingsInset>
-        <MessageTemplateGroupEditor groupSlug={slug} />
-      </SettingsInset>
+      <MessageTemplateGroupEditor groupSlug={slug} />
     </SettingsPageLayout>
   );
 }

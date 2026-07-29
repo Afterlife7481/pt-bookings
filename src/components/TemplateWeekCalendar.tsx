@@ -243,7 +243,7 @@ function TemplateSlotModal({
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition",
                         selected
-                          ? "border-slate-900 bg-slate-900 text-white"
+                          ? "border-brand bg-brand text-brand-foreground"
                           : "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50",
                       )}
                     >

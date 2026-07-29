@@ -19,6 +19,7 @@ export async function PATCH(
   try {
     const method = await updatePaymentMethod(trainerId, id, {
       ...(body.name !== undefined && { name: body.name }),
+      ...(body.note !== undefined && { note: body.note }),
     });
     return Response.json(method);
   } catch (e) {

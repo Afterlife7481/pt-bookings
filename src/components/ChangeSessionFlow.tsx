@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui";
+import { ChangeSlotPickerSheet } from "@/components/ChangeSlotPickerSheet";
 import { formatBookingWindowWeeks } from "@/lib/constants";
-import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
 type Slot = {
   id: string;
@@ -33,6 +33,7 @@ export function ChangeSessionFlow({
   const [initialLoading, setInitialLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   async function startChange() {
     setInitialLoading(true);
@@ -48,6 +49,9 @@ export function ChangeSessionFlow({
       setChangeRequestId(data.changeRequestId);
       setSlots(data.availableSlots ?? []);
       setNoSlotsAvailable(Boolean(data.noSlotsAvailable));
+      if ((data.availableSlots ?? []).length > 0) {
+        setShowPicker(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start change");
     } finally {
@@ -109,8 +113,9 @@ export function ChangeSessionFlow({
     }
   }
 
-  async function confirmChange() {
-    if (!changeRequestId || !selectedSlot) return;
+  async function selectAndSave(slotId: string) {
+    if (!changeRequestId || busy) return;
+    setSelectedSlot(slotId);
     setBusy(true);
     setError(null);
     try {
@@ -121,7 +126,7 @@ export function ChangeSessionFlow({
           action: "confirm",
           bookingToken,
           changeRequestId,
-          toSlotId: selectedSlot,
+          toSlotId: slotId,
         }),
       });
       const data = await res.json();
@@ -130,7 +135,6 @@ export function ChangeSessionFlow({
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to confirm change");
-    } finally {
       setBusy(false);
     }
   }
@@ -181,68 +185,54 @@ export function ChangeSessionFlow({
   }
 
   return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Pick a new time</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Current session: {currentSlotLabel}
-          </p>
-        </div>
-        <Link
-          href={`/s/${bookingToken}`}
-          className="shrink-0 text-sm font-medium text-slate-500 hover:text-slate-900"
-        >
-          Cancel
-        </Link>
-      </div>
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 space-y-4">
-        {groupSlotsByDay(slots).map((group) => (
-          <div key={group.dateKey}>
-            <h3 className="text-sm font-medium text-slate-900">{group.label}</h3>
-            <div className="mt-2 space-y-2">
-              {group.slots.map((slot) => (
-                <label
-                  key={slot.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
-                    selectedSlot === slot.id
-                      ? "border-slate-900 bg-slate-50"
-                      : "border-slate-200"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="slot"
-                    value={slot.id}
-                    checked={selectedSlot === slot.id}
-                    onChange={() => setSelectedSlot(slot.id)}
-                  />
-                  <div>
-                    <span className="text-sm font-medium tabular-nums">
-                      {formatTimeOnly(slot.startAt)}
-                    </span>
-                    {slot.locationName && (
-                      <p className="text-sm text-slate-600">{slot.locationName}</p>
-                    )}
-                    {slot.locationAddress && (
-                      <p className="text-xs text-slate-500">{slot.locationAddress}</p>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
+    <>
+      <Card>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Change session</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Current session: {currentSlotLabel}
+            </p>
           </div>
-        ))}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={confirmChange} disabled={!selectedSlot || busy}>
-          Confirm new time
-        </Button>
-        <Button variant="secondary" disabled={busy} onClick={keepCurrentTime}>
-          Keep current time
-        </Button>
-      </div>
-    </Card>
+          <Link
+            href={`/s/${bookingToken}`}
+            className="shrink-0 text-sm font-medium text-slate-500 hover:text-slate-900"
+          >
+            Cancel
+          </Link>
+        </div>
+        {error && !showPicker && (
+          <p className="mt-3 text-sm text-red-600">{error}</p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setShowPicker(true);
+            }}
+          >
+            Pick a new time
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={keepCurrentTime}>
+            Keep current time
+          </Button>
+        </div>
+      </Card>
+
+      {showPicker && (
+        <ChangeSlotPickerSheet
+          slots={slots}
+          selectedSlotId={selectedSlot}
+          onSelect={selectAndSave}
+          onClose={() => {
+            if (!busy) setShowPicker(false);
+          }}
+          busy={busy}
+          error={error}
+          subtitle={`Current session: ${currentSlotLabel}`}
+        />
+      )}
+    </>
   );
 }

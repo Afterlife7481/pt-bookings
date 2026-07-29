@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
 import {
   prepareWhatsAppOpen,
@@ -87,9 +87,7 @@ export default function ClientPortalPage() {
     return (
       <div className="space-y-4">
         <ClientPageHeader backHref="/dashboard/clients" backLabel="Clients" />
-        <Card>
-          <p className="text-slate-600">Client not found.</p>
-        </Card>
+        <p className="text-slate-600">Client not found.</p>
       </div>
     );
   }
@@ -103,7 +101,7 @@ export default function ClientPortalPage() {
         backLabel={client.name}
       />
 
-      <Card>
+      <div>
         <p className="text-sm text-slate-600">
           Share this link so the client can view sessions, book, and manage
           bookings.
@@ -134,7 +132,7 @@ export default function ClientPortalPage() {
         {portalError && !showPortalSheet && (
           <p className="mt-2 text-sm text-red-600">{portalError}</p>
         )}
-      </Card>
+      </div>
 
       {showPortalSheet && (
         <SendInvoiceChannelSheet
