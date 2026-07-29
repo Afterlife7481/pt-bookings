@@ -297,7 +297,7 @@ export function openSlotColorClasses(
   if (onPastDay) {
     if (isHeld) {
       return cn(
-        "border-purple-400/80 bg-purple-600/45 text-white",
+        "border-purple-200/70 bg-purple-100/55 text-purple-900/70",
         selected && "ring-2 ring-purple-300/80",
       );
     }
@@ -315,7 +315,7 @@ export function openSlotColorClasses(
 
   if (isHeld) {
     return cn(
-      "border-purple-400 bg-purple-600 text-white active:bg-purple-700",
+      "border-purple-200 bg-purple-100 text-purple-900 active:bg-purple-50",
       selected && "ring-2 ring-purple-300",
     );
   }
@@ -340,13 +340,13 @@ export function openSlotTextClasses(
 
   if (onPastDay) {
     if (isHeld) {
-      return line === "primary" ? "text-white" : "text-purple-100";
+      return line === "primary" ? "text-purple-900/70" : "text-purple-800/55";
     }
     return line === "primary" ? "text-green-900" : "text-green-700";
   }
 
   if (isHeld) {
-    return line === "primary" ? "text-white" : "text-purple-100";
+    return line === "primary" ? "text-purple-900" : "text-purple-700";
   }
   return line === "primary" ? "text-green-800" : "text-green-600";
 }

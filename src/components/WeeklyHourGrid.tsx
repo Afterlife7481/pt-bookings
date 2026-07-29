@@ -7,7 +7,6 @@ import {
   scheduleGridTimeLabel,
   type WeekDayColumn,
 } from "@/lib/schedule-grid";
-import { scheduleGridContentHeight } from "@/components/schedule/useScheduleViewportHeight";
 
 export type DayHeaderContent = {
   primary: string;
@@ -66,19 +65,14 @@ type WeeklyHourGridProps = {
   compactTimeCol?: string;
   /** Render primary and secondary as separate header rows (date above day label). */
   splitDayHeaderRows?: boolean;
-  /** Fixed height — rows expand to fill without internal scroll. */
+  /** Fixed height — date header stays put; time rows scroll underneath. */
   viewportHeight?: number;
-  /** When true, the day column gets a diagonal hatch (e.g. dates before today). */
+  /** When true, the day header may use muted styling (e.g. dates before today). */
   isPastDay?: (dayOfWeek: number) => boolean;
   /** When true, the day column is marked unavailable (e.g. full-day holiday). */
   isUnavailableDay?: (dayOfWeek: number) => boolean;
   /** When true, the day header is highlighted as today (column body is not). */
   isToday?: (dayOfWeek: number) => boolean;
-  /**
-   * When true, hatch this cell as past (e.g. earlier times on today's column).
-   * Full past days still use {@link isPastDay} for a column-wide hatch.
-   */
-  isPastCell?: (dayOfWeek: number, rowTime: string) => boolean;
   /**
    * Optional timed overlay for each day column (absolute-positioned sessions).
    * Wrapper uses pointer-events-none so empty cells stay clickable; slot
@@ -103,7 +97,6 @@ export function WeeklyHourGrid({
   isPastDay,
   isUnavailableDay,
   isToday,
-  isPastCell,
   renderDayOverlay,
 }: WeeklyHourGridProps) {
   const compact = variant === "compact";
@@ -120,7 +113,8 @@ export function WeeklyHourGrid({
   const minRowRem = compact ? 2 : 2.75;
   const minRowCss = `${minRowRem}rem`;
   const denseDuration =
-    durationGrid && parseFloat(String(compactRowSize ?? defaultDurationRowSize)) < 1.875;
+    durationGrid &&
+    parseFloat(String(compactRowSize ?? defaultDurationRowSize)) < 1.875;
   const compactTimeLabels = compact || denseDuration;
 
   const rowHeight = compact ? (compactRowSize ? "h-12" : "h-10") : "h-11";
@@ -134,244 +128,237 @@ export function WeeklyHourGrid({
   const dayCol = compact
     ? "minmax(0, 1fr)"
     : `minmax(${dayColMin ?? "4.5rem"}, 1fr)`;
-  const headerRowCount = splitDayHeaderRows && columns.length > 0 ? 2 : 1;
-  const bodyRowOffset = headerRowCount + 1;
   const timeLabelColor = splitDayHeaderRows ? "text-slate-700" : "text-slate-500";
-
+  const columnTemplate = `${timeCol} repeat(${columns.length}, ${dayCol})`;
+  const bodyRowCount = rows.length;
   const bodyRowTemplate = fitViewport
     ? `repeat(${rows.length}, minmax(${minRowCss}, 1fr))`
     : `repeat(${rows.length}, ${rowSize})`;
-  const gridRowTemplate =
-    headerRowCount === 2
-      ? `auto auto ${bodyRowTemplate}`
-      : `auto ${bodyRowTemplate}`;
-  const effectiveHeight =
-    fitViewport && viewportHeight != null
-      ? scheduleGridContentHeight(
-          viewportHeight,
-          rows.length,
-          minRowRem,
-          splitDayHeaderRows ? 56 : 40,
-        )
-      : undefined;
-  const bodyRowCount = rows.length;
+  const bodyMinHeight = `max(100%, calc(${rows.length} * ${minRowCss}))`;
 
-  return (
-    <div
-      className={cn(
-        "w-full overflow-hidden rounded-lg border border-slate-200",
-        fitViewport && "flex min-h-0 flex-col",
-        className,
-      )}
-      style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
-    >
-      <div
-        className={cn(
-          "grid w-full min-w-0",
-          fitViewport && "min-h-0 flex-1",
-        )}
-        style={{
-          gridTemplateColumns: `${timeCol} repeat(${columns.length}, ${dayCol})`,
-          gridTemplateRows: gridRowTemplate,
-        }}
-      >
-        {isUnavailableDay
-          ? columns.map((day, dayIndex) => {
-              if (!isUnavailableDay(day.value) || isPastDay?.(day.value)) {
+  const headerCells = (
+    <>
+      <div className="border-b border-r border-slate-200 bg-slate-50" />
+      {columns.map((day) => {
+        const header = getDayHeader(day);
+        const pastDay = isPastDay?.(day.value) ?? false;
+        const todayDay = isToday?.(day.value) ?? false;
+
+        if (splitDayHeaderRows) {
+          return (
+            <div
+              key={`head-${day.value}`}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 border-b px-0.5 py-1 text-center",
+                todayDay ? "border-brand bg-brand" : "border-slate-200",
+                !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
+              )}
+            >
+              <div
+                className={cn(
+                  "font-semibold tabular-nums leading-none",
+                  compact ? "text-[10px]" : "text-xs",
+                  todayDay ? "text-white" : "text-slate-700",
+                )}
+              >
+                {header.primary}
+              </div>
+              <div
+                className={cn(
+                  "font-semibold uppercase leading-none tracking-wide",
+                  compact ? "text-[9px]" : "text-[10px]",
+                  todayDay ? "text-slate-300" : "text-slate-500",
+                )}
+              >
+                {header.secondary ?? header.primary}
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={`head-${day.value}`}
+            className={cn(
+              "border-b px-0.5 text-center",
+              todayDay ? "border-brand bg-brand" : "border-slate-200",
+              !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
+              denseDuration ? "py-1" : "py-2",
+            )}
+          >
+            <div
+              className={cn(
+                "font-semibold uppercase tracking-wide",
+                compact ? "text-[10px]" : "text-xs",
+                todayDay ? "text-white" : "text-slate-500",
+              )}
+            >
+              {header.primary}
+            </div>
+            {header.secondary && (
+              <div
+                className={cn(
+                  "text-[10px]",
+                  todayDay ? "text-slate-300" : "text-slate-400",
+                )}
+              >
+                {header.secondary}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+
+  const bodyCells = (
+    <>
+      {isUnavailableDay
+        ? columns.map((day, dayIndex) => {
+            if (!isUnavailableDay(day.value) || isPastDay?.(day.value)) {
+              return null;
+            }
+
+            return (
+              <div
+                key={`unavailable-${day.value}`}
+                aria-hidden
+                className="pointer-events-none holiday-hatch"
+                style={{
+                  gridColumn: dayIndex + 2,
+                  gridRow: `1 / span ${bodyRowCount}`,
+                }}
+              />
+            );
+          })
+        : null}
+
+      {rows.map((rowTime, rowIndex) => {
+        const gridRow = rowIndex + 1;
+        const isHalfHour = durationGrid && rowTime.endsWith(":30");
+
+        return (
+          <Fragment key={rowTime}>
+            <div
+              style={{ gridColumn: 1, gridRow }}
+              className={cn(
+                durationGrid ? "min-h-0" : rowHeight,
+                "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-0.5 text-center tabular-nums",
+                isHalfHour
+                  ? "text-slate-400"
+                  : cn("font-semibold", timeLabelColor),
+                compactTimeLabels ? "text-[9px]" : "text-[10px]",
+                rowIndex > 0 && "border-t border-slate-100",
+              )}
+            >
+              {durationGrid
+                ? scheduleGridTimeLabel(rowTime, compactTimeLabels)
+                : compact
+                  ? String(hourFromRowTime(rowTime))
+                  : formatScheduleHour(hourFromRowTime(rowTime))}
+            </div>
+            {columns.map((day, dayIndex) => {
+              const cell = normalizeWeeklyHourGridCell(
+                renderCell(day.value, rowTime),
+              );
+
+              if (cell.covered) {
                 return null;
               }
 
               return (
                 <div
-                  key={`unavailable-${day.value}`}
-                  aria-hidden
-                  className="pointer-events-none holiday-hatch"
+                  key={`${day.value}-${rowTime}`}
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
+                    gridRow:
+                      cell.rowSpan > 1
+                        ? `${gridRow} / span ${cell.rowSpan}`
+                        : gridRow,
                   }}
-                />
-              );
-            })
-          : null}
-        {isPastDay
-          ? columns.map((day, dayIndex) => {
-              if (!isPastDay(day.value)) return null;
-
-              return (
-                <div
-                  key={`past-${day.value}`}
-                  aria-hidden
-                  className="pointer-events-none past-day-hatch"
-                  style={{
-                    gridColumn: dayIndex + 2,
-                    gridRow: `${bodyRowOffset} / span ${bodyRowCount}`,
-                  }}
-                />
-              );
-            })
-          : null}
-        <div
-          style={{
-            gridColumn: 1,
-            gridRow: headerRowCount === 2 ? "1 / span 2" : 1,
-          }}
-          className="border-b border-r border-slate-200 bg-slate-50"
-        />
-        {columns.map((day, dayIndex) => {
-          const header = getDayHeader(day);
-          const pastDay = isPastDay?.(day.value) ?? false;
-          const todayDay = isToday?.(day.value) ?? false;
-
-          if (splitDayHeaderRows) {
-            return (
-              <div
-                key={`head-${day.value}`}
-                style={{ gridColumn: dayIndex + 2, gridRow: "1 / span 2" }}
-                className={cn(
-                  "relative z-[1] flex flex-col items-center justify-center gap-0.5 border-b px-0.5 py-1 text-center",
-                  todayDay
-                    ? "border-brand bg-brand"
-                    : "border-slate-200",
-                  !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
-                )}
-              >
-                <div
                   className={cn(
-                    "font-semibold tabular-nums leading-none",
-                    compact ? "text-[10px]" : "text-xs",
-                    todayDay ? "text-white" : "text-slate-700",
+                    "relative z-[1] min-h-0 min-w-0 overflow-hidden border-slate-100 bg-white",
+                    denseDuration ? "p-0" : "p-0.5",
+                    rowIndex > 0 && "border-t",
+                    cell.rowSpan > 1 && "relative z-10",
                   )}
                 >
-                  {header.primary}
+                  <div className="h-full min-h-0 min-w-0">{cell.content}</div>
                 </div>
-                <div
-                  className={cn(
-                    "font-semibold uppercase leading-none tracking-wide",
-                    compact ? "text-[9px]" : "text-[10px]",
-                    todayDay ? "text-slate-300" : "text-slate-500",
-                  )}
-                >
-                  {header.secondary ?? header.primary}
-                </div>
-              </div>
-            );
-          }
-
-          return (
+              );
+            })}
+          </Fragment>
+        );
+      })}
+      {renderDayOverlay
+        ? columns.map((day, dayIndex) => (
             <div
-              key={`head-${day.value}`}
-              style={{ gridColumn: dayIndex + 2, gridRow: 1 }}
-              className={cn(
-                "relative z-[1] border-b px-0.5 text-center",
-                todayDay
-                  ? "border-brand bg-brand"
-                  : "border-slate-200",
-                !todayDay && (pastDay ? "bg-slate-50/70" : "bg-slate-50"),
-                denseDuration ? "py-1" : "py-2",
-              )}
+              key={`overlay-${day.value}`}
+              style={{
+                gridColumn: dayIndex + 2,
+                gridRow: `1 / span ${rows.length}`,
+              }}
+              className="pointer-events-none relative z-[5] min-h-0 min-w-0"
             >
-              <div
-                className={cn(
-                  "font-semibold uppercase tracking-wide",
-                  compact ? "text-[10px]" : "text-xs",
-                  todayDay ? "text-white" : "text-slate-500",
-                )}
-              >
-                {header.primary}
-              </div>
-              {header.secondary && (
-                <div
-                  className={cn(
-                    "text-[10px]",
-                    todayDay ? "text-slate-300" : "text-slate-400",
-                  )}
-                >
-                  {header.secondary}
-                </div>
-              )}
+              {renderDayOverlay(day.value)}
             </div>
-          );
-        })}
+          ))
+        : null}
+    </>
+  );
 
-        {rows.map((rowTime, rowIndex) => {
-          const gridRow = rowIndex + bodyRowOffset;
-          const isHalfHour = durationGrid && rowTime.endsWith(":30");
+  if (fitViewport) {
+    return (
+      <div
+        className={cn(
+          "flex w-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200",
+          className,
+        )}
+        style={{ height: viewportHeight }}
+      >
+        <div
+          className="grid w-full min-w-0 shrink-0"
+          style={{ gridTemplateColumns: columnTemplate }}
+        >
+          {headerCells}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div
+            className="grid h-full w-full min-w-0"
+            style={{
+              gridTemplateColumns: columnTemplate,
+              gridTemplateRows: bodyRowTemplate,
+              minHeight: bodyMinHeight,
+            }}
+          >
+            {bodyCells}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          return (
-            <Fragment key={rowTime}>
-              <div
-                style={{ gridColumn: 1, gridRow }}
-                className={cn(
-                  durationGrid ? "min-h-0" : rowHeight,
-                  "flex items-start justify-center border-r border-slate-200 bg-slate-50 pt-0.5 text-center tabular-nums",
-                  isHalfHour
-                    ? "text-slate-400"
-                    : cn("font-semibold", timeLabelColor),
-                  compactTimeLabels
-                    ? "text-[9px]"
-                    : "text-[10px]",
-                  rowIndex > 0 && "border-t border-slate-100",
-                )}
-              >
-                {durationGrid
-                  ? scheduleGridTimeLabel(rowTime, compactTimeLabels)
-                  : compact
-                    ? String(hourFromRowTime(rowTime))
-                    : formatScheduleHour(hourFromRowTime(rowTime))}
-              </div>
-              {columns.map((day, dayIndex) => {
-                const cell = normalizeWeeklyHourGridCell(
-                  renderCell(day.value, rowTime),
-                );
-                const pastDay = isPastDay?.(day.value) ?? false;
-                const pastCell =
-                  !pastDay && (isPastCell?.(day.value, rowTime) ?? false);
-
-                if (cell.covered) {
-                  return null;
-                }
-
-                return (
-                  <div
-                    key={`${day.value}-${rowTime}`}
-                    style={{
-                      gridColumn: dayIndex + 2,
-                      gridRow:
-                        cell.rowSpan > 1
-                          ? `${gridRow} / span ${cell.rowSpan}`
-                          : gridRow,
-                    }}
-                    className={cn(
-                      "relative z-[1] min-h-0 min-w-0 overflow-hidden border-slate-100",
-                      denseDuration ? "p-0" : "p-0.5",
-                      rowIndex > 0 && "border-t",
-                      cell.rowSpan > 1 && "relative z-10",
-                      pastCell && "past-day-hatch",
-                      !pastDay && !pastCell && "bg-white",
-                    )}
-                  >
-                    <div className="h-full min-h-0 min-w-0">{cell.content}</div>
-                  </div>
-                );
-              })}
-            </Fragment>
-          );
-        })}
-        {renderDayOverlay
-          ? columns.map((day, dayIndex) => (
-              <div
-                key={`overlay-${day.value}`}
-                style={{
-                  gridColumn: dayIndex + 2,
-                  gridRow: `${bodyRowOffset} / span ${rows.length}`,
-                }}
-                className="pointer-events-none relative z-[5] min-h-0 min-w-0"
-              >
-                {renderDayOverlay(day.value)}
-              </div>
-            ))
-          : null}
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-lg border border-slate-200",
+        className,
+      )}
+    >
+      <div
+        className="grid w-full min-w-0"
+        style={{ gridTemplateColumns: columnTemplate }}
+      >
+        {headerCells}
+      </div>
+      <div
+        className="grid w-full min-w-0"
+        style={{
+          gridTemplateColumns: columnTemplate,
+          gridTemplateRows: bodyRowTemplate,
+        }}
+      >
+        {bodyCells}
       </div>
     </div>
   );

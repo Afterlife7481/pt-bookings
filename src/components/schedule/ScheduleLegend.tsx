@@ -26,12 +26,8 @@ export function ScheduleLegend({ className }: { className?: string }) {
     ],
     [
       {
-        swatch: "border border-purple-400 bg-purple-600",
+        swatch: "border border-purple-200 bg-purple-100",
         label: "Locked slot",
-      },
-      {
-        swatch: "past-day-hatch border border-red-200",
-        label: "Past day",
       },
       {
         swatch: "flex items-center justify-center text-[10px] leading-none",
