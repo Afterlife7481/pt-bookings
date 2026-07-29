@@ -4,14 +4,14 @@ import { getBookingByToken } from "@/lib/services/bookings";
 import { getBookingCalendarPayload } from "@/lib/services/booking-calendar";
 import { getTrainerById } from "@/lib/services/trainers";
 import { getTrainerSettings } from "@/lib/services/settings";
-import { Card, Badge, Button } from "@/components/ui";
+import { abortChangeByBookingToken } from "@/lib/services/change";
+import { Badge, Button } from "@/components/ui";
 import { AddToCalendarButton } from "@/components/AddToCalendarButton";
 import { formatSlot, formatDurationMinutes } from "@/lib/utils";
-import { isWithinBookingDeadline, isInactiveBookingStatus } from "@/lib/constants";
+import { isWithinBookingDeadline } from "@/lib/constants";
 import { wallClockToUtcMs } from "@/lib/zoned-time";
 import { ChangeSessionFlow } from "@/components/ChangeSessionFlow";
 import { SessionActions } from "@/components/SessionActions";
-import { SessionChangePrompt } from "@/components/SessionChangePrompt";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -26,19 +26,31 @@ export default async function SessionPage({
   await ensureDb();
   const { token } = await params;
   const { change } = await searchParams;
-  const data = await getBookingByToken(token);
+  let data = await getBookingByToken(token);
 
   if (!data || !data.client) notFound();
+
+  // Clear any leftover "changing" hold from the old flow.
+  if (data.booking.status === "pending_change") {
+    await abortChangeByBookingToken(token).catch(() => undefined);
+    data = await getBookingByToken(token);
+    if (!data || !data.client) notFound();
+  }
 
   const { booking, slot, client } = data;
   const sessionStartAt = slot?.startAt ?? booking.sessionStartAt;
   const sessionEndAt = slot?.endAt ?? null;
   if (!sessionStartAt) notFound();
 
+  const isCanceled = booking.status === "canceled";
+  const isVoided = booking.status === "voided";
+  const sessionInactive = isCanceled || isVoided;
+  const canShowChange = change === "1" && !sessionInactive;
+
   const [trainerSettings, trainer, calendar] = await Promise.all([
     getTrainerSettings(booking.trainerId),
     getTrainerById(booking.trainerId),
-    !isInactiveBookingStatus(booking.status)
+    !sessionInactive
       ? getBookingCalendarPayload(token)
       : Promise.resolve(null),
   ]);
@@ -59,14 +71,9 @@ export default async function SessionPage({
         trainerSettings.timezone,
       )
     : true;
-  const isInactive = isInactiveBookingStatus(booking.status);
-  const isCanceled = booking.status === "canceled";
-  const isVoided = booking.status === "voided";
-  const isChanging = booking.status === "pending_change";
-  const showChangeFlow = change === "1" && !isInactive;
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 p-6">
+    <main className="mx-auto max-w-lg space-y-6 p-6">
       <Link
         href={`/c/${client.token}`}
         className="inline-block text-sm text-slate-500 hover:text-slate-900"
@@ -80,14 +87,12 @@ export default async function SessionPage({
           {formatSlot(sessionStartAt, sessionEndAt)}
         </h1>
         <div className="mt-2 flex flex-wrap gap-2">
-          {booking.status === "pending_change" ? (
-            <Badge tone="warning">Changing</Badge>
-          ) : booking.status === "canceled" ? (
+          {isCanceled ? (
             <Badge tone="danger">Canceled</Badge>
-          ) : booking.status === "voided" ? (
+          ) : isVoided ? (
             <Badge tone="danger">Voided</Badge>
           ) : null}
-          {booking.status !== "voided" &&
+          {!isVoided &&
             (booking.isRecurring ? (
               <Badge tone="success">Recurring</Badge>
             ) : (
@@ -96,10 +101,12 @@ export default async function SessionPage({
         </div>
       </div>
 
-      {!showChangeFlow && (
-        <Card>
-          <p className="text-sm text-slate-600">Hi {client.name}, here are your session details.</p>
-          <div className="mt-4 space-y-2 text-sm">
+      {!canShowChange && (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Hi {client.name}, here are your session details.
+          </p>
+          <div className="space-y-2 text-sm">
             <p>
               <span className="font-medium">Duration:</span>{" "}
               {formatDurationMinutes(durationMinutes)}
@@ -115,17 +122,18 @@ export default async function SessionPage({
               </p>
             ) : null}
           </div>
-          {!isInactive && calendar ? (
+          {!sessionInactive && calendar ? (
             <AddToCalendarButton
-              className="mt-4"
               options={calendar.options}
               sessionLabel={formatSlot(sessionStartAt, sessionEndAt)}
             />
           ) : null}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button disabled variant="secondary">Pay (soon)</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled variant="secondary">
+              Pay (soon)
+            </Button>
           </div>
-          {!isChanging && !isInactive && (
+          {!sessionInactive && (
             <SessionActions
               bookingToken={token}
               clientHomeToken={client.token}
@@ -133,14 +141,10 @@ export default async function SessionPage({
               cancelDeadlineHours={trainerSettings.cancelDeadlineHours}
             />
           )}
-        </Card>
+        </div>
       )}
 
-      {isChanging && !showChangeFlow && !isInactive && (
-        <SessionChangePrompt bookingToken={token} />
-      )}
-
-      {showChangeFlow && (
+      {canShowChange && (
         <ChangeSessionFlow
           bookingToken={token}
           clientHomeToken={client.token}
@@ -150,29 +154,29 @@ export default async function SessionPage({
       )}
 
       {isCanceled && (
-        <Card>
+        <div className="space-y-3">
           <p className="text-sm text-slate-600">This session has been canceled.</p>
           <Link
             href={`/c/${client.token}`}
-            className="mt-3 inline-block text-sm font-medium text-slate-900 hover:underline"
+            className="inline-block text-sm font-medium text-slate-900 hover:underline"
           >
             Back to home
           </Link>
-        </Card>
+        </div>
       )}
 
       {isVoided && (
-        <Card>
+        <div className="space-y-3">
           <p className="text-sm text-slate-600">
             This session was voided by your trainer and no longer counts.
           </p>
           <Link
             href={`/c/${client.token}`}
-            className="mt-3 inline-block text-sm font-medium text-slate-900 hover:underline"
+            className="inline-block text-sm font-medium text-slate-900 hover:underline"
           >
             Back to home
           </Link>
-        </Card>
+        </div>
       )}
     </main>
   );

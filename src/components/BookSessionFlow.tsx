@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { formatBookingWindowWeeks } from "@/lib/constants";
 import { formatTimeOnly, groupSlotsByDay } from "@/lib/utils";
 
@@ -52,19 +52,17 @@ export function BookSessionFlow({
   }
 
   return (
-    <Card>
+    <div className="space-y-4">
       {showHeader ? (
         <>
           <h2 className="text-lg font-semibold">Book a session</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="text-sm text-slate-600">
             Pick an open slot within {formatBookingWindowWeeks(bookingWindowWeeks)}.
           </p>
         </>
       ) : null}
-      {error && (
-        <p className={`text-sm text-red-600${showHeader ? " mt-3" : ""}`}>{error}</p>
-      )}
-      <div className={`space-y-4${showHeader ? " mt-4" : ""}`}>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="space-y-4">
         {slots.length === 0 ? (
           <p className="text-sm text-slate-500">
             No open slots at your locations right now.
@@ -108,7 +106,7 @@ export function BookSessionFlow({
           ))
         )}
       </div>
-      <div className="mt-4 flex gap-2">
+      <div className="flex gap-2">
         <Button onClick={confirmBooking} disabled={!selectedSlot || loading}>
           {loading ? "Booking…" : "Confirm booking"}
         </Button>
@@ -116,6 +114,6 @@ export function BookSessionFlow({
           <Button variant="ghost">Cancel</Button>
         </Link>
       </div>
-    </Card>
+    </div>
   );
 }

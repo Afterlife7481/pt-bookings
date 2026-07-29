@@ -29,26 +29,15 @@ export async function POST(request: Request) {
     if (body.action === "confirm") {
       const bookingToken =
         typeof body.bookingToken === "string" ? body.bookingToken.trim() : "";
-      const changeRequestId =
-        typeof body.changeRequestId === "string"
-          ? body.changeRequestId.trim()
-          : "";
       const toSlotId =
         typeof body.toSlotId === "string" ? body.toSlotId.trim() : "";
-      if (!bookingToken || !changeRequestId || !toSlotId) {
+      if (!bookingToken || !toSlotId) {
         return Response.json(
-          {
-            error:
-              "bookingToken, changeRequestId, and toSlotId are required",
-          },
+          { error: "bookingToken and toSlotId are required" },
           { status: 400 },
         );
       }
-      const result = await confirmChange(
-        bookingToken,
-        changeRequestId,
-        toSlotId,
-      );
+      const result = await confirmChange(bookingToken, toSlotId);
       return Response.json(result);
     }
 

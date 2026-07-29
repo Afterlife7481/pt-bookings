@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { ClientEmailEditor } from "@/components/ClientEmailEditor";
 import { LastMinutePreferenceCell } from "@/components/LastMinutePreferenceCell";
 import { hasClientEmail } from "@/lib/notify-channels";
@@ -323,8 +323,8 @@ export function LastMinutePreferencesForm({
   const emailReady = hasClientEmail(email);
 
   return (
-    <Card className="min-w-0 !p-0">
-      <div className="space-y-4 p-4 sm:p-5 sm:pb-4">
+    <div className="min-w-0 space-y-4">
+      <div className="space-y-4 sm:pb-4">
         {showHeader ? (
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
@@ -556,6 +556,6 @@ export function LastMinutePreferencesForm({
           </div>
         </>
       )}
-    </Card>
+    </div>
   );
 }

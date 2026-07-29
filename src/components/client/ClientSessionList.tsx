@@ -38,8 +38,6 @@ export function ClientSessionList({
                   <Badge tone="danger">Canceled</Badge>
                 ) : session.status === "voided" ? (
                   <Badge tone="danger">Voided</Badge>
-                ) : session.status === "pending_change" ? (
-                  <Badge tone="warning">Changing</Badge>
                 ) : null}
                 {session.status !== "voided" &&
                   (session.isRecurring ? (

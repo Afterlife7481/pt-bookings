@@ -29,14 +29,17 @@ describe("confirmChange", () => {
     });
 
     const start = await startChangeRequest(token);
-    expect(start.changeRequestId).toBeTruthy();
-    if (!start.changeRequestId) {
-      throw new Error("Expected active change request");
-    }
-
-    await confirmChange(token, start.changeRequestId, toSlotId);
+    expect(start.noSlotsAvailable).toBe(false);
+    expect(start.availableSlots.some((slot) => slot.id === toSlotId)).toBe(true);
 
     const db = getDb();
+    const bookingBefore = await db.query.bookings.findFirst({
+      where: eq(bookings.token, token),
+    });
+    expect(bookingBefore?.status).toBe("booked");
+
+    await confirmChange(token, toSlotId);
+
     const booking = await db.query.bookings.findFirst({
       where: eq(bookings.token, token),
     });
@@ -67,7 +70,7 @@ describe("confirmChange", () => {
     ).toBe(false);
   });
 
-  it("rejects confirm without the matching booking token", async () => {
+  it("rejects confirm for an unknown booking token", async () => {
     const fixtures = await seedTestFixtures();
 
     const { slotId: toSlotId } = await addScheduleSlot(
@@ -78,29 +81,16 @@ describe("confirmChange", () => {
       fixtures.locationId,
     );
 
-    const { token } = await createBookingForSlot({
+    await createBookingForSlot({
       slotId: fixtures.slotId,
       clientId: fixtures.clientId,
       trainerId: DEFAULT_TRAINER_ID,
       sendConfirmation: false,
     });
 
-    const start = await startChangeRequest(token);
-    expect(start.changeRequestId).toBeTruthy();
-    if (!start.changeRequestId) {
-      throw new Error("Expected active change request");
-    }
-
-    await expect(
-      confirmChange("not-the-booking-token", start.changeRequestId, toSlotId),
-    ).rejects.toThrow(/Booking not found|no longer active/);
-
-    const db = getDb();
-    const booking = await db.query.bookings.findFirst({
-      where: eq(bookings.token, token),
-    });
-    expect(booking?.slotId).toBe(fixtures.slotId);
-    expect(booking?.status).toBe("pending_change");
+    await expect(confirmChange("not-the-booking-token", toSlotId)).rejects.toThrow(
+      /Booking not found/,
+    );
   });
 
   it("rejects confirming onto an already booked slot", async () => {
@@ -146,14 +136,17 @@ describe("confirmChange", () => {
       sendConfirmation: false,
     });
 
-    const start = await startChangeRequest(token);
-    if (!start.changeRequestId) {
-      throw new Error("Expected active change request");
-    }
+    await startChangeRequest(token);
 
-    await expect(
-      confirmChange(token, start.changeRequestId, bookedTargetId),
-    ).rejects.toThrow(/no longer available/);
+    await expect(confirmChange(token, bookedTargetId)).rejects.toThrow(
+      /no longer available/,
+    );
+
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.token, token),
+    });
+    expect(booking?.slotId).toBe(fixtures.slotId);
+    expect(booking?.status).toBe("booked");
   });
 });
 

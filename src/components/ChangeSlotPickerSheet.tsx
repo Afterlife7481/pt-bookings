@@ -34,7 +34,9 @@ export function ChangeSlotPickerSheet({
           slot.locationName ? ` · ${slot.locationName}` : ""
         }`
       : "this time";
-    if (!window.confirm(`Move this session to ${label}?`)) return;
+    if (!window.confirm(
+      `Move this session to ${label}?\n\nWe'll check it's still available before saving.`,
+    )) return;
     onSelect(slotId);
   }
 
