@@ -34,7 +34,8 @@ export function ScheduleLegend({ className }: { className?: string }) {
         label: "Past day",
       },
       {
-        swatch: "holiday-hatch border border-slate-300",
+        swatch: "flex items-center justify-center border border-emerald-200 bg-emerald-50 text-[10px] leading-none",
+        marker: "🏝️",
         label: "Time off",
       },
     ],
@@ -47,8 +48,12 @@ export function ScheduleLegend({ className }: { className?: string }) {
           {row.map((item) => (
             <span key={item.label} className="inline-flex items-center gap-1.5">
               <span className={cn("relative h-3 w-3 shrink-0 rounded", item.swatch)}>
-                {item.marker ? (
+                {item.marker === "R" ? (
                   <span className="absolute right-px top-px text-[6px] font-semibold leading-none text-sky-700">
+                    R
+                  </span>
+                ) : item.marker ? (
+                  <span className="absolute inset-0 flex items-center justify-center text-[9px] leading-none">
                     {item.marker}
                   </span>
                 ) : null}

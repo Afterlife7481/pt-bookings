@@ -267,6 +267,7 @@ export function OpenSlotLastMinuteSection({
           title="Send last-minute offer"
           subtitle={`Choose how to send the offer to ${offerTarget.name}.`}
           emptyHint="Add an email or a valid mobile number on this client's profile before sending an offer."
+          showCancel={false}
           onClose={() => {
             if (!busy) {
               setOfferTarget(null);

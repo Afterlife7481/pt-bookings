@@ -5,6 +5,7 @@ import {
   AvailableSlotsWeekPicker,
   type AvailablePickerSlot,
 } from "@/components/AvailableSlotsWeekPicker";
+import { formatSlotLabel } from "@/lib/constants";
 
 export function ChangeSlotPickerSheet({
   slots,
@@ -25,6 +26,18 @@ export function ChangeSlotPickerSheet({
   error?: string | null;
   subtitle?: string;
 }) {
+  function handleSelect(slotId: string) {
+    if (busy || disabled) return;
+    const slot = slots.find((s) => s.id === slotId);
+    const label = slot
+      ? `${formatSlotLabel(slot.startAt)}${
+          slot.locationName ? ` · ${slot.locationName}` : ""
+        }`
+      : "this time";
+    if (!window.confirm(`Move this session to ${label}?`)) return;
+    onSelect(slotId);
+  }
+
   return (
     <SheetModal
       title="Pick a new time"
@@ -38,7 +51,7 @@ export function ChangeSlotPickerSheet({
         <AvailableSlotsWeekPicker
           slots={slots}
           selectedSlotId={selectedSlotId}
-          onSelect={onSelect}
+          onSelect={handleSelect}
           disabled={disabled || busy}
           busy={busy}
         />
