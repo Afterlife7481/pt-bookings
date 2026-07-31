@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { bookSlotByClientToken } from "@/lib/services/bookings";
 import { getClientByToken } from "@/lib/services/clients";
 import { getAvailableSlotsForChange } from "@/lib/services/available-slots";
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const limited = enforceRateLimit(ip, {
+  const limited = await enforceRateLimit(ip, {
     scope: "client-book:ip",
     limit: 30,
     windowMs: 60 * 60 * 1000,
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const limited = enforceRateLimit(ip, {
+  const limited = await enforceRateLimit(ip, {
     scope: "client-book:ip",
     limit: 30,
     windowMs: 60 * 60 * 1000,
@@ -53,7 +54,6 @@ export async function POST(request: Request) {
     const result = await bookSlotByClientToken(body.clientToken, body.slotId);
     return Response.json(result, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to book session";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to book session");
   }
 }

@@ -1,11 +1,10 @@
 import {
   SCHEDULE_DISPLAY_STEP_MINUTES,
   addDays,
-  addMinutesToTime,
   formatDate,
+  localTodayDateKey,
   parseDateOnly,
-  parseLocalDateTime,
-  parseTimeOnDate,
+  parseTimeToMinutes,
   slotTimeLabel,
   startOfWeekMonday,
 } from "@/lib/constants";
@@ -20,10 +19,12 @@ import type { ScheduleEntry } from "@/lib/services/schedule";
 
 export function dateForWeekDay(weekStart: string, dayOfWeek: number): Date {
   const monday = parseDateOnly(weekStart);
-  const mondayDow = monday.getDay();
+  const mondayDow = monday.getUTCDay();
   const offset = (dayOfWeek - mondayDow + 7) % 7;
   return addDays(monday, offset);
 }
+
+const UTC_DATE = { timeZone: "UTC" as const };
 
 export function dayHeader(weekStart: string, dayOfWeek: number): string {
   const d = dateForWeekDay(weekStart, dayOfWeek);
@@ -31,18 +32,23 @@ export function dayHeader(weekStart: string, dayOfWeek: number): string {
     weekday: "short",
     day: "numeric",
     month: "short",
+    ...UTC_DATE,
   });
 }
 
 export function dayShortDate(weekStart: string, dayOfWeek: number): string {
   const d = dateForWeekDay(weekStart, dayOfWeek);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...UTC_DATE,
+  });
 }
 
 export function dayNumberForWeekDay(weekStart: string, dayOfWeek: number): string {
   const d = dateForWeekDay(weekStart, dayOfWeek);
-  const month = d.toLocaleDateString("en-GB", { month: "short" });
-  return `${month} ${d.getDate()}`;
+  const month = d.toLocaleDateString("en-GB", { month: "short", ...UTC_DATE });
+  return `${month} ${d.getUTCDate()}`;
 }
 
 export type DayPickerChip = {
@@ -60,7 +66,7 @@ export function buildDayPickerChips(
   weeksAfter = 6,
   today: Date = new Date(),
 ): DayPickerChip[] {
-  const todayMonday = startOfWeekMonday(today);
+  const todayMonday = startOfWeekMonday(parseDateOnly(localTodayDateKey(today)));
   const activeMonday = parseDateOnly(activeWeekStart);
   let rangeStart = addDays(todayMonday, -weeksBefore * 7);
   let rangeEndExclusive = addDays(todayMonday, weeksAfter * 7);
@@ -78,15 +84,17 @@ export function buildDayPickerChips(
     cursor.getTime() < rangeEndExclusive.getTime();
     cursor = addDays(cursor, 1)
   ) {
-    const dayOfWeek = cursor.getDay();
+    const dayOfWeek = cursor.getUTCDay();
     const weekStart = formatDate(startOfWeekMonday(cursor));
     const meta = WEEK_DAYS.find((day) => day.value === dayOfWeek);
     chips.push({
       dateKey: formatDate(cursor),
       weekStart,
       dayOfWeek,
-      weekdayLabel: meta?.label ?? cursor.toLocaleDateString("en-GB", { weekday: "short" }),
-      dayNumber: String(cursor.getDate()),
+      weekdayLabel:
+        meta?.label ??
+        cursor.toLocaleDateString("en-GB", { weekday: "short", ...UTC_DATE }),
+      dayNumber: String(cursor.getUTCDate()),
     });
   }
   return chips;
@@ -94,21 +102,20 @@ export function buildDayPickerChips(
 
 export function isCalendarDatePast(dateKey: string, today: Date = new Date()): boolean {
   const day = parseDateOnly(dateKey);
-  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startToday = parseDateOnly(localTodayDateKey(today));
   return day.getTime() < startToday.getTime();
 }
 
 export function isCalendarDateToday(dateKey: string, today: Date = new Date()): boolean {
-  return dateKey === formatDate(today);
+  return dateKey === localTodayDateKey(today);
 }
 
 export function defaultSelectedDay(weekStart: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = parseDateOnly(localTodayDateKey());
   const start = parseDateOnly(weekStart);
   const end = addDays(start, 6);
   if (today >= start && today <= end) {
-    return today.getDay();
+    return today.getUTCDay();
   }
   return 1;
 }
@@ -141,11 +148,8 @@ export function isPastWeekDay(
   dayOfWeek: number,
   now: Date = new Date(),
 ): boolean {
-  const day = dateForWeekDay(weekStart, dayOfWeek);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  day.setHours(0, 0, 0, 0);
-  return day.getTime() < today.getTime();
+  const dayKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
+  return dayKey < localTodayDateKey(now);
 }
 
 /** True when the column date matches today. */
@@ -154,16 +158,14 @@ export function isTodayWeekDay(
   dayOfWeek: number,
   now: Date = new Date(),
 ): boolean {
-  const day = dateForWeekDay(weekStart, dayOfWeek);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  day.setHours(0, 0, 0, 0);
-  return day.getTime() === today.getTime();
+  return (
+    formatDate(dateForWeekDay(weekStart, dayOfWeek)) === localTodayDateKey(now)
+  );
 }
 
 /**
  * True when a grid row is in the past: whole past days, or today's rows
- * whose window has already ended.
+ * whose window has already ended (viewer-local clock for the day strip).
  */
 export function isPastWeekRowTime(
   weekStart: string,
@@ -174,12 +176,9 @@ export function isPastWeekRowTime(
 ): boolean {
   if (isPastWeekDay(weekStart, dayOfWeek, now)) return true;
   if (!isTodayWeekDay(weekStart, dayOfWeek, now)) return false;
-  const dateKey = formatDate(dateForWeekDay(weekStart, dayOfWeek));
-  const rowEnd = parseTimeOnDate(
-    dateKey,
-    addMinutesToTime(rowTime, rowMinutes),
-  );
-  return rowEnd.getTime() <= now.getTime();
+  const rowEndMinutes = parseTimeToMinutes(rowTime) + rowMinutes;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return rowEndMinutes <= nowMinutes;
 }
 
 /** True when a schedule entry has already ended. */

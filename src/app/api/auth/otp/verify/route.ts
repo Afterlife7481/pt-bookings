@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
+import { nextErrorResponse } from "@/lib/http/errors";
 import { ensureDb } from "@/lib/db/init";
 import {
   createTrainerSession,
   SESSION_COOKIE,
   verifyTrainerOtp,
 } from "@/lib/services/auth";
+import {
+  SESSION_MAX_AGE,
+  sessionCookieOptions,
+} from "@/lib/auth/session-cookie";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
-
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 export async function POST(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const ipLimited = enforceRateLimit(ip, {
+  const ipLimited = await enforceRateLimit(ip, {
     scope: "trainer-otp-verify:ip",
     limit: 20,
     windowMs: 15 * 60 * 1000,
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
   const code = typeof body.code === "string" ? body.code : "";
 
   if (email) {
-    const emailLimited = enforceRateLimit(email, {
+    const emailLimited = await enforceRateLimit(email, {
       scope: "trainer-otp-verify:email",
       limit: 10,
       windowMs: 15 * 60 * 1000,
@@ -39,15 +42,13 @@ export async function POST(request: Request) {
     const trainerId = await verifyTrainerOtp({ email, code });
     const session = await createTrainerSession(trainerId);
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(SESSION_COOKIE, session.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_MAX_AGE,
-    });
+    response.cookies.set(
+      SESSION_COOKIE,
+      session.token,
+      sessionCookieOptions(SESSION_MAX_AGE),
+    );
     return response;
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to verify code";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return nextErrorResponse(e, "Failed to verify code");
   }
 }

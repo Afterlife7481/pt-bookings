@@ -159,41 +159,54 @@ export function addHours(iso: string, hours: number): string {
   return addMinutes(iso, hours * 60);
 }
 
+/**
+ * Civil calendar helpers store wall-clock slot times as naive
+ * `YYYY-MM-DDTHH:mm:ss` strings (trainer zone, not UTC instants).
+ * Arithmetic uses UTC Date components so results do not depend on the host TZ.
+ * Server processes should still run with `TZ=UTC` (see package.json scripts).
+ */
 export function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
+  const d = new Date(date.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
 
 export function startOfWeekMonday(date: Date): Date {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = d.getDay();
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = d.getUTCDay();
   const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
+  d.setUTCDate(d.getUTCDate() + diff);
   return d;
 }
 
 export function formatDate(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+/** Calendar date key in the runtime's local zone (for "today" in the browser). */
+export function localTodayDateKey(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
 export function parseDateOnly(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 export function parseTimeOnDate(dateStr: string, time: string): Date {
-  const d = parseDateOnly(dateStr);
+  const [y, m, d] = dateStr.split("-").map(Number);
   const [hours, minutes] = time.split(":").map(Number);
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+  return new Date(Date.UTC(y, m - 1, d, hours, minutes, 0, 0));
 }
 
-/** Local datetime string without timezone shift (YYYY-MM-DDTHH:mm:ss) */
+/** Wall-clock datetime string without timezone shift (YYYY-MM-DDTHH:mm:ss) */
 export function toLocalDateTimeString(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
 }
 
 export function slotTimeLabel(startAt: string): string {
@@ -204,18 +217,19 @@ export function slotTimeLabel(startAt: string): string {
 export function slotDayOfWeek(startAt: string): number {
   const [datePart] = startAt.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
-  return new Date(y, m - 1, d).getDay();
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
 export function formatSlotLabel(isoStart: string, isoEnd?: string | null): string {
   const [datePart, timePart] = isoStart.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
+  const date = new Date(Date.UTC(y, m - 1, d));
   const start = timePart?.slice(0, 5) ?? "";
   const dateLabel = date.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
+    timeZone: "UTC",
   });
   if (!isoEnd) return `${dateLabel} ${start}`;
   const end = isoEnd.split("T")[1]?.slice(0, 5) ?? "";
@@ -230,7 +244,7 @@ export function parseLocalDateTime(iso: string): Date {
   const [datePart, timePart = "00:00:00"] = iso.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm, ss = 0] = timePart.split(":").map(Number);
-  return new Date(y, m - 1, d, hh, mm, ss);
+  return new Date(Date.UTC(y, m - 1, d, hh, mm, ss));
 }
 
 export function isWithinBookingDeadline(

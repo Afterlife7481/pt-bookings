@@ -45,7 +45,8 @@ export async function wipeTestDatabase() {
       invite_codes,
       trainer_sessions,
       trainer_magic_links,
-      trainers
+      trainers,
+      rate_limit_buckets
     CASCADE
   `);
 }

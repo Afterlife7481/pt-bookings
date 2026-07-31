@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { createHoliday, listHolidays } from "@/lib/services/holidays";
 
@@ -26,7 +27,6 @@ export async function POST(request: Request) {
     });
     return Response.json(holiday, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create time off";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to create time off");
   }
 }

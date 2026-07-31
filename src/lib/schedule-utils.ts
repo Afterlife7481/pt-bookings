@@ -1,7 +1,13 @@
-import { addDays, formatDate, parseDateOnly, startOfWeekMonday } from "@/lib/constants";
+import {
+  addDays,
+  formatDate,
+  localTodayDateKey,
+  parseDateOnly,
+  startOfWeekMonday,
+} from "@/lib/constants";
 
 export function defaultWeekStart(): string {
-  return formatDate(startOfWeekMonday(new Date()));
+  return formatDate(startOfWeekMonday(parseDateOnly(localTodayDateKey())));
 }
 
 export function shiftWeekStart(weekStart: string, weeks: number): string {

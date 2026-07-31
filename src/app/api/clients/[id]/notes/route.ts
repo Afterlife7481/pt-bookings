@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   createClientNote,
@@ -18,8 +19,7 @@ export async function GET(
     const notes = await listClientNotesForTrainer(trainerId, id);
     return Response.json({ notes });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load notes";
-    return Response.json({ error: message }, { status: 404 });
+    return errorResponse(e, "Failed to load notes");
   }
 }
 
@@ -41,7 +41,6 @@ export async function POST(
     });
     return Response.json(note, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create note";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to create note");
   }
 }

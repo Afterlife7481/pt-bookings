@@ -80,7 +80,7 @@ describe("template apply with holidays", () => {
       fixtures.locationId,
     ]);
     await setRecurringPreferences(fixtures.clientId, DEFAULT_TRAINER_ID, [
-      { dayOfWeek: 3, startTime: "11:00" },
+      { dayOfWeek: 3, startTime: "11:00", locationId: fixtures.locationId },
     ]);
 
     const result = await applyTemplateToWeek(

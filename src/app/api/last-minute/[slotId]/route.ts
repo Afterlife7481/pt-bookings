@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { getEligibleClientsForSlot } from "@/lib/services/last-minute";
 
@@ -16,7 +17,6 @@ export async function GET(
     const detail = await getEligibleClientsForSlot(trainerId, slotId);
     return Response.json(detail);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load slot";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to load slot");
   }
 }

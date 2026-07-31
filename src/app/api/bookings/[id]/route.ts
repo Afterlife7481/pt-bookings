@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { parseSessionPaymentType } from "@/lib/constants";
 import { bookingSessionPriceFromBody } from "@/lib/validation/booking";
@@ -78,8 +79,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return Response.json(detail);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update session";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update session");
   }
 }
 
@@ -136,7 +136,6 @@ export async function POST(request: Request, context: RouteContext) {
 
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Action failed";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Action failed");
   }
 }

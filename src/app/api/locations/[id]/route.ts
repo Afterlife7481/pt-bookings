@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { deleteLocation, updateLocation } from "@/lib/services/locations";
 
@@ -20,8 +21,7 @@ export async function PATCH(
     });
     return Response.json(location);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update location";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update location");
   }
 }
 
@@ -39,7 +39,6 @@ export async function DELETE(
     await deleteLocation(trainerId, id);
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to delete location";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to delete location");
   }
 }

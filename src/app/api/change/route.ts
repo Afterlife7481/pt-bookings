@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import {
   startChangeRequest,
   confirmChange,
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const limited = enforceRateLimit(ip, {
+  const limited = await enforceRateLimit(ip, {
     scope: "change:ip",
     limit: 30,
     windowMs: 60 * 60 * 1000,
@@ -48,7 +49,6 @@ export async function POST(request: Request) {
 
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Error";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Error");
   }
 }

@@ -1,5 +1,6 @@
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
+import { errorResponse } from "@/lib/http/errors";
 import { notifyClientOfScheduleConflict } from "@/lib/services/template-conflicts";
 
 export async function POST(
@@ -21,8 +22,6 @@ export async function POST(
     );
     return Response.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to notify client";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(error, "Failed to notify client");
   }
 }

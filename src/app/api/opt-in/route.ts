@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import {
   getClientLastMinutePreferences,
   setClientLastMinutePreferences,
@@ -13,7 +14,7 @@ import { getTrainerTemplateOverlay } from "@/lib/services/templates";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
-function checkOptInRateLimit(request: Request) {
+async function checkOptInRateLimit(request: Request) {
   const ip = getRequestIp(request);
   return enforceRateLimit(ip, {
     scope: "opt-in:ip",
@@ -25,7 +26,7 @@ function checkOptInRateLimit(request: Request) {
 export async function GET(request: Request) {
   await ensureDb();
 
-  const limited = checkOptInRateLimit(request);
+  const limited = await checkOptInRateLimit(request);
   if (limited) return limited;
 
   const token = new URL(request.url).searchParams.get("token");
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   await ensureDb();
 
-  const limited = checkOptInRateLimit(request);
+  const limited = await checkOptInRateLimit(request);
   if (limited) return limited;
 
   const body = await request.json();
@@ -134,7 +135,6 @@ export async function POST(request: Request) {
       preferences: updated,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to save preferences";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to save preferences");
   }
 }

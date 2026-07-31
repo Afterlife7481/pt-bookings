@@ -24,12 +24,16 @@ export default defineConfig({
   webServer: {
     command: "npm run test:e2e:server",
     url: "http://localhost:3001/api/health",
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
+      TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
       E2E_TEST: "1",
+      APP_ENV: "local",
       APP_BASE_URL: "http://localhost:3001",
+      TZ: "UTC",
     },
   },
 });
+

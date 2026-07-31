@@ -571,3 +571,12 @@ export type LastMinuteInterest = typeof lastMinuteInterests.$inferSelect;
 export type ClientNote = typeof clientNotes.$inferSelect;
 export type ClientNoteVisibility = ClientNote["visibility"];
 export type MessageTemplate = typeof messageTemplates.$inferSelect;
+
+/** Shared rate-limit buckets across app instances. */
+export const rateLimitBuckets = pgTable("rate_limit_buckets", {
+  bucketKey: text("bucket_key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: text("reset_at").notNull(),
+});
+
+export type RateLimitBucket = typeof rateLimitBuckets.$inferSelect;

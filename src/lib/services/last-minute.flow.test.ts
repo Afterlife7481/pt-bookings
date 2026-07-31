@@ -257,16 +257,13 @@ describe("last-minute offer flow", () => {
 
     await cancelBookingForTrainer(DEFAULT_TRAINER_ID, bookingId);
 
-    await sendLastMinuteOffer(
+    const offer = await sendLastMinuteOffer(
       DEFAULT_TRAINER_ID,
       fixtures.slotId,
       fixtures.clientId,
     );
 
-    const result = await acceptLastMinuteOffer(
-      fixtures.slotId,
-      fixtures.clientId,
-    );
+    const result = await acceptLastMinuteOffer(offer.offerToken);
 
     const db = getDb();
     const acceptedBooking = await db.query.bookings.findFirst({
@@ -300,16 +297,13 @@ describe("last-minute offer flow", () => {
 
     await startChangeRequest(changingToken);
 
-    await sendLastMinuteOffer(
+    const offer = await sendLastMinuteOffer(
       DEFAULT_TRAINER_ID,
       fixtures.slotId,
       fixtures.clientId,
     );
 
-    const result = await acceptLastMinuteOffer(
-      fixtures.slotId,
-      fixtures.clientId,
-    );
+    const result = await acceptLastMinuteOffer(offer.offerToken);
 
     const db = getDb();
     const acceptedBooking = await db.query.bookings.findFirst({

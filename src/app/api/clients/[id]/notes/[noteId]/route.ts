@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { deleteClientNote, updateClientNote } from "@/lib/services/notes";
 
@@ -19,9 +20,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     });
     return Response.json(note);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update note";
-    const status = message === "Note not found" ? 404 : 400;
-    return Response.json({ error: message }, { status });
+    return errorResponse(e, "Failed to update note");
   }
 }
 
@@ -36,8 +35,6 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     await deleteClientNote(trainerId, noteId);
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to delete note";
-    const status = message === "Note not found" ? 404 : 400;
-    return Response.json({ error: message }, { status });
+    return errorResponse(e, "Failed to delete note");
   }
 }

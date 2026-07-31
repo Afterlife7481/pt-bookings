@@ -13,6 +13,11 @@ function getDatabaseUrl() {
   return url;
 }
 
+/**
+ * SSL for remote Postgres.
+ * Verifies the server certificate by default. Set DATABASE_SSL_INSECURE=1 only
+ * when a provider's CA is not in the system trust store (prefer fixing the CA).
+ */
 function poolSsl(connectionString: string) {
   if (
     connectionString.includes("localhost") ||
@@ -20,7 +25,10 @@ function poolSsl(connectionString: string) {
   ) {
     return undefined;
   }
-  return { rejectUnauthorized: false } as const;
+  if (process.env.DATABASE_SSL_INSECURE === "1") {
+    return { rejectUnauthorized: false } as const;
+  }
+  return { rejectUnauthorized: true } as const;
 }
 
 let pool: Pool | null = null;

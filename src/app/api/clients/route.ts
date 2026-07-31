@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { listClients, createClient } from "@/lib/services/clients";
 import { getTrainerSettings } from "@/lib/services/settings";
@@ -43,7 +44,6 @@ export async function POST(request: Request) {
     });
     return Response.json({ id }, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create client";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to create client");
   }
 }

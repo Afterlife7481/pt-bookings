@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   deletePaymentMethod,
@@ -23,9 +24,7 @@ export async function PATCH(
     });
     return Response.json(method);
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Failed to update payment method";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update payment method");
   }
 }
 
@@ -43,8 +42,6 @@ export async function DELETE(
     await deletePaymentMethod(trainerId, id);
     return Response.json({ ok: true });
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Failed to delete payment method";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to delete payment method");
   }
 }

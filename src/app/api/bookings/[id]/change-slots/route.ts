@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { getBookingDetailForTrainer } from "@/lib/services/bookings";
 import { listAvailableSlotsForTrainerChange } from "@/lib/services/change";
@@ -27,7 +28,6 @@ export async function GET(_request: Request, context: RouteContext) {
       bookingWindowWeeks: settings.clientBookingWindowWeeks,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load slots";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to load slots");
   }
 }

@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { submitTrainerContact } from "@/lib/services/contact";
 import type { TrainerContactKind } from "@/lib/contact";
@@ -16,14 +17,14 @@ export async function POST(request: Request) {
   if (!trainerId) return unauthorizedResponse();
 
   const ip = getRequestIp(request);
-  const ipLimited = enforceRateLimit(ip, {
+  const ipLimited = await enforceRateLimit(ip, {
     scope: "contact:ip",
     limit: 10,
     windowMs: 60 * 60 * 1000,
   });
   if (ipLimited) return ipLimited;
 
-  const trainerLimited = enforceRateLimit(trainerId, {
+  const trainerLimited = await enforceRateLimit(trainerId, {
     scope: "contact:trainer",
     limit: 5,
     windowMs: 60 * 60 * 1000,
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
     });
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to send message";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to send message");
   }
 }

@@ -146,6 +146,12 @@ describe("createBookingForSlot", () => {
     const rejected = attempts.filter((a) => a.status === "rejected");
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
+    const rejection = rejected[0];
+    expect(rejection?.status).toBe("rejected");
+    if (rejection?.status === "rejected") {
+      expect(rejection.reason).toBeInstanceOf(Error);
+      expect((rejection.reason as Error).message).toBe("Slot is not available");
+    }
   });
 
   it("rejects booking when the client has no enabled locations", async () => {
@@ -351,29 +357,37 @@ describe("sendInvoiceForBooking", () => {
   it("sends by email when requested and logs an email feed entry", async () => {
     const fixtures = await seedTestFixtures();
     const db = getDb();
+    // Exercise the email path without calling Resend (local keys reject example.com).
+    const previousKey = process.env.RESEND_API_KEY;
+    delete process.env.RESEND_API_KEY;
 
-    await db
-      .update(clients)
-      .set({ sessionPrice: 5000, email: "casey@example.com" })
-      .where(eq(clients.id, fixtures.clientId));
+    try {
+      await db
+        .update(clients)
+        .set({ sessionPrice: 5000, email: "casey@example.com" })
+        .where(eq(clients.id, fixtures.clientId));
 
-    const { bookingId } = await createBookingForSlot({
-      slotId: fixtures.slotId,
-      clientId: fixtures.clientId,
-      trainerId: DEFAULT_TRAINER_ID,
-      sendConfirmation: false,
-    });
+      const { bookingId } = await createBookingForSlot({
+        slotId: fixtures.slotId,
+        clientId: fixtures.clientId,
+        trainerId: DEFAULT_TRAINER_ID,
+        sendConfirmation: false,
+      });
 
-    const detail = await sendInvoiceForBooking(bookingId, ["email"]);
-    expect(detail?.sentVia).toEqual(["email"]);
-    expect(detail?.whatsappUrl).toBeNull();
+      const detail = await sendInvoiceForBooking(bookingId, ["email"]);
+      expect(detail?.sentVia).toEqual(["email"]);
+      expect(detail?.whatsappUrl).toBeNull();
 
-    const messages = await db.query.whatsappMessages.findMany({
-      where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
-    });
-    const invoice = messages.find((message) => message.messageType === "invoice");
-    expect(invoice?.channel).toBe("email");
-    expect(invoice?.phone).toBe("casey@example.com");
+      const messages = await db.query.whatsappMessages.findMany({
+        where: eq(whatsappMessages.trainerId, DEFAULT_TRAINER_ID),
+      });
+      const invoice = messages.find((message) => message.messageType === "invoice");
+      expect(invoice?.channel).toBe("email");
+      expect(invoice?.phone).toBe("casey@example.com");
+    } finally {
+      if (previousKey === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = previousKey;
+    }
   });
 
   it("rejects email channel when the client has no email", async () => {

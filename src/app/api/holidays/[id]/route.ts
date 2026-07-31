@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { deleteHoliday, updateHoliday } from "@/lib/services/holidays";
 
@@ -21,8 +22,7 @@ export async function PATCH(
     });
     return Response.json(holiday);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update time off";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update time off");
   }
 }
 
@@ -40,7 +40,6 @@ export async function DELETE(
     await deleteHoliday(trainerId, id);
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to delete time off";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to delete time off");
   }
 }
