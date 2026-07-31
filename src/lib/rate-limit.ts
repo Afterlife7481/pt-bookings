@@ -103,7 +103,7 @@ async function checkRateLimitPostgres(
   return { allowed: true };
 }
 
-function useMemoryRateLimit(): boolean {
+function prefersMemoryRateLimit(): boolean {
   return process.env.VITEST === "true";
 }
 
@@ -116,7 +116,7 @@ export async function checkRateLimit(
     return { allowed: true };
   }
 
-  if (useMemoryRateLimit()) {
+  if (prefersMemoryRateLimit()) {
     return checkRateLimitMemory(key, options);
   }
 
