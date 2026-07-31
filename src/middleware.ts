@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, appUrl } from "@/lib/constants";
+import { clearSessionCookieOptions } from "@/lib/auth/session-cookie";
 import {
   hasValidTrainerSession,
   isPublicApiPath,
@@ -11,7 +12,7 @@ function redirectToLogin(request: NextRequest) {
   const loginUrl = appUrl("/login");
   loginUrl.searchParams.set("next", request.nextUrl.pathname);
   const response = NextResponse.redirect(loginUrl);
-  response.cookies.set(SESSION_COOKIE, "", { maxAge: 0, path: "/" });
+  response.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
   return response;
 }
 

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { nextErrorResponse } from "@/lib/http/errors";
 import { ensureDb } from "@/lib/db/init";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { deleteTrainerAccount } from "@/lib/services/account-deletion";
 import { SESSION_COOKIE } from "@/lib/services/auth";
+import { clearSessionCookieOptions } from "@/lib/auth/session-cookie";
 
 export async function POST(request: Request) {
   await ensureDb();
@@ -27,16 +29,10 @@ export async function POST(request: Request) {
   try {
     await deleteTrainerAccount(trainerId, confirmationEmail);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to delete account";
-    const status = message === "This account cannot be deleted." ? 403 : 400;
-    return NextResponse.json({ error: message }, { status });
+    return nextErrorResponse(e, "Failed to delete account");
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    path: "/",
-    maxAge: 0,
-  });
+  response.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
   return response;
 }

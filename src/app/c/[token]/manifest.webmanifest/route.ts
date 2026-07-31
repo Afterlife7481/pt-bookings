@@ -15,7 +15,7 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const manifest = buildClientPwaManifest(token, client.name);
+  const manifest = buildClientPwaManifest(token);
 
   return Response.json(manifest, {
     headers: {

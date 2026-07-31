@@ -19,6 +19,7 @@ import {
   formatDate,
   formatMinutesAsTime,
   formatSlotLabel,
+  localTodayDateKey,
   parseDateOnly,
   parseTimeToMinutes,
   slotTimeLabel,
@@ -102,7 +103,9 @@ export function AvailableSlotsWeekPicker({
 
   const weekBounds = useMemo(() => {
     if (slots.length === 0) {
-      const current = formatDate(startOfWeekMonday(new Date()));
+      const current = formatDate(
+        startOfWeekMonday(parseDateOnly(localTodayDateKey())),
+      );
       return { min: current, max: current };
     }
     const weekStarts = slots.map((slot) =>
@@ -113,7 +116,9 @@ export function AvailableSlotsWeekPicker({
   }, [slots]);
 
   const [weekStart, setWeekStart] = useState(() => {
-    const todayWeek = formatDate(startOfWeekMonday(new Date()));
+    const todayWeek = formatDate(
+      startOfWeekMonday(parseDateOnly(localTodayDateKey())),
+    );
     if (slots.some((s) => weekStartFromDateKey(dateKeyFromStartAt(s.startAt)) === todayWeek)) {
       return todayWeek;
     }

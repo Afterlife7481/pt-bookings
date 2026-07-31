@@ -24,14 +24,16 @@ function dayToSlideIndex(dayOfWeek: number, hasWeekEdges: boolean): number {
   return hasWeekEdges ? safeIndex + 1 : safeIndex;
 }
 
+/** Prefer the slide whose center is closest to the viewport center. */
 function getActiveSlideIndex(scroller: HTMLElement): number {
-  const scrollLeft = scroller.scrollLeft;
+  const viewportCenter = scroller.scrollLeft + scroller.clientWidth / 2;
   let best = 0;
   let bestDist = Number.POSITIVE_INFINITY;
 
   Array.from(scroller.children).forEach((child, index) => {
     const element = child as HTMLElement;
-    const dist = Math.abs(element.offsetLeft - scrollLeft);
+    const slideCenter = element.offsetLeft + element.offsetWidth / 2;
+    const dist = Math.abs(slideCenter - viewportCenter);
     if (dist < bestDist) {
       bestDist = dist;
       best = index;
@@ -61,7 +63,12 @@ export function DayScheduleCarousel({
   const edgeHandledRef = useRef(false);
   const prevWeekStartRef = useRef(weekStart);
   const weekJustChangedRef = useRef(false);
+  const selectedDayRef = useRef(selectedDay);
+  const skipScrollToSelectedRef = useRef(false);
+  const scrollRafRef = useRef<number | null>(null);
   const hasWeekEdges = !!onShiftDay;
+
+  selectedDayRef.current = selectedDay;
 
   const slides = useMemo((): CarouselSlide[] => {
     const days: DaySlide[] = WEEK_DAYS.map((day) => ({
@@ -77,6 +84,14 @@ export function DayScheduleCarousel({
       { type: "week-edge", delta: 1 },
     ];
   }, [hasWeekEdges]);
+
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
+
+  const onSelectDayRef = useRef(onSelectDay);
+  onSelectDayRef.current = onSelectDay;
+  const onShiftDayRef = useRef(onShiftDay);
+  onShiftDayRef.current = onShiftDay;
 
   const jumpToDay = useCallback(
     (dayOfWeek: number) => {
@@ -120,6 +135,24 @@ export function DayScheduleCarousel({
     [hasWeekEdges],
   );
 
+  /** Update the day chip as soon as a new day owns the viewport center. */
+  const syncSelectedDayFromScroll = useCallback(() => {
+    if (programmaticScrollRef.current) return;
+
+    const scroller = scrollerRef.current;
+    if (!scroller || scroller.children.length === 0) return;
+
+    const index = getActiveSlideIndex(scroller);
+    const slide = slidesRef.current[index];
+    if (!slide || slide.type !== "day") return;
+
+    if (slide.dayOfWeek !== selectedDayRef.current) {
+      skipScrollToSelectedRef.current = true;
+      onSelectDayRef.current(slide.dayOfWeek);
+    }
+  }, []);
+
+  /** Week edges only commit once the swipe settles. */
   const settleActiveSlide = useCallback(() => {
     if (programmaticScrollRef.current) return;
 
@@ -127,20 +160,21 @@ export function DayScheduleCarousel({
     if (!scroller || scroller.children.length === 0) return;
 
     const index = getActiveSlideIndex(scroller);
-    const slide = slides[index];
+    const slide = slidesRef.current[index];
     if (!slide) return;
 
     if (slide.type === "week-edge") {
       if (edgeHandledRef.current) return;
       edgeHandledRef.current = true;
-      onShiftDay?.(slide.delta);
+      onShiftDayRef.current?.(slide.delta);
       return;
     }
 
-    if (slide.dayOfWeek !== selectedDay) {
-      onSelectDay(slide.dayOfWeek);
+    if (slide.dayOfWeek !== selectedDayRef.current) {
+      skipScrollToSelectedRef.current = true;
+      onSelectDayRef.current(slide.dayOfWeek);
     }
-  }, [onSelectDay, onShiftDay, selectedDay, slides]);
+  }, []);
 
   useLayoutEffect(() => {
     if (prevWeekStartRef.current === weekStart) return;
@@ -154,6 +188,11 @@ export function DayScheduleCarousel({
   useEffect(() => {
     if (weekJustChangedRef.current) {
       weekJustChangedRef.current = false;
+      return;
+    }
+
+    if (skipScrollToSelectedRef.current) {
+      skipScrollToSelectedRef.current = false;
       return;
     }
 
@@ -171,27 +210,33 @@ export function DayScheduleCarousel({
     const scroller = scrollerRef.current;
     if (!scroller) return;
 
-    let timeoutId: number | undefined;
+    const handleScroll = () => {
+      if (scrollRafRef.current != null) return;
+      scrollRafRef.current = window.requestAnimationFrame(() => {
+        scrollRafRef.current = null;
+        syncSelectedDayFromScroll();
+      });
+    };
 
     const handleScrollEnd = () => {
-      window.clearTimeout(timeoutId);
+      if (scrollRafRef.current != null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
       settleActiveSlide();
     };
 
-    const handleScroll = () => {
-      window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(handleScrollEnd, 120);
-    };
-
-    scroller.addEventListener("scrollend", handleScrollEnd);
     scroller.addEventListener("scroll", handleScroll, { passive: true });
+    scroller.addEventListener("scrollend", handleScrollEnd);
 
     return () => {
-      window.clearTimeout(timeoutId);
-      scroller.removeEventListener("scrollend", handleScrollEnd);
+      if (scrollRafRef.current != null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+      }
       scroller.removeEventListener("scroll", handleScroll);
+      scroller.removeEventListener("scrollend", handleScrollEnd);
     };
-  }, [settleActiveSlide]);
+  }, [settleActiveSlide, syncSelectedDayFromScroll]);
 
   return (
     <div className={cn(className)}>

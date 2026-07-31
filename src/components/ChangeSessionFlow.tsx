@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { ChangeSlotPickerSheet } from "@/components/ChangeSlotPickerSheet";
 import { formatBookingWindowWeeks } from "@/lib/constants";
 
@@ -26,7 +26,6 @@ export function ChangeSessionFlow({
   bookingWindowWeeks: number;
 }) {
   const router = useRouter();
-  const [changeRequestId, setChangeRequestId] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [noSlotsAvailable, setNoSlotsAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +34,7 @@ export function ChangeSessionFlow({
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
-  async function startChange() {
+  async function loadAvailableSlots() {
     setInitialLoading(true);
     setError(null);
     try {
@@ -46,44 +45,21 @@ export function ChangeSessionFlow({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setChangeRequestId(data.changeRequestId);
       setSlots(data.availableSlots ?? []);
       setNoSlotsAvailable(Boolean(data.noSlotsAvailable));
       if ((data.availableSlots ?? []).length > 0) {
         setShowPicker(true);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start change");
+      setError(e instanceof Error ? e.message : "Failed to load available times");
     } finally {
       setInitialLoading(false);
     }
   }
 
   useEffect(() => {
-    startChange();
+    void loadAvailableSlots();
   }, [bookingToken]);
-
-  async function keepCurrentTime() {
-    setBusy(true);
-    setError(null);
-    try {
-      if (changeRequestId) {
-        const res = await fetch("/api/change", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "abort", bookingToken }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-      }
-      router.replace(`/s/${bookingToken}`);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to keep current time");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function cancelSession() {
     if (
@@ -114,7 +90,7 @@ export function ChangeSessionFlow({
   }
 
   async function selectAndSave(slotId: string) {
-    if (!changeRequestId || busy) return;
+    if (busy) return;
     setSelectedSlot(slotId);
     setBusy(true);
     setError(null);
@@ -125,7 +101,6 @@ export function ChangeSessionFlow({
         body: JSON.stringify({
           action: "confirm",
           bookingToken,
-          changeRequestId,
           toSlotId: slotId,
         }),
       });
@@ -136,62 +111,68 @@ export function ChangeSessionFlow({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to confirm change");
       setBusy(false);
+      // Reload slots in case the chosen time was taken.
+      void loadAvailableSlots();
     }
   }
 
   if (initialLoading) {
-    return (
-      <Card>
-        <p className="text-sm text-slate-600">Loading available slots…</p>
-      </Card>
-    );
+    return <p className="text-sm text-slate-600">Loading available times…</p>;
   }
 
-  if (error && !changeRequestId && !noSlotsAvailable) {
+  if (error && slots.length === 0 && !noSlotsAvailable) {
     return (
-      <Card>
-        <h2 className="text-lg font-semibold">Change session</h2>
-        <p className="mt-3 text-sm text-red-600">{error}</p>
-        <Link href={`/s/${bookingToken}`} className="mt-4 inline-block">
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Change session</h2>
+          <p className="mt-3 text-sm text-red-600">{error}</p>
+        </div>
+        <Link href={`/s/${bookingToken}`} className="inline-block">
           <Button variant="ghost">Back to session</Button>
         </Link>
-      </Card>
+      </div>
     );
   }
 
   if (noSlotsAvailable) {
     return (
-      <Card>
-        <h2 className="text-lg font-semibold">No other times available</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Current session: {currentSlotLabel}
-        </p>
-        <p className="mt-3 text-sm text-slate-600">
-          There are no open slots at your locations in{" "}
-          {formatBookingWindowWeeks(bookingWindowWeeks)}. Keep your current time
-          or cancel this session.
-        </p>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button disabled={busy} onClick={keepCurrentTime}>
-            Keep current time
-          </Button>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">No other times available</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Current session: {currentSlotLabel}
+          </p>
+          <p className="mt-3 text-sm text-slate-600">
+            There are no open slots at your locations in{" "}
+            {formatBookingWindowWeeks(bookingWindowWeeks)}. Keep your current
+            time or cancel this session.
+          </p>
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/s/${bookingToken}`}>
+            <Button disabled={busy}>Keep current time</Button>
+          </Link>
           <Button variant="danger" disabled={busy} onClick={cancelSession}>
             {busy ? "Canceling…" : "Cancel session"}
           </Button>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
+      <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Change session</h2>
             <p className="mt-1 text-sm text-slate-600">
               Current session: {currentSlotLabel}
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Pick a new time from the schedule. We&apos;ll confirm it&apos;s
+              still available before saving.
             </p>
           </div>
           <Link
@@ -202,9 +183,9 @@ export function ChangeSessionFlow({
           </Link>
         </div>
         {error && !showPicker && (
-          <p className="mt-3 text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600">{error}</p>
         )}
-        <div className="mt-4 flex flex-wrap gap-2">
+        {!showPicker ? (
           <Button
             disabled={busy}
             onClick={() => {
@@ -214,11 +195,8 @@ export function ChangeSessionFlow({
           >
             Pick a new time
           </Button>
-          <Button variant="secondary" disabled={busy} onClick={keepCurrentTime}>
-            Keep current time
-          </Button>
-        </div>
-      </Card>
+        ) : null}
+      </div>
 
       {showPicker && (
         <ChangeSlotPickerSheet
@@ -226,7 +204,7 @@ export function ChangeSessionFlow({
           selectedSlotId={selectedSlot}
           onSelect={selectAndSave}
           onClose={() => {
-            if (!busy) setShowPicker(false);
+            if (!busy) router.replace(`/s/${bookingToken}`);
           }}
           busy={busy}
           error={error}

@@ -1,15 +1,18 @@
 import { expect, type Page } from "@playwright/test";
 
+/** Request OTP + verify so the page context receives the session cookie. */
 export async function loginAsTrainer(page: Page, trainerEmail: string) {
-  const loginRes = await page.request.post("/api/auth/magic-link", {
+  const loginRes = await page.request.post("/api/auth/otp/request", {
     data: { email: trainerEmail, purpose: "login" },
   });
   expect(loginRes.ok()).toBeTruthy();
   const loginData = await loginRes.json();
-  expect(loginData.devLink).toBeTruthy();
+  expect(loginData.devCode).toBeTruthy();
 
-  const verifyUrl = new URL(loginData.devLink as string);
-  const verifyPath = `${verifyUrl.pathname}${verifyUrl.search}`;
+  const verifyRes = await page.request.post("/api/auth/otp/verify", {
+    data: { email: trainerEmail, code: loginData.devCode },
+  });
+  expect(verifyRes.ok()).toBeTruthy();
 
   await Promise.all([
     page.waitForResponse(
@@ -20,7 +23,7 @@ export async function loginAsTrainer(page: Page, trainerEmail: string) {
       (response) =>
         response.url().includes("/api/schedule") && response.status() === 200,
     ),
-    page.goto(verifyPath),
+    page.goto("/dashboard/schedule"),
   ]);
 
   await expect(page).toHaveURL(/\/dashboard\/schedule/);

@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { acknowledgeScheduleConflict } from "@/lib/services/template-conflicts";
 
 export async function POST(request: Request) {
@@ -20,8 +21,6 @@ export async function POST(request: Request) {
     const result = await acknowledgeScheduleConflict(token);
     return Response.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to acknowledge";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(error, "Failed to acknowledge");
   }
 }

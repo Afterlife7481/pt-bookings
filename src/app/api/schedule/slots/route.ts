@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   addScheduleSlot,
@@ -25,8 +26,7 @@ export async function POST(request: Request) {
     );
     return Response.json(result, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to add slot";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to add slot");
   }
 }
 
@@ -56,8 +56,7 @@ export async function PATCH(request: Request) {
     await updateScheduleSlotLocation(trainerId, body.slotId, body.locationId);
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update slot";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update slot");
   }
 }
 
@@ -76,7 +75,6 @@ export async function DELETE(request: Request) {
     await removeScheduleSlot(trainerId, slotId);
     return Response.json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to remove slot";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to remove slot");
   }
 }

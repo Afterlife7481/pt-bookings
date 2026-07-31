@@ -51,18 +51,13 @@ export function buildTrainerPwaManifest(): MetadataRoute.Manifest {
 }
 
 /** Client portal PWA — opens that client's home link with no login. */
-export function buildClientPwaManifest(
-  token: string,
-  clientName: string,
-): MetadataRoute.Manifest {
+export function buildClientPwaManifest(token: string): MetadataRoute.Manifest {
   const portalPath = `/c/${token}`;
-  const shortName =
-    clientName.length > 12 ? "My sessions" : `${clientName} sessions`;
 
   return {
     ...PWA_BASE,
-    name: `${SITE_NAME} — ${clientName}`,
-    short_name: shortName,
+    name: "My PT",
+    short_name: "My PT",
     description: "View and manage your personal training sessions.",
     start_url: portalPath,
     scope: "/",

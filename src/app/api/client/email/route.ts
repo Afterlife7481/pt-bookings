@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getClientByToken } from "@/lib/services/clients";
 import {
   requestClientEmailVerification,
@@ -8,7 +9,7 @@ import {
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
-function checkRateLimit(request: Request, scope: string, limit: number) {
+async function checkRateLimit(request: Request, scope: string, limit: number) {
   const ip = getRequestIp(request);
   return enforceRateLimit(ip, {
     scope,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const action = body.action;
 
   if (action === "request_code") {
-    const limited = checkRateLimit(request, "client-email:request", 10);
+    const limited = await checkRateLimit(request, "client-email:request", 10);
     if (limited) return limited;
 
     const result = await requireClientFromBody(body);
@@ -58,14 +59,12 @@ export async function POST(request: Request) {
         ...(sent.devCode ? { devCode: sent.devCode } : {}),
       });
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Failed to send verification code";
-      return Response.json({ error: message }, { status: 400 });
+      return errorResponse(e, "Failed to send verification code");
     }
   }
 
   if (action === "verify_code") {
-    const limited = checkRateLimit(request, "client-email:verify", 20);
+    const limited = await checkRateLimit(request, "client-email:verify", 20);
     if (limited) return limited;
 
     const result = await requireClientFromBody(body);
@@ -84,14 +83,12 @@ export async function POST(request: Request) {
         email: updated?.email ?? "",
       });
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Failed to verify email";
-      return Response.json({ error: message }, { status: 400 });
+      return errorResponse(e, "Failed to verify email");
     }
   }
 
   if (action === "set_prune_notify") {
-    const limited = checkRateLimit(request, "client-email:prune-notify", 30);
+    const limited = await checkRateLimit(request, "client-email:prune-notify", 30);
     if (limited) return limited;
 
     const result = await requireClientFromBody(body);
@@ -105,9 +102,7 @@ export async function POST(request: Request) {
       );
       return Response.json({ ok: true, pruneNotify: body.enabled === true });
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : "Failed to update notification preference";
-      return Response.json({ error: message }, { status: 400 });
+      return errorResponse(e, "Failed to update notification preference");
     }
   }
 

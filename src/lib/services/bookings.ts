@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { eq, asc, and, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { mapUniqueViolation } from "@/lib/db/errors";
 import { bookings, clients, slots, changeRequests, locations } from "@/lib/db/schema";
 import {
   bookingUrl,
@@ -100,69 +101,77 @@ export async function createBookingForSlot(params: {
     locationValidation,
   );
 
-  const { bookingId, token, slotStartAt, slotEndAt } = await db.transaction(
-    async (tx) => {
-      const slot = await tx.query.slots.findFirst({
-        where: eq(slots.id, slotId),
-      });
-      if (!slot || slot.status !== "available") {
-        throw new Error("Slot is not available");
-      }
+  let bookingId: string;
+  let token: string;
+  let slotStartAt: string;
+  let slotEndAt: string;
+  try {
+    ({ bookingId, token, slotStartAt, slotEndAt } = await db.transaction(
+      async (tx) => {
+        const slot = await tx.query.slots.findFirst({
+          where: eq(slots.id, slotId),
+        });
+        if (!slot || slot.status !== "available") {
+          throw new Error("Slot is not available");
+        }
 
-      const now = nowIso();
-      if (
-        slot.heldForClientId &&
-        slot.heldForClientId !== clientId &&
-        slot.holdExpiresAt &&
-        slot.holdExpiresAt >= now
-      ) {
-        throw new Error("This slot is reserved for another client");
-      }
+        const now = nowIso();
+        if (
+          slot.heldForClientId &&
+          slot.heldForClientId !== clientId &&
+          slot.holdExpiresAt &&
+          slot.holdExpiresAt >= now
+        ) {
+          throw new Error("This slot is reserved for another client");
+        }
 
-      await assertSlotNotHeldByActiveBookingTx(tx, slotId);
+        await assertSlotNotHeldByActiveBookingTx(tx, slotId);
 
-      const newBookingId = nanoid();
-      const newToken = nanoid(12);
-      const ts = nowIso();
+        const newBookingId = nanoid();
+        const newToken = nanoid(12);
+        const ts = nowIso();
 
-      await tx.insert(bookings).values({
-        id: newBookingId,
-        trainerId,
-        slotId,
-        sessionStartAt: slot.startAt,
-        clientId,
-        token: newToken,
-        status: "booked",
-        override36h: false,
-        isRecurring,
-        sessionPrice: bookingClient.sessionPrice,
-        currency: bookingCurrency,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-
-      const claim = await tx
-        .update(slots)
-        .set({
+        await tx.insert(bookings).values({
+          id: newBookingId,
+          trainerId,
+          slotId,
+          sessionStartAt: slot.startAt,
+          clientId,
+          token: newToken,
           status: "booked",
-          heldForClientId: null,
-          holdExpiresAt: null,
-        })
-        .where(and(eq(slots.id, slotId), eq(slots.status, "available")))
-        .returning({ id: slots.id });
+          override36h: false,
+          isRecurring,
+          sessionPrice: bookingClient.sessionPrice,
+          currency: bookingCurrency,
+          createdAt: ts,
+          updatedAt: ts,
+        });
 
-      if (claim.length === 0) {
-        throw new Error("Slot is not available");
-      }
+        const claim = await tx
+          .update(slots)
+          .set({
+            status: "booked",
+            heldForClientId: null,
+            holdExpiresAt: null,
+          })
+          .where(and(eq(slots.id, slotId), eq(slots.status, "available")))
+          .returning({ id: slots.id });
 
-      return {
-        bookingId: newBookingId,
-        token: newToken,
-        slotStartAt: slot.startAt,
-        slotEndAt: slot.endAt,
-      };
-    },
-  );
+        if (claim.length === 0) {
+          throw new Error("Slot is not available");
+        }
+
+        return {
+          bookingId: newBookingId,
+          token: newToken,
+          slotStartAt: slot.startAt,
+          slotEndAt: slot.endAt,
+        };
+      },
+    ));
+  } catch (e) {
+    mapUniqueViolation(e, "Slot is not available");
+  }
 
   let whatsappUrl: string | null = null;
 

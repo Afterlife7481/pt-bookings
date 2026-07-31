@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { declineLastMinuteOffer } from "@/lib/services/last-minute";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -7,7 +8,7 @@ export async function POST(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const limited = enforceRateLimit(ip, {
+  const limited = await enforceRateLimit(ip, {
     scope: "client-last-minute-decline:ip",
     limit: 20,
     windowMs: 60 * 60 * 1000,
@@ -26,7 +27,6 @@ export async function POST(request: Request) {
     const result = await declineLastMinuteOffer(offerToken);
     return Response.json({ ok: true, clientToken: result.client.token });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to decline offer";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to decline offer");
   }
 }

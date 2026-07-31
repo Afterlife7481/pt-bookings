@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   getLastMinuteWeekView,
@@ -19,8 +20,7 @@ export async function GET(request: Request) {
     const data = await getLastMinuteWeekView(trainerId, weekStart);
     return Response.json(data);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to load last-minute week";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to load last-minute week");
   }
 }
 
@@ -40,7 +40,6 @@ export async function POST(request: Request) {
     );
     return Response.json({ ok: true, ...result });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to send offer";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to send offer");
   }
 }

@@ -30,7 +30,7 @@ export default async function ClientBookPage({
     <main className="p-4 sm:p-6">
       <ClientPageLayout
         title="Book a session"
-        description="Choose an open slot within your booking window."
+        description="Pick an open time from the schedule within your booking window."
         backHref={`/c/${token}`}
       >
         <BookSessionFlow

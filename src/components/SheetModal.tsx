@@ -347,6 +347,24 @@ export function SheetModal({
           <span className="sr-only">Drag down to close</span>
         </div>
 
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={() => requestClose()}
+          className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 sm:right-4 sm:top-4"
+        >
+          <svg
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+          </svg>
+        </button>
+
         <div
           ref={scrollRef}
           className={cn(
@@ -355,7 +373,7 @@ export function SheetModal({
           )}
           onPointerDown={(e) => onPointerDown(e, false)}
         >
-          <div>
+          <div className="pr-10">
             <h3 className="font-semibold text-slate-900">
               {titleHref ? (
                 <Link href={titleHref} className="text-blue-600 hover:underline">

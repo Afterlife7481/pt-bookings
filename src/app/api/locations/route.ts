@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   listLocations,
@@ -28,7 +29,6 @@ export async function POST(request: Request) {
     });
     return Response.json(location, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create location";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to create location");
   }
 }

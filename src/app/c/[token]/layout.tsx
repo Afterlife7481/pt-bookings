@@ -12,7 +12,7 @@ export async function generateMetadata({
     manifest: clientManifestPath(token),
     appleWebApp: {
       capable: true,
-      title: "My sessions",
+      title: "My PT",
       statusBarStyle: "black-translucent",
     },
   };

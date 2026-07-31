@@ -41,6 +41,7 @@ import {
 import { DayScheduleCarousel } from "@/components/schedule/DayScheduleCarousel";
 import { WeekScheduleCarousel } from "@/components/schedule/WeekScheduleCarousel";
 import { TimedSlotOverlay } from "@/components/schedule/TimedSlotOverlay";
+import { OkAlertDialog } from "@/components/OkAlertDialog";
 import { cn } from "@/lib/utils";
 import { DEFAULT_TIMEZONE, formatDate, slotDayOfWeek, slotTimeLabel } from "@/lib/constants";
 import { shiftWeekStart } from "@/lib/schedule-utils";
@@ -55,7 +56,6 @@ import {
   type HolidayScheduleIndex,
 } from "@/lib/holidays-utils";
 import {
-  scheduleGridContentHeight,
   useScheduleViewportHeight,
 } from "@/components/schedule/useScheduleViewportHeight";
 
@@ -99,31 +99,28 @@ function DayScheduleGrid({
   const rowTemplate = fitViewport
     ? `repeat(${timeRows.length}, minmax(${minRowRem}rem, 1fr))`
     : `repeat(${timeRows.length}, ${minRowRem}rem)`;
-  const effectiveHeight =
-    fitViewport && viewportHeight != null
-      ? scheduleGridContentHeight(viewportHeight, timeRows.length, minRowRem)
-      : undefined;
+  const bodyMinHeight = `max(100%, calc(${timeRows.length} * ${minRowRem}rem))`;
   const dayEntries = entriesForDate(entries, dateKey);
 
   return (
     <div
       className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200"
-      style={effectiveHeight != null ? { height: effectiveHeight } : undefined}
+      style={fitViewport ? { height: viewportHeight } : undefined}
     >
       <div
-        className={cn("relative grid min-h-0 w-full min-w-0", fitViewport && "flex-1")}
-        style={{
-          gridTemplateColumns: "3.25rem 1fr",
-          gridTemplateRows: rowTemplate,
-        }}
+        className={cn(
+          "relative min-h-0 w-full min-w-0",
+          fitViewport && "flex-1 overflow-y-auto overscroll-contain",
+        )}
       >
-      {isPastDay ? (
         <div
-          aria-hidden
-          className="pointer-events-none past-day-hatch"
-          style={{ gridColumn: 2, gridRow: `1 / span ${timeRows.length}` }}
-        />
-      ) : null}
+          className={cn("relative grid w-full min-w-0", fitViewport && "h-full")}
+          style={{
+            gridTemplateColumns: "3.25rem 1fr",
+            gridTemplateRows: rowTemplate,
+            ...(fitViewport ? { minHeight: bodyMinHeight } : {}),
+          }}
+        >
       {timeRows.map((rowTime, rowIndex) => {
         const gridRow = rowIndex + 1;
         const occupied = displayRowHasEntry(entries, dateKey, rowTime);
@@ -157,17 +154,17 @@ function DayScheduleGrid({
             <div
               style={{ gridColumn: 2, gridRow }}
               className={cn(
-                "relative z-[1] min-h-0 p-0.5",
+                "relative z-[1] min-h-0 bg-white p-0.5",
                 rowIndex > 0 && "border-t border-slate-100",
-                pastRow && "past-day-hatch",
-                !isPastDay && !pastRow && "bg-white",
               )}
             >
               {blockedByHoliday && !occupied ? (
-                <div
-                  aria-hidden
-                  className="holiday-hatch h-full min-h-0 rounded-lg"
+                <button
+                  type="button"
+                  onClick={() => window.alert("This is a time off slot.")}
+                  aria-label="Time off"
                   title="Time off"
+                  className="holiday-hatch h-full min-h-0 w-full rounded-lg"
                 />
               ) : canAdd ? (
                 <button
@@ -202,12 +199,7 @@ function DayScheduleGrid({
               startTime: entryStartTime(entry),
               endTime: entryEndTime(entry),
               content: (
-                <div
-                  className={cn(
-                    "h-full min-h-0 p-0.5",
-                    !isPastDay && entryPast && "past-day-hatch rounded-lg",
-                  )}
-                >
+                <div className="h-full min-h-0 p-0.5">
                   <ScheduleCell
                     entry={entry}
                     editable={editable}
@@ -224,6 +216,7 @@ function DayScheduleGrid({
             };
           })}
         />
+      </div>
       </div>
       </div>
     </div>
@@ -262,10 +255,13 @@ function DayPicker({
 
   return (
     <div
-      ref={scrollerRef}
-      className="overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="sticky top-[4.75rem] z-30 -mx-1 bg-white px-1 pb-1 sm:top-[5.25rem]"
       aria-label="Choose day"
     >
+      <div
+        ref={scrollerRef}
+        className="overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
       <div className="flex w-max gap-1">
         {chips.map((chip) => {
           const isSelected = chip.dateKey === selectedDateKey;
@@ -284,10 +280,10 @@ function DayPicker({
                 "flex w-11 shrink-0 flex-col items-center rounded-xl border px-1 py-2",
                 isSelected
                   ? "border-brand bg-brand text-brand-foreground"
-                  : isPast
-                    ? "past-day-hatch border-red-200 text-red-900 active:bg-red-50/70"
-                    : isToday
-                      ? "border-sky-400 bg-sky-50 text-slate-900 active:bg-sky-100"
+                  : isToday
+                    ? "border-sky-400 bg-sky-50 text-slate-900 active:bg-sky-100"
+                    : isPast
+                      ? "border-slate-200 bg-slate-50 text-slate-600 active:bg-slate-100"
                       : "border-slate-200 bg-white text-slate-700 active:bg-slate-50",
               )}
             >
@@ -305,6 +301,7 @@ function DayPicker({
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -355,9 +352,6 @@ function WeekGrid({
         holidayIndex.unavailableDays.has(dayOfWeek)
       }
       isToday={(dayOfWeek) => isTodayWeekDay(weekStart, dayOfWeek)}
-      isPastCell={(dayOfWeek, rowTime) =>
-        isPastWeekRowTime(weekStart, dayOfWeek, rowTime)
-      }
       getDayHeader={(day) => ({
         primary: dayNumberForWeekDay(weekStart, day.value),
         secondary: day.label.charAt(0),
@@ -374,10 +368,12 @@ function WeekGrid({
 
         if (blockedByHoliday && !occupied) {
           return (
-            <div
-              aria-hidden
-              className="holiday-hatch h-full rounded"
+            <button
+              type="button"
+              onClick={() => window.alert("This is a time off slot.")}
+              aria-label="Time off"
               title="Time off"
+              className="holiday-hatch h-full w-full rounded"
             />
           );
         }
@@ -420,7 +416,6 @@ function WeekGrid({
                     className={cn(
                       "h-full min-h-0",
                       denseCells ? "p-0" : "p-0.5",
-                      !pastDay && entryPast && "past-day-hatch rounded-lg",
                     )}
                   >
                     <ScheduleCell
@@ -536,6 +531,8 @@ export function WeekScheduleCalendar({
     startTime: string;
   } | null>(null);
   const [editingOpenSlot, setEditingOpenSlot] = useState(false);
+  const [pastDayNoticeEntry, setPastDayNoticeEntry] =
+    useState<ScheduleEntry | null>(null);
   const [selectedDay, setSelectedDay] = useState(1);
   const [isCompactScreen, setIsCompactScreen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -706,6 +703,18 @@ export function WeekScheduleCalendar({
       const active = document.activeElement;
       if (active instanceof HTMLElement) active.blur();
     }
+    if (isPastScheduleEntry(entry, timeZone)) {
+      setPastDayNoticeEntry(entry);
+      return;
+    }
+    setEditingOpenSlot(false);
+    setSelectedOpenSlot(entry);
+  }
+
+  function confirmPastDayNotice() {
+    const entry = pastDayNoticeEntry;
+    setPastDayNoticeEntry(null);
+    if (!entry) return;
     setEditingOpenSlot(false);
     setSelectedOpenSlot(entry);
   }
@@ -716,7 +725,7 @@ export function WeekScheduleCalendar({
     <div>
       {viewMode === "day" ? (
         <div>
-          <div className="mb-4">
+          <div className="mb-3">
             <DayPicker
               weekStart={weekStart}
               selectedDay={selectedDay}
@@ -823,6 +832,14 @@ export function WeekScheduleCalendar({
           busy={!!busyKey}
         />
       )}
+
+      {pastDayNoticeEntry ? (
+        <OkAlertDialog
+          message="Heads up this is a past day"
+          okLabel="Ok"
+          onOk={confirmPastDayNotice}
+        />
+      ) : null}
 
       {selectedOpenSlot?.booking ? (
         <BookedSlotModal

@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import { sendPortalLinkForClient } from "@/lib/services/clients";
 
@@ -21,8 +22,6 @@ export async function POST(
     );
     return Response.json(result);
   } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Failed to send portal link";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to send portal link");
   }
 }

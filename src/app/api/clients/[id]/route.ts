@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   getClientDetail,
@@ -97,7 +98,6 @@ export async function PATCH(
     const client = await getClientDetail(trainerId, id);
     return Response.json(client);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update client";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to update client");
   }
 }

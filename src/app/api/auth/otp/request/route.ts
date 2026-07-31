@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { requestTrainerOtp } from "@/lib/services/auth";
 import { getRequestIp } from "@/lib/http/request";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -7,7 +8,7 @@ export async function POST(request: Request) {
   await ensureDb();
 
   const ip = getRequestIp(request);
-  const ipLimited = enforceRateLimit(ip, {
+  const ipLimited = await enforceRateLimit(ip, {
     scope: "trainer-otp-request:ip",
     limit: 5,
     windowMs: 15 * 60 * 1000,
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
 
   if (email) {
-    const emailLimited = enforceRateLimit(email, {
+    const emailLimited = await enforceRateLimit(email, {
       scope: "trainer-otp-request:email",
       limit: 3,
       windowMs: 15 * 60 * 1000,
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
       devCode: result.devCode,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to send code";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to send code");
   }
 }

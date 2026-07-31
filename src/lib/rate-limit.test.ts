@@ -7,44 +7,44 @@ describe("checkRateLimit", () => {
     resetRateLimitsForTests();
   });
 
-  it("allows requests up to the limit", () => {
+  it("allows requests up to the limit", async () => {
     process.env.APP_ENV = "production";
     const options = { scope: "test", limit: 3, windowMs: 60_000 };
 
-    expect(checkRateLimit("a", options).allowed).toBe(true);
-    expect(checkRateLimit("a", options).allowed).toBe(true);
-    expect(checkRateLimit("a", options).allowed).toBe(true);
+    expect((await checkRateLimit("a", options)).allowed).toBe(true);
+    expect((await checkRateLimit("a", options)).allowed).toBe(true);
+    expect((await checkRateLimit("a", options)).allowed).toBe(true);
   });
 
-  it("blocks requests over the limit", () => {
+  it("blocks requests over the limit", async () => {
     process.env.APP_ENV = "production";
     const options = { scope: "test-block", limit: 2, windowMs: 60_000 };
 
-    expect(checkRateLimit("b", options).allowed).toBe(true);
-    expect(checkRateLimit("b", options).allowed).toBe(true);
+    expect((await checkRateLimit("b", options)).allowed).toBe(true);
+    expect((await checkRateLimit("b", options)).allowed).toBe(true);
 
-    const blocked = checkRateLimit("b", options);
+    const blocked = await checkRateLimit("b", options);
     expect(blocked.allowed).toBe(false);
     if (!blocked.allowed) {
       expect(blocked.retryAfterSec).toBeGreaterThan(0);
     }
   });
 
-  it("tracks keys independently", () => {
+  it("tracks keys independently", async () => {
     process.env.APP_ENV = "production";
     const options = { scope: "test-keys", limit: 1, windowMs: 60_000 };
 
-    expect(checkRateLimit("one", options).allowed).toBe(true);
-    expect(checkRateLimit("two", options).allowed).toBe(true);
-    expect(checkRateLimit("one", options).allowed).toBe(false);
+    expect((await checkRateLimit("one", options)).allowed).toBe(true);
+    expect((await checkRateLimit("two", options)).allowed).toBe(true);
+    expect((await checkRateLimit("one", options)).allowed).toBe(false);
   });
 
-  it("disables all limits on staging", () => {
+  it("disables all limits on staging", async () => {
     process.env.APP_ENV = "staging";
     const options = { scope: "test-staging", limit: 1, windowMs: 60_000 };
 
-    expect(checkRateLimit("same", options).allowed).toBe(true);
-    expect(checkRateLimit("same", options).allowed).toBe(true);
-    expect(checkRateLimit("same", options).allowed).toBe(true);
+    expect((await checkRateLimit("same", options)).allowed).toBe(true);
+    expect((await checkRateLimit("same", options)).allowed).toBe(true);
+    expect((await checkRateLimit("same", options)).allowed).toBe(true);
   });
 });

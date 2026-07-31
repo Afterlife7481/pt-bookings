@@ -1,4 +1,5 @@
 import { ensureDb } from "@/lib/db/init";
+import { errorResponse } from "@/lib/http/errors";
 import { getTrainerIdFromRequest, unauthorizedResponse } from "@/lib/auth/api";
 import {
   getTrainerSettings,
@@ -50,7 +51,6 @@ export async function PATCH(request: Request) {
     const settings = await getTrainerSettings(trainerId);
     return Response.json(settings);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to save settings";
-    return Response.json({ error: message }, { status: 400 });
+    return errorResponse(e, "Failed to save settings");
   }
 }

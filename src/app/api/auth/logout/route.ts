@@ -5,6 +5,7 @@ import {
   deleteTrainerSession,
   SESSION_COOKIE,
 } from "@/lib/services/auth";
+import { clearSessionCookieOptions } from "@/lib/auth/session-cookie";
 
 export async function POST() {
   await ensureDb();
@@ -16,10 +17,6 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    path: "/",
-    maxAge: 0,
-  });
+  response.cookies.set(SESSION_COOKIE, "", clearSessionCookieOptions());
   return response;
 }
