@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { CSSProperties } from "react";
 import { Figtree, Syne } from "next/font/google";
 import { SerwistProvider } from "@serwist/next/react";
+import { PwaRecovery } from "@/components/PwaRecovery";
 import {
   SITE_LANGUAGE,
   SITE_NAME,
@@ -58,7 +59,10 @@ export default function RootLayout({
       <body
         className={`${display.variable} ${body.variable} min-h-screen antialiased`}
       >
-        <SerwistProvider swUrl="/sw.js">{children}</SerwistProvider>
+        <SerwistProvider swUrl="/sw.js" cacheOnNavigation={false}>
+          <PwaRecovery />
+          {children}
+        </SerwistProvider>
       </body>
     </html>
   );

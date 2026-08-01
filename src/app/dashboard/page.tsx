@@ -11,9 +11,16 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  await ensureDb();
-  const status = await getOnboardingStatus(trainerId);
-  if (!status.complete) {
+  let needsOnboarding = false;
+  try {
+    await ensureDb();
+    const status = await getOnboardingStatus(trainerId);
+    needsOnboarding = !status.complete;
+  } catch {
+    // Prefer schedule over a white-screen; client OnboardingGate still enforces setup.
+  }
+
+  if (needsOnboarding) {
     redirect("/dashboard/onboarding");
   }
 
