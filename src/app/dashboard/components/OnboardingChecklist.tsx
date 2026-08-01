@@ -38,6 +38,7 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
 
   function stepCta(stepId: OnboardingStatus["steps"][number]["id"]) {
     if (stepId === "client") return "Add client";
+    if (stepId === "install") return "Add to home screen";
     if (stepId === "invite") return "View invite code";
     return "Complete this step";
   }
@@ -60,7 +61,7 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
 
       <Card className="overflow-hidden p-0">
         <ol className="divide-y divide-slate-100">
-          {status.steps.map((step, index) => (
+          {status.steps.map((step) => (
             <li key={step.id} className="flex items-start gap-4 px-4 py-4 sm:px-5">
               <StepIcon complete={step.complete} />
               <div className="min-w-0 flex-1">
@@ -91,9 +92,6 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
                   </Link>
                 ) : null}
               </div>
-              <span className="hidden shrink-0 text-xs font-medium uppercase tracking-wide text-slate-400 sm:inline">
-                {index === 0 ? "0" : ["i", "ii", "iii", "iv", "v", "vi"][index - 1]}
-              </span>
             </li>
           ))}
         </ol>
@@ -106,8 +104,8 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
           </Button>
           {optionalIncomplete ? (
             <p className="w-full text-sm text-slate-500">
-              Adding clients and inviting other trainers are optional — you can
-              finish them later from the menu.
+              Adding clients, installing the app, and inviting other trainers
+              are optional — you can finish them later from the menu.
             </p>
           ) : null}
         </div>
