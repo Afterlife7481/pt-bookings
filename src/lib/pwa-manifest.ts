@@ -44,7 +44,8 @@ export function buildTrainerPwaManifest(): MetadataRoute.Manifest {
     short_name: SITE_NAME,
     description:
       "Personal trainer scheduling — weekly diary, client portal links, and session management.",
-    start_url: "/dashboard/schedule",
+    // /dashboard routes incomplete trainers to onboarding before schedule can paint.
+    start_url: "/dashboard",
     scope: "/dashboard/",
     id: "/dashboard/",
   };
