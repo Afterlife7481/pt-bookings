@@ -1,4 +1,5 @@
 import { count, eq } from "drizzle-orm";
+import { nowIso } from "@/lib/constants";
 import { getDb } from "@/lib/db";
 import { clients, locations, trainers } from "@/lib/db/schema";
 import { getTrainerTemplate } from "@/lib/services/templates";
@@ -9,6 +10,7 @@ export type OnboardingStepId =
   | "schedule"
   | "template"
   | "client"
+  | "install"
   | "invite";
 
 export type OnboardingStepStatus = {
@@ -61,6 +63,14 @@ const STEP_DEFINITIONS: Omit<OnboardingStepStatus, "complete">[] = [
     optional: true,
   },
   {
+    id: "install",
+    label: "Add the app to your home screen",
+    description:
+      "Install PT Bookings on your phone for one-tap access to your schedule — no App Store needed.",
+    href: "/dashboard/settings/install",
+    optional: true,
+  },
+  {
     id: "invite",
     label: "Invite other personal trainers",
     description:
@@ -72,6 +82,21 @@ const STEP_DEFINITIONS: Omit<OnboardingStepStatus, "complete">[] = [
 
 function isLegacyOnboarded(locationCount: number, templateSlotCount: number): boolean {
   return locationCount >= 1 && templateSlotCount >= 1;
+}
+
+/** Marks the optional home-screen install onboarding step complete. */
+export async function markInstallAppViewed(trainerId: string): Promise<void> {
+  const db = getDb();
+  const trainer = await db.query.trainers.findFirst({
+    where: eq(trainers.id, trainerId),
+    columns: { installAppViewedAt: true },
+  });
+  if (trainer && !trainer.installAppViewedAt) {
+    await db
+      .update(trainers)
+      .set({ installAppViewedAt: nowIso() })
+      .where(eq(trainers.id, trainerId));
+  }
 }
 
 export async function getOnboardingStatus(trainerId: string): Promise<OnboardingStatus> {
@@ -104,6 +129,7 @@ export async function getOnboardingStatus(trainerId: string): Promise<Onboarding
     schedule: !!trainer.scheduleHoursConfiguredAt || legacy,
     template: templateSlotCount >= 1,
     client: clientCount >= 1,
+    install: !!trainer.installAppViewedAt,
     invite: !!trainer.invitationsViewedAt,
   };
 

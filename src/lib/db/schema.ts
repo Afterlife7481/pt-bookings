@@ -35,6 +35,7 @@ export const trainers = pgTable("trainers", {
   regionalSettingsConfiguredAt: text("regional_settings_configured_at"),
   scheduleHoursConfiguredAt: text("schedule_hours_configured_at"),
   invitationsViewedAt: text("invitations_viewed_at"),
+  installAppViewedAt: text("install_app_viewed_at"),
   createdAt: text("created_at").notNull(),
 });
 
