@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StickyBackLink } from "@/components/StickyBackLink";
 
 export function ClientPageHeader({
   clientName,
@@ -13,17 +13,19 @@ export function ClientPageHeader({
   title?: string;
 }) {
   return (
-    <div>
-      <Link
+    <div className="space-y-2">
+      <StickyBackLink
         href={backHref}
-        className="text-sm text-slate-500 hover:text-slate-900"
+        className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
       >
         ← Back to {backLabel}
-      </Link>
-      <h1 className="mt-2 text-2xl font-bold">{title ?? clientName}</h1>
-      {title && clientName ? (
-        <p className="mt-1 text-sm text-slate-500">{clientName}</p>
-      ) : null}
+      </StickyBackLink>
+      <div>
+        <h1 className="text-2xl font-bold">{title ?? clientName}</h1>
+        {title && clientName ? (
+          <p className="mt-1 text-sm text-slate-500">{clientName}</p>
+        ) : null}
+      </div>
     </div>
   );
 }

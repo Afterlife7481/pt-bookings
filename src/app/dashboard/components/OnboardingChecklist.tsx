@@ -68,7 +68,7 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
                   <p
                     className={cn(
                       "font-medium",
-                      step.complete ? "text-slate-500 line-through" : "text-slate-900",
+                      step.complete ? "text-slate-700" : "text-slate-900",
                     )}
                   >
                     {step.label}

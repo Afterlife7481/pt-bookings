@@ -157,7 +157,7 @@ export function DashboardHeader({ settings }: { settings: TrainerSettings | null
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+    <header className="bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="min-w-0">
           <Link href="/dashboard/schedule" className="hover:opacity-90">
