@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StickyBackLink } from "@/components/StickyBackLink";
 import { Button, Card } from "@/components/ui";
