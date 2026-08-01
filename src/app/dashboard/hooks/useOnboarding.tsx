@@ -60,3 +60,8 @@ export function useOnboarding() {
   }
   return ctx;
 }
+
+/** Like useOnboarding, but returns null outside the provider instead of throwing. */
+export function useOptionalOnboarding() {
+  return useContext(OnboardingContext);
+}

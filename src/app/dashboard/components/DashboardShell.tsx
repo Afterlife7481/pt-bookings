@@ -26,6 +26,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     };
 
     sync();
+    if (typeof ResizeObserver === "undefined") {
+      return () => {
+        document.documentElement.style.removeProperty(
+          "--dashboard-chrome-height",
+        );
+      };
+    }
+
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     return () => {

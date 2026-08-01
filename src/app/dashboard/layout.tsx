@@ -24,14 +24,22 @@ export default async function DashboardLayout({
   const pathname = (await headers()).get("x-pathname") ?? "";
 
   if (trainerId && pathname) {
-    await ensureDb();
-    const status = await getOnboardingStatus(trainerId);
-
-    if (!status.complete && !isOnboardingAllowedPath(pathname)) {
-      redirect("/dashboard/onboarding");
+    let openOnboarding = false;
+    let leaveOnboarding = false;
+    try {
+      await ensureDb();
+      const status = await getOnboardingStatus(trainerId);
+      openOnboarding = !status.complete && !isOnboardingAllowedPath(pathname);
+      leaveOnboarding =
+        status.allStepsComplete && pathname === "/dashboard/onboarding";
+    } catch {
+      // Client OnboardingGate still enforces setup; don't white-screen the shell.
     }
 
-    if (status.allStepsComplete && pathname === "/dashboard/onboarding") {
+    if (openOnboarding) {
+      redirect("/dashboard/onboarding");
+    }
+    if (leaveOnboarding) {
       redirect("/dashboard/schedule");
     }
   }
