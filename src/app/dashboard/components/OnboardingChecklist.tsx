@@ -83,14 +83,12 @@ export function OnboardingChecklist({ status }: { status: OnboardingStatus }) {
                 <p className="mt-1 text-sm leading-relaxed text-slate-500">
                   {step.description}
                 </p>
-                {!step.complete ? (
-                  <Link
-                    href={step.href}
-                    className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    {stepCta(step.id)} →
-                  </Link>
-                ) : null}
+                <Link
+                  href={step.href}
+                  className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:underline"
+                >
+                  {stepCta(step.id)} →
+                </Link>
               </div>
             </li>
           ))}
