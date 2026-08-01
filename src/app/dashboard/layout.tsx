@@ -12,16 +12,19 @@ export const metadata: Metadata = {
   manifest: TRAINER_MANIFEST_PATH,
 };
 
+/** Dashboard needs the session cookie + Postgres — never prerender at build time. */
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await ensureDb();
   const trainerId = await getTrainerIdFromRequest();
   const pathname = (await headers()).get("x-pathname") ?? "";
 
   if (trainerId && pathname) {
+    await ensureDb();
     const status = await getOnboardingStatus(trainerId);
 
     if (!status.complete && !isOnboardingAllowedPath(pathname)) {
