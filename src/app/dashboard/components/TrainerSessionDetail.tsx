@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { StickyBackLink } from "@/components/StickyBackLink";
 import { Badge, Button } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/PaymentStatusBadge";
 import { SendInvoiceChannelSheet } from "@/components/SendInvoiceChannelSheet";
@@ -82,12 +83,12 @@ export function TrainerSessionDetail({
   if (notFound || !detail) {
     return (
       <div className="space-y-4">
-        <Link
+        <StickyBackLink
           href={backHref}
-          className="text-sm text-slate-500 hover:text-slate-900"
+          className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
         >
           {backLabel}
-        </Link>
+        </StickyBackLink>
         <p className="text-slate-600">Session not found.</p>
       </div>
     );
@@ -103,18 +104,17 @@ export function TrainerSessionDetail({
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-8 overflow-x-hidden">
-      <div className="min-w-0">
-        <Link
+      <div className="min-w-0 space-y-2">
+        <StickyBackLink
           href={backHref}
-          className="text-sm text-slate-500 hover:text-slate-900"
+          className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
         >
           {backLabel}
-        </Link>
+        </StickyBackLink>
         <SessionWhen
           startAt={sessionStartAt}
           endAt={sessionEndAt}
           variant="header"
-          className="mt-2"
         />
         <div className="mt-2 flex flex-wrap gap-2">
           {isCanceled ? (

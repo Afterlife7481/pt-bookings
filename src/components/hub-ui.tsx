@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StickyBackLink } from "@/components/StickyBackLink";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,12 +26,7 @@ export function HubPageLayout({
   return (
     <div className={cn("mx-auto max-w-2xl space-y-5", className)}>
       {showBackLink && backHref ? (
-        <Link
-          href={backHref}
-          className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          ← {backLabel}
-        </Link>
+        <StickyBackLink href={backHref}>← {backLabel}</StickyBackLink>
       ) : null}
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">

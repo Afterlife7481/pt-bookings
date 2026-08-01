@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { StickyBackLink } from "@/components/StickyBackLink";
 import { Button, Card, InlineNotice } from "@/components/ui";
 import { ApiError, fetchJson } from "@/lib/api/fetch-json";
 import type { TrainerInvitationsView } from "@/lib/services/invites";
@@ -51,18 +51,20 @@ export default function InvitationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div>
-        <Link
+      <div className="space-y-2">
+        <StickyBackLink
           href={back.backHref}
-          className="text-sm text-slate-500 hover:text-slate-900"
+          className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
         >
           ← Back to {back.backLabel}
-        </Link>
-        <h1 className="mt-2 text-xl font-bold text-slate-900">Invitations</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Share your invite code so other trainers can sign up. New accounts can
-          only join with an invitation code.
-        </p>
+        </StickyBackLink>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Invitations</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Share your invite code so other trainers can sign up. New accounts can
+            only join with an invitation code.
+          </p>
+        </div>
       </div>
 
       {loading ? (

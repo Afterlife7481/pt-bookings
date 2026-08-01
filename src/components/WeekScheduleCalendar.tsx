@@ -255,7 +255,8 @@ function DayPicker({
 
   return (
     <div
-      className="sticky top-[4.75rem] z-30 -mx-1 bg-white px-1 pb-1 sm:top-[5.25rem]"
+      className="sticky z-30 -mx-1 bg-white px-1 pb-1"
+      style={{ top: "var(--dashboard-chrome-height, 4.75rem)" }}
       aria-label="Choose day"
     >
       <div
