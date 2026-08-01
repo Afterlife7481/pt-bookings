@@ -8,14 +8,16 @@ import {
   DEFAULT_TRAINER_ID,
   addDays,
   formatDate,
+  nowIso,
   parseDateOnly,
   startOfWeekMonday,
 } from "@/lib/constants";
-import { clients } from "@/lib/db/schema";
+import { clients, trainers } from "@/lib/db/schema";
 import { getDb } from "@/lib/db";
 import { createLocation, setClientLocations } from "@/lib/services/locations";
 import { addScheduleSlot } from "@/lib/services/schedule";
 import { createTrainerSession } from "@/lib/services/auth";
+import { saveTrainerTemplate } from "@/lib/services/templates";
 import { WEEK_DAYS } from "@/lib/schedule-grid";
 import { eq } from "drizzle-orm";
 
@@ -128,6 +130,24 @@ export async function seedE2eFixtures(): Promise<TestFixtures> {
 
   await setClientLocations(DEFAULT_TRAINER_ID, firstClient.id, [location.id]);
 
+  // Finish required onboarding so dashboard e2e can open the schedule.
+  const onboardedAt = nowIso();
+  await db
+    .update(trainers)
+    .set({
+      regionalSettingsConfiguredAt: onboardedAt,
+      scheduleHoursConfiguredAt: onboardedAt,
+    })
+    .where(eq(trainers.id, DEFAULT_TRAINER_ID));
+  await saveTrainerTemplate(DEFAULT_TRAINER_ID, [
+    {
+      dayOfWeek: 1,
+      startTime: "09:00",
+      endTime: "10:00",
+      locationId: location.id,
+    },
+  ]);
+
   const weekStartForSlot = formatDate(startOfWeekMonday(target));
   const dayOfWeek = target.getDay();
   const { slotId } = await addScheduleSlot(
@@ -143,6 +163,15 @@ export async function seedE2eFixtures(): Promise<TestFixtures> {
     weekStartForSlot,
     dayOfWeek,
     "11:00",
+    location.id,
+  );
+
+  // Extra open slot so UI allocate tests still have a free slot after API booking.
+  await addScheduleSlot(
+    DEFAULT_TRAINER_ID,
+    weekStartForSlot,
+    dayOfWeek,
+    "15:00",
     location.id,
   );
 

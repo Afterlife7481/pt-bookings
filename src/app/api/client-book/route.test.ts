@@ -69,13 +69,14 @@ describe("/api/client-book", () => {
     expect(slot?.status).toBe("booked");
   });
 
-  it("POST returns 400 when booking fails", async () => {
+  it("POST returns 409 when slot location is not enabled for the client", async () => {
     const fixtures = await seedTestFixtures();
     const otherLocation = await createLocation(DEFAULT_TRAINER_ID, {
       name: "Restricted Gym",
     });
 
-    const target = addDays(new Date(), 9);
+    // Stay inside the default booking window so the location rule is what fails.
+    const target = addDays(new Date(), 3);
     target.setHours(14, 0, 0, 0);
     const { slotId } = await addScheduleSlot(
       DEFAULT_TRAINER_ID,
@@ -98,6 +99,6 @@ describe("/api/client-book", () => {
 
     expect(response.status).toBe(409);
     const body = await response.json();
-    expect(body.error).toBeTruthy();
+    expect(body.error).toMatch(/not available at your locations/i);
   });
 });
