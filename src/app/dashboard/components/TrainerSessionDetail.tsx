@@ -103,14 +103,14 @@ export function TrainerSessionDetail({
   const isPast = isWallClockPast(sessionStartAt, timeZone);
 
   return (
-    <div className="w-full min-w-0 max-w-full space-y-8 overflow-x-hidden">
-      <div className="min-w-0 space-y-2">
-        <StickyBackLink
-          href={backHref}
-          className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
-        >
-          {backLabel}
-        </StickyBackLink>
+    <div className="w-full min-w-0 max-w-full space-y-8">
+      <StickyBackLink
+        href={backHref}
+        className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
+      >
+        {backLabel}
+      </StickyBackLink>
+      <div className="min-w-0">
         <SessionWhen
           startAt={sessionStartAt}
           endAt={sessionEndAt}

@@ -51,20 +51,18 @@ export default function InvitationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div className="space-y-2">
-        <StickyBackLink
-          href={back.backHref}
-          className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
-        >
-          ← Back to {back.backLabel}
-        </StickyBackLink>
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Invitations</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Share your invite code so other trainers can sign up. New accounts can
-            only join with an invitation code.
-          </p>
-        </div>
+      <StickyBackLink
+        href={back.backHref}
+        className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
+      >
+        ← Back to {back.backLabel}
+      </StickyBackLink>
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Invitations</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Share your invite code so other trainers can sign up. New accounts can
+          only join with an invitation code.
+        </p>
       </div>
 
       {loading ? (

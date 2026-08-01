@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils";
 /**
  * Keeps page back navigation visible under the dashboard sticky chrome
  * (`--dashboard-chrome-height`, set by DashboardShell).
+ *
+ * Must be a direct child of a tall page container (not a short header wrapper).
+ * Sticky is constrained to its parent — a header-only parent scrolls away.
  */
 export function StickyBackLink({
   href,

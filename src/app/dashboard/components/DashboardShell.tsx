@@ -51,7 +51,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         <DashboardHeader settings={settings} />
         <OnboardingBanner />
       </div>
-      <main className="mx-auto w-full min-w-0 max-w-6xl space-y-4 overflow-x-clip p-4 sm:p-6">
+      {/* Avoid overflow-x clip/hidden here — it breaks position:sticky back links. */}
+      <main className="mx-auto w-full min-w-0 max-w-6xl space-y-4 p-4 sm:p-6">
         <OnboardingGate>{children}</OnboardingGate>
       </main>
     </div>
