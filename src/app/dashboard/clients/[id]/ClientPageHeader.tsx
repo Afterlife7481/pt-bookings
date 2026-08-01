@@ -12,8 +12,10 @@ export function ClientPageHeader({
   /** When set, shows as the page title (subpages). Otherwise uses clientName. */
   title?: string;
 }) {
+  // StickyBackLink must not sit inside a short wrapper — sticky is constrained
+  // to its parent, so a header-only parent scrolls away with the link.
   return (
-    <div className="space-y-2">
+    <>
       <StickyBackLink
         href={backHref}
         className="font-normal text-slate-500 hover:text-slate-900 hover:no-underline"
@@ -26,6 +28,6 @@ export function ClientPageHeader({
           <p className="mt-1 text-sm text-slate-500">{clientName}</p>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }

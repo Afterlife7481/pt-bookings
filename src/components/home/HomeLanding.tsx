@@ -22,60 +22,6 @@ const STORIES: SwipeCarouselItem[] = [
   },
 ];
 
-const FEATURES: SwipeCarouselItem[] = [
-  {
-    id: "slots",
-    eyebrow: "Your slots",
-    title: "Recurring, one-off, or open",
-    body: "Attribute a slot to a specific client on a recurring basis — every Tuesday at 6pm — or hold it for a single session. Leave it empty and any client on the app can book it through their portal.",
-  },
-  {
-    id: "locations",
-    eyebrow: "Locations",
-    title: "One place or many",
-    body: "Gym floor, private studio, park, home visit — each slot lives at a location. Clients only see openings where they’re allowed to train, so you’re never double-booked across sites.",
-  },
-  {
-    id: "fill-ins",
-    eyebrow: "Fill-ins",
-    title: "Empty slots, smart alerts",
-    body: "When a session frees up, send a timed offer to clients who have opted in for that slot. First to accept locks it in — your diary stays full without a group chat blast.",
-  },
-  {
-    id: "portal",
-    eyebrow: "Client portal",
-    title: "Book, cancel, rebook",
-    body: "Share a personal link — no client account needed. They book open slots, cancel within your rules, and move sessions to times that still fit their locations and booking window.",
-  },
-  {
-    id: "flexibility",
-    eyebrow: "Your terms",
-    title: "Flexibility built in",
-    body: "Set booking windows, cancellation cut-offs, enabled locations per client, session prices, and last-minute preferences. The app adapts to how you operate — not a rigid template.",
-  },
-];
-
-const STEPS: SwipeCarouselItem[] = [
-  {
-    id: "locations",
-    eyebrow: "Step 1",
-    title: "Add where you train",
-    body: "Studios, gyms, parks, home visits — every slot needs a location before the rest of setup unlocks.",
-  },
-  {
-    id: "template",
-    eyebrow: "Step 2",
-    title: "Lay out your weekly template",
-    body: "This is the backbone: recurring bookings, last-minute preferences, and apply-template all follow it.",
-  },
-  {
-    id: "clients",
-    eyebrow: "Step 3",
-    title: "Add clients and share links",
-    body: "Set prices, locations, and preferences, then send each client their portal link from WhatsApp or text.",
-  },
-];
-
 function HeroScheduleVisual() {
   const days = ["M", "T", "W", "T", "F", "S", "S"];
   const cells = [
@@ -120,12 +66,13 @@ export function HomeLanding() {
         <div className="home-hero__content">
           <p className="home-brand home-animate home-animate--1">PT Bookings</p>
           <h1 className="home-headline home-animate home-animate--2">
-            The diary app for personal trainers with real schedules
+            The calendar crm app for personal trainers
           </h1>
           <p className="home-lede home-animate home-animate--3">
-            Perfect if you work from one or multiple locations, with a mix of
-            regular clients and drop-ins. Manage your slots, fill the gaps, and
-            let clients book on your terms — mostly from your phone.
+            Perfect if you train clients from one or multiple locations, with a
+            mix of regular clients and drop-ins. Manage new and recurring
+            clients, fill the gaps in your schedule, track payments and let
+            clients book on your terms.
           </p>
           <div className="home-cta home-animate home-animate--4">
             <Link href="/login" className="home-cta__primary">
@@ -180,16 +127,6 @@ export function HomeLanding() {
         <SwipeCarousel items={STORIES} label="Trainer stories" />
       </section>
 
-      <section className="home-section">
-        <div className="home-section__intro">
-          <h2 className="home-section__title">How slots actually work</h2>
-          <p className="home-section__copy">
-            Swipe through the pieces that keep your week moving.
-          </p>
-        </div>
-        <SwipeCarousel items={FEATURES} label="Product features" />
-      </section>
-
       <section className="home-section home-section--muted home-prose">
         <div className="home-section__intro">
           <h2 className="home-section__title">Clients stay in their lane</h2>
@@ -201,16 +138,6 @@ export function HomeLanding() {
             the day-to-day moves themselves.
           </p>
         </div>
-      </section>
-
-      <section className="home-section">
-        <div className="home-section__intro">
-          <h2 className="home-section__title">Get set up in three moves</h2>
-          <p className="home-section__copy">
-            Start simple. Expand when your client list grows.
-          </p>
-        </div>
-        <SwipeCarousel items={STEPS} label="Getting started steps" />
       </section>
 
       <section className="home-footer-cta">
