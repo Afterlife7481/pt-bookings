@@ -16,6 +16,14 @@ function redirectToLogin(request: NextRequest) {
   return response;
 }
 
+function nextWithPathname(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -31,7 +39,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (process.env.E2E_TEST === "1") {
-      return NextResponse.next();
+      return nextWithPathname(request);
     }
 
     const valid = await hasValidTrainerSession(request);
@@ -39,7 +47,7 @@ export async function middleware(request: NextRequest) {
       return redirectToLogin(request);
     }
 
-    return NextResponse.next();
+    return nextWithPathname(request);
   }
 
   if (isTrainerApiPath(pathname)) {

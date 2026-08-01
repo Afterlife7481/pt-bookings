@@ -98,7 +98,8 @@ function LoginForm() {
       return;
     }
 
-    router.replace("/dashboard/schedule");
+    // Land on /dashboard so incomplete trainers hit onboarding without a schedule flash.
+    router.replace("/dashboard");
     router.refresh();
   }
 

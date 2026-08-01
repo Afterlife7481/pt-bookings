@@ -11,7 +11,7 @@ describe("pwa manifest builders", () => {
 
     expect(manifest.name).toBe("PT Bookings");
     expect(manifest.short_name).toBe("PT Bookings");
-    expect(manifest.start_url).toBe("/dashboard/schedule");
+    expect(manifest.start_url).toBe("/dashboard");
     expect(manifest.scope).toBe("/dashboard/");
     expect(manifest.id).toBe("/dashboard/");
   });
