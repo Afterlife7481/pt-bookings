@@ -1,13 +1,17 @@
 import fs from "fs";
 import path from "path";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { loginAsTrainer } from "./helpers/auth";
+import {
+  allocateOpenSlotToClient,
+  openUnallocatedSlot,
+  waitForScheduleReady,
+} from "./helpers/schedule";
 
 type E2eFixtures = {
   trainerEmail: string;
   clientName: string;
   locationName: string;
-  slotDayLabel: string;
 };
 
 function loadFixtures(): E2eFixtures {
@@ -20,17 +24,7 @@ function loadFixtures(): E2eFixtures {
     trainerEmail: raw.trainerEmail,
     clientName: raw.clientName,
     locationName: raw.locationName,
-    slotDayLabel: raw.slotDayLabel,
   };
-}
-
-async function waitForScheduleReady(page: Page) {
-  await expect(page.getByText("Loading schedule…")).toBeHidden({
-    timeout: 30_000,
-  });
-  await expect(
-    page.getByRole("tablist", { name: "Schedule view" }),
-  ).toBeVisible();
 }
 
 test.describe("Trainer dashboard", () => {
@@ -41,21 +35,15 @@ test.describe("Trainer dashboard", () => {
     await expect(page.getByRole("heading", { name: "Weekly schedule" })).toBeVisible();
     await waitForScheduleReady(page);
 
-    await page
-      .getByRole("button", { name: new RegExp(`^${fixtures.slotDayLabel}\\b`) })
-      .click();
-
-    const openSlot = page.getByRole("button", {
-      name: fixtures.locationName,
-    });
-    await expect(openSlot).toBeVisible({ timeout: 15_000 });
-    await openSlot.click();
-
-    await page.getByLabel("Client").selectOption({ label: fixtures.clientName });
-    await page.getByRole("button", { name: "Allocate to client" }).click();
+    await openUnallocatedSlot(page, fixtures.locationName);
+    await allocateOpenSlotToClient(page, fixtures.clientName);
 
     await expect(
-      page.getByRole("link", { name: fixtures.clientName }),
-    ).toBeVisible();
+      page
+        .getByRole("button", {
+          name: `${fixtures.clientName} ${fixtures.locationName}`,
+        })
+        .first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -1,13 +1,17 @@
 import fs from "fs";
 import path from "path";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { loginAsTrainer } from "./helpers/auth";
+import {
+  allocateOpenSlotToClient,
+  openUnallocatedSlot,
+  waitForScheduleReady,
+} from "./helpers/schedule";
 
 type E2eFixtures = {
   trainerEmail: string;
   clientName: string;
   locationName: string;
-  slotDayLabel: string;
 };
 
 function loadFixtures(): E2eFixtures {
@@ -20,21 +24,11 @@ function loadFixtures(): E2eFixtures {
     trainerEmail: raw.trainerEmail,
     clientName: raw.clientName,
     locationName: raw.locationName,
-    slotDayLabel: raw.slotDayLabel,
   };
 }
 
-async function waitForScheduleReady(page: Page) {
-  await expect(page.getByText("Loading schedule…")).toBeHidden({
-    timeout: 30_000,
-  });
-  await expect(
-    page.getByRole("tablist", { name: "Schedule view" }),
-  ).toBeVisible();
-}
-
 test.describe("Feed tab", () => {
-  test("shows a booking confirmation after allocating a session", async ({
+  test("shows a booking confirmation after notifying a client", async ({
     page,
   }) => {
     const fixtures = loadFixtures();
@@ -45,31 +39,27 @@ test.describe("Feed tab", () => {
     ).toBeVisible();
     await waitForScheduleReady(page);
 
-    await page
-      .getByRole("button", { name: new RegExp(`^${fixtures.slotDayLabel}\\b`) })
-      .click();
+    await openUnallocatedSlot(page, fixtures.locationName);
+    await allocateOpenSlotToClient(page, fixtures.clientName);
 
-    const openSlot = page.getByRole("button", {
-      name: fixtures.locationName,
+    const bookedSlot = page.getByRole("button", {
+      name: `${fixtures.clientName} ${fixtures.locationName}`,
     });
-    await expect(openSlot).toBeVisible({ timeout: 15_000 });
-    await openSlot.click();
+    await expect(bookedSlot.first()).toBeVisible({ timeout: 15_000 });
+    await bookedSlot.first().click();
 
-    await page.getByLabel("Client").selectOption({ label: fixtures.clientName });
-    await page.getByRole("button", { name: "Allocate to client" }).click();
-
-    await expect(
-      page.getByRole("link", { name: fixtures.clientName }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Notify client" }).click();
+    await page.getByRole("radio", { name: /Send by WhatsApp/i }).check();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
 
     await page.goto("/dashboard/feed");
     await expect(page.getByText("Loading feed…")).toBeHidden({
       timeout: 15_000,
     });
 
-    const confirmations = page.getByText("Booking confirmation");
-    await expect(confirmations.first()).toBeVisible();
-    await expect(confirmations).not.toHaveCount(0);
+    await expect(page.getByText("Booking confirmation").first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText(/session is booked for/i).first()).toBeVisible();
     await expect(page.getByText("WhatsApp").first()).toBeVisible();
   });
